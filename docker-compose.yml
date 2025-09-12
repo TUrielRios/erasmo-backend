@@ -1,0 +1,43 @@
+# Docker Compose para desarrollo local
+version: '3.8'
+
+services:
+  erasmo-backend:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      - DEBUG=true
+      - HOST=0.0.0.0
+      - PORT=8000
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - PINECONE_API_KEY=${PINECONE_API_KEY}
+      - PINECONE_ENVIRONMENT=${PINECONE_ENVIRONMENT}
+    volumes:
+      - .:/app
+      - /app/__pycache__
+    command: python main.py
+    restart: unless-stopped
+
+  # Opcional: Redis para caché de sesiones
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
+
+  # Opcional: Base de datos PostgreSQL para metadatos
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: erasmo
+      POSTGRES_USER: erasmo
+      POSTGRES_PASSWORD: erasmo_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+volumes:
+  postgres_data:

@@ -1,0 +1,45 @@
+# Core FastAPI dependencies
+fastapi
+uvicorn[standard]
+pydantic
+pydantic-settings
+
+# Authentication dependencies
+python-jose[cryptography]
+pycryptodome
+passlib[bcrypt]
+python-multipart
+
+# OpenAI and AI dependencies
+openai
+langchain
+langchain-openai
+
+# Vector database options
+pinecone-client
+# weaviate-client==3.25.3  # Alternative vector DB
+# faiss-cpu==1.7.4  # Alternative for local vector storage
+
+# Text processing and embeddings
+sentence-transformers
+tiktoken
+
+# File handling and utilities
+aiofiles
+python-dotenv
+faiss-cpu
+
+# Logging and monitoring
+structlog
+
+# Database dependencies
+psycopg2-binary
+sqlalchemy
+alembic
+
+# Development dependencies
+pytest
+pytest-asyncio
+black
+isort
+itsdangerous

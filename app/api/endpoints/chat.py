@@ -1,0 +1,382 @@
+"""
+Endpoints para gestión de chats y conversaciones
+"""
+
+from fastapi import APIRouter, Depends, HTTPException, status, Query
+from sqlalchemy.orm import Session
+from typing import List, Optional
+from datetime import datetime, timedelta
+
+from app.db.database import get_db
+from app.core.dependencies import get_current_active_user
+from app.services.chat_service import ChatService
+from app.models.conversation import User, Message, Conversation
+from app.models.schemas import (
+    ConversationCreate, 
+    ConversationResponse, 
+    ConversationWithMessages,
+    MessageResponse
+)
+
+router = APIRouter(prefix="/chat", tags=["chat"])
+chat_service = ChatService()
+
+@router.post("/conversations", response_model=ConversationResponse)
+async def create_conversation(
+    conversation_data: ConversationCreate,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Crear nueva conversación"""
+    try:
+        conversation = chat_service.create_conversation(db, current_user, conversation_data)
+        
+        return ConversationResponse(
+            id=conversation.id,
+            session_id=conversation.session_id,
+            user_id=conversation.user_id,
+            title=conversation.title,
+            created_at=conversation.created_at,
+            updated_at=conversation.updated_at,
+            is_active=conversation.is_active,
+            message_count=0
+        )
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error creando conversación: {str(e)}"
+        )
+
+@router.get("/conversations", response_model=List[ConversationResponse])
+async def get_user_conversations(
+    skip: int = Query(0, ge=0),
+    limit: int = Query(50, ge=1, le=100),
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Obtener todas las conversaciones del usuario"""
+    try:
+        conversations = chat_service.get_user_conversations(db, current_user, skip, limit)
+        return conversations
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error obteniendo conversaciones: {str(e)}"
+        )
+
+@router.get("/conversations/{session_id}", response_model=ConversationWithMessages)
+async def get_conversation_with_messages(
+    session_id: str,
+    message_limit: int = Query(100, ge=1, le=500),
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Obtener conversación completa con mensajes"""
+    try:
+        conversation = chat_service.get_conversation_with_messages(
+            db, current_user, session_id, message_limit
+        )
+        
+        if not conversation:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Conversación no encontrada"
+            )
+        
+        return conversation
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error obteniendo conversación: {str(e)}"
+        )
+
+@router.put("/conversations/{session_id}/title")
+async def update_conversation_title(
+    session_id: str,
+    new_title: str,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Actualizar título de conversación"""
+    try:
+        conversation = chat_service.update_conversation_title(
+            db, current_user, session_id, new_title
+        )
+        
+        if not conversation:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Conversación no encontrada"
+            )
+        
+        return {"message": "Título actualizado exitosamente"}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error actualizando título: {str(e)}"
+        )
+
+@router.delete("/conversations/{session_id}")
+async def delete_conversation(
+    session_id: str,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Eliminar conversación"""
+    try:
+        success = chat_service.delete_conversation(db, current_user, session_id)
+        
+        if not success:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Conversación no encontrada"
+            )
+        
+        return {"message": "Conversación eliminada exitosamente"}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error eliminando conversación: {str(e)}"
+        )
+
+@router.get("/search", response_model=List[ConversationResponse])
+async def search_conversations(
+    q: str = Query(..., min_length=1, description="Término de búsqueda"),
+    skip: int = Query(0, ge=0),
+    limit: int = Query(20, ge=1, le=100),
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Buscar conversaciones por contenido o título"""
+    try:
+        # Buscar en títulos de conversaciones
+        title_matches = db.query(Conversation).filter(
+            Conversation.user_id == current_user.id,
+            Conversation.is_active == True,
+            Conversation.title.ilike(f"%{q}%")
+        ).offset(skip).limit(limit).all()
+        
+        # Buscar en contenido de mensajes
+        message_matches = db.query(Conversation).join(Message).filter(
+            Conversation.user_id == current_user.id,
+            Conversation.is_active == True,
+            Message.content.ilike(f"%{q}%")
+        ).distinct().offset(skip).limit(limit).all()
+        
+        # Combinar resultados sin duplicados
+        all_conversations = {conv.id: conv for conv in title_matches + message_matches}
+        
+        # Convertir a response con conteo de mensajes
+        result = []
+        for conv in all_conversations.values():
+            message_count = db.query(Message).filter(Message.conversation_id == conv.id).count()
+            
+            conv_response = ConversationResponse(
+                id=conv.id,
+                session_id=conv.session_id,
+                user_id=conv.user_id,
+                title=conv.title,
+                created_at=conv.created_at,
+                updated_at=conv.updated_at,
+                is_active=conv.is_active,
+                message_count=message_count
+            )
+            result.append(conv_response)
+        
+        # Ordenar por fecha de actualización
+        result.sort(key=lambda x: x.updated_at or x.created_at, reverse=True)
+        
+        return result
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error buscando conversaciones: {str(e)}"
+        )
+
+@router.get("/recent", response_model=List[ConversationResponse])
+async def get_recent_conversations(
+    days: int = Query(7, ge=1, le=365, description="Días hacia atrás"),
+    limit: int = Query(10, ge=1, le=50),
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Obtener conversaciones recientes del usuario"""
+    try:
+        cutoff_date = datetime.utcnow() - timedelta(days=days)
+        
+        conversations = db.query(Conversation).filter(
+            Conversation.user_id == current_user.id,
+            Conversation.is_active == True,
+            Conversation.updated_at >= cutoff_date
+        ).order_by(Conversation.updated_at.desc()).limit(limit).all()
+        
+        # Convertir a response con conteo de mensajes
+        result = []
+        for conv in conversations:
+            message_count = db.query(Message).filter(Message.conversation_id == conv.id).count()
+            
+            conv_response = ConversationResponse(
+                id=conv.id,
+                session_id=conv.session_id,
+                user_id=conv.user_id,
+                title=conv.title,
+                created_at=conv.created_at,
+                updated_at=conv.updated_at,
+                is_active=conv.is_active,
+                message_count=message_count
+            )
+            result.append(conv_response)
+        
+        return result
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error obteniendo conversaciones recientes: {str(e)}"
+        )
+
+@router.get("/stats")
+async def get_user_chat_stats(
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Obtener estadísticas de chat del usuario"""
+    try:
+        # Estadísticas básicas
+        total_conversations = db.query(Conversation).filter(
+            Conversation.user_id == current_user.id,
+            Conversation.is_active == True
+        ).count()
+        
+        total_messages = db.query(Message).join(Conversation).filter(
+            Conversation.user_id == current_user.id,
+            Conversation.is_active == True
+        ).count()
+        
+        # Conversaciones por mes (últimos 6 meses)
+        six_months_ago = datetime.utcnow() - timedelta(days=180)
+        recent_conversations = db.query(Conversation).filter(
+            Conversation.user_id == current_user.id,
+            Conversation.is_active == True,
+            Conversation.created_at >= six_months_ago
+        ).count()
+        
+        # Mensajes por rol
+        user_messages = db.query(Message).join(Conversation).filter(
+            Conversation.user_id == current_user.id,
+            Conversation.is_active == True,
+            Message.role == "user"
+        ).count()
+        
+        assistant_messages = db.query(Message).join(Conversation).filter(
+            Conversation.user_id == current_user.id,
+            Conversation.is_active == True,
+            Message.role == "assistant"
+        ).count()
+        
+        # Conversación más activa
+        most_active_conv = db.query(Conversation).join(Message).filter(
+            Conversation.user_id == current_user.id,
+            Conversation.is_active == True
+        ).group_by(Conversation.id).order_by(
+            db.func.count(Message.id).desc()
+        ).first()
+        
+        most_active_title = most_active_conv.title if most_active_conv else None
+        most_active_messages = db.query(Message).filter(
+            Message.conversation_id == most_active_conv.id
+        ).count() if most_active_conv else 0
+        
+        return {
+            "user_id": current_user.id,
+            "username": current_user.username,
+            "total_conversations": total_conversations,
+            "total_messages": total_messages,
+            "recent_conversations_6m": recent_conversations,
+            "user_messages": user_messages,
+            "assistant_messages": assistant_messages,
+            "most_active_conversation": {
+                "title": most_active_title,
+                "message_count": most_active_messages
+            },
+            "average_messages_per_conversation": round(total_messages / total_conversations, 2) if total_conversations > 0 else 0,
+            "generated_at": datetime.utcnow()
+        }
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error obteniendo estadísticas: {str(e)}"
+        )
+
+@router.get("/export/{session_id}")
+async def export_conversation(
+    session_id: str,
+    format: str = Query("json", regex="^(json|txt|md)$"),
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Exportar conversación en diferentes formatos"""
+    try:
+        conversation_with_messages = chat_service.get_conversation_with_messages(
+            db, current_user, session_id
+        )
+        
+        if not conversation_with_messages:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Conversación no encontrada"
+            )
+        
+        if format == "json":
+            return {
+                "conversation": conversation_with_messages.dict(),
+                "exported_at": datetime.utcnow(),
+                "format": "json"
+            }
+        
+        elif format == "txt":
+            content = f"Conversación: {conversation_with_messages.title}\n"
+            content += f"Creada: {conversation_with_messages.created_at}\n"
+            content += f"Mensajes: {len(conversation_with_messages.messages)}\n"
+            content += "=" * 50 + "\n\n"
+            
+            for msg in conversation_with_messages.messages:
+                role_label = "Usuario" if msg.role == "user" else "Asistente"
+                content += f"[{msg.timestamp}] {role_label}:\n{msg.content}\n\n"
+            
+            return {"content": content, "format": "txt"}
+        
+        elif format == "md":
+            content = f"# {conversation_with_messages.title}\n\n"
+            content += f"**Creada:** {conversation_with_messages.created_at}  \n"
+            content += f"**Mensajes:** {len(conversation_with_messages.messages)}  \n\n"
+            content += "---\n\n"
+            
+            for msg in conversation_with_messages.messages:
+                role_label = "👤 Usuario" if msg.role == "user" else "🤖 Asistente"
+                content += f"## {role_label}\n"
+                content += f"*{msg.timestamp}*\n\n"
+                content += f"{msg.content}\n\n"
+            
+            return {"content": content, "format": "markdown"}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error exportando conversación: {str(e)}"
+        )
