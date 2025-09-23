@@ -2,8 +2,8 @@
 Endpoints para ingesta de conocimiento
 """
 
-from fastapi import APIRouter, UploadFile, File, HTTPException, Depends
-from typing import List
+from fastapi import APIRouter, UploadFile, File, HTTPException, Depends, Form
+from typing import List, Optional
 import aiofiles
 import os
 from datetime import datetime
@@ -20,7 +20,8 @@ async def ingest_documents(
     ingestion_type: IngestionType = IngestionType.KNOWLEDGE,
     dimension: str = "general",
     modelo_base: str = "estratégico",
-    tipo_output: str = "conceptual-accional"
+    tipo_output: str = "conceptual-accional",
+    company_id: Optional[int] = Form(None)
 ):
     """
     Ingesta de documentos .txt y .md para indexación semántica o configuración de personalidad
@@ -31,6 +32,7 @@ async def ingest_documents(
         dimension: Dimensión del conocimiento (estrategia, liderazgo, etc.)
         modelo_base: Modelo conceptual base
         tipo_output: Tipo de salida esperada
+        company_id: ID de la empresa (opcional, para filtrado por empresa)
     
     Returns:
         IngestResponse con resultados del procesamiento
@@ -59,7 +61,6 @@ async def ingest_documents(
             
             print(f"🔄 Procesando archivo: {file.filename} como {ingestion_type.value}")
             
-            # Crear metadatos adicionales para el procesamiento
             additional_metadata = {
                 "ingestion_type": ingestion_type.value,
                 "dimension": dimension,
@@ -67,6 +68,11 @@ async def ingest_documents(
                 "tipo_output": tipo_output,
                 "file_size": len(content)
             }
+            
+            # Include company_id in metadata if provided
+            if company_id is not None:
+                additional_metadata["company_id"] = company_id
+                print(f"📋 Including company_id {company_id} for file {file.filename}")
             
             if ingestion_type == IngestionType.PERSONALITY:
                 chunk_ids = await ingestion_service.process_personality_file(
@@ -111,7 +117,7 @@ async def ingest_documents(
         processed_files=processed_files,
         failed_files=failed_files,
         total_chunks=total_chunks,
-        metadata=metadata_list
+        metadata=[doc_metadata.model_dump() for doc_metadata in metadata_list]
     )
 
 @router.post("/ingest/personality", response_model=IngestResponse)
@@ -255,3 +261,46 @@ async def clear_knowledge_base():
             "timestamp": datetime.now(),
             "error": str(e)
         }
+
+@router.post("/ingest/company/{company_id}", response_model=IngestResponse)
+async def ingest_company_documents(
+    company_id: int,
+    files: List[UploadFile] = File(...),
+    ingestion_type: IngestionType = IngestionType.KNOWLEDGE,
+    dimension: str = "general",
+    modelo_base: str = "estratégico",
+    tipo_output: str = "conceptual-accional"
+):
+    """
+    Endpoint específico para ingesta de documentos de una empresa específica
+    
+    Este endpoint permite subir documentos que serán asociados únicamente a la empresa especificada,
+    garantizando el aislamiento de datos entre diferentes empresas.
+    
+    Args:
+        company_id: ID de la empresa (requerido para filtrado por empresa)
+        files: Lista de archivos a procesar (.txt, .md)
+        ingestion_type: Tipo de ingesta (personality o knowledge)
+        dimension: Dimensión del conocimiento (estrategia, liderazgo, etc.)
+        modelo_base: Modelo conceptual base
+        tipo_output: Tipo de salida esperada
+    
+    Returns:
+        IngestResponse con resultados del procesamiento
+        
+    Example:
+        POST /api/v1/ingest/company/123
+        - Todos los documentos se asociarán a la empresa con ID 123
+        - Solo usuarios de esa empresa podrán acceder a estos documentos
+    """
+    
+    print(f"🏢 Iniciando ingesta para empresa ID: {company_id}")
+    
+    return await ingest_documents(
+        files=files,
+        ingestion_type=ingestion_type,
+        dimension=dimension,
+        modelo_base=modelo_base,
+        tipo_output=tipo_output,
+        company_id=company_id
+    )

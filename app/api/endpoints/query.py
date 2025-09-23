@@ -1,5 +1,5 @@
 """
-Endpoints para consultas conversacionales con IA real
+Endpoints para consultas conversacionales - sin autenticación JWT
 """
 
 from fastapi import APIRouter, HTTPException, Depends
@@ -22,8 +22,8 @@ from app.services.memory_service import MemoryService
 from app.services.chat_service import ChatService
 from app.db.database import get_db
 from app.core.config import settings
-from app.core.dependencies import get_current_active_user
-from app.models.conversation import User, Message  # Added missing Message import
+from app.models.user import User
+from app.models.conversation import Message
 
 router = APIRouter()
 
@@ -35,17 +35,30 @@ chat_service = ChatService()
 @router.post("/query", response_model=QueryResponse)
 async def process_query(
     request: QueryRequest, 
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
+    db: Session = Depends(get_db)
 ):
     """
-    Procesa una consulta del usuario autenticado y devuelve respuesta estratégica usando IA real
-    con persistencia de mensajes en base de datos
+    Procesa una consulta sin autenticación JWT - requiere user_id en el request
     """
     
     start_time = time.time()
     
     try:
+        if not request.user_id:
+            raise HTTPException(
+                status_code=400,
+                detail="user_id es requerido en el request"
+            )
+        
+        # Get user from database
+        from app.services.auth_service import AuthService
+        current_user = AuthService.get_user_by_id(db, request.user_id)
+        if not current_user:
+            raise HTTPException(
+                status_code=404,
+                detail="Usuario no encontrado"
+            )
+        
         print(f"[DEBUG] Processing query for user {current_user.id}: {request.message[:50]}...")
         
         if request.session_id:
@@ -126,7 +139,7 @@ async def process_query(
         else:
             print(f"[DEBUG] Generating strategic response with full context")
             conceptual, accional = await conversation_service.generate_strategic_response(
-                request.message, session_id, history_context=history
+                request.message, session_id, current_user.id, history_context=history
             )
             
             full_response = f"## Análisis Conceptual\n{conceptual.content}\n\n## Plan de Acción\n{accional.content}"
@@ -174,12 +187,21 @@ async def process_query(
 @router.get("/query/sessions/{session_id}")
 async def get_session_history(
     session_id: str, 
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
+    user_id: int,  # Now requires user_id as parameter
+    db: Session = Depends(get_db)
 ):
     """
-    Obtiene el historial de conversación de una sesión del usuario autenticado
+    Obtiene el historial de conversación - requiere user_id
     """
+    
+    # Get user from database
+    from app.services.auth_service import AuthService
+    current_user = AuthService.get_user_by_id(db, user_id)
+    if not current_user:
+        raise HTTPException(
+            status_code=404,
+            detail="Usuario no encontrado"
+        )
     
     conversation = chat_service.get_conversation_by_session_id(db, current_user, session_id)
     if not conversation:
@@ -227,18 +249,27 @@ async def get_session_history(
             } for msg in conversation_with_messages.messages
         ],
         "key_information": key_info,
-        "context": {"session_id": session_id, "user_id": current_user.id}
+        "context": {"session_id": session_id, "user_id": user_id}
     }
 
 @router.delete("/query/sessions/{session_id}")
 async def clear_session(
     session_id: str, 
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
+    user_id: int,  # Now requires user_id as parameter
+    db: Session = Depends(get_db)
 ):
     """
-    Elimina una conversación del usuario autenticado
+    Elimina una conversación - requiere user_id
     """
+    
+    # Get user from database
+    from app.services.auth_service import AuthService
+    current_user = AuthService.get_user_by_id(db, user_id)
+    if not current_user:
+        raise HTTPException(
+            status_code=404,
+            detail="Usuario no encontrado"
+        )
     
     success = chat_service.delete_conversation(db, current_user, session_id)
     
@@ -260,12 +291,21 @@ async def clear_session(
 
 @router.get("/query/memory/status")
 async def get_memory_status(
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
+    user_id: int,  # Now requires user_id as parameter
+    db: Session = Depends(get_db)
 ):
     """
-    Obtiene el estado del sistema de memoria para el usuario autenticado
+    Obtiene el estado del sistema de memoria - requiere user_id
     """
+    
+    # Get user from database
+    from app.services.auth_service import AuthService
+    current_user = AuthService.get_user_by_id(db, user_id)
+    if not current_user:
+        raise HTTPException(
+            status_code=404,
+            detail="Usuario no encontrado"
+        )
     
     try:
         from app.models.conversation import Conversation
@@ -299,6 +339,6 @@ async def get_memory_status(
             "database": "postgresql",
             "error": str(e),
             "memory_type": "fallback_in_memory",
-            "user_id": current_user.id,
+            "user_id": user_id,
             "timestamp": datetime.now()
         }

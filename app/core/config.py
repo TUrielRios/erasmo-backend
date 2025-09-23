@@ -29,6 +29,7 @@ class Settings(BaseSettings):
     SECRET_KEY: str = os.getenv("SECRET_KEY", "fallback-secret-key-change-in-production")
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30 * 24 * 60  # 30 días
+    REFRESH_TOKEN_EXPIRE_DAYS: int = 7  # 7 días para refresh tokens
     
     # Configuración de OpenAI
     OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", "")

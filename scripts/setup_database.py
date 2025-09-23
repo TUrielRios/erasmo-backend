@@ -9,7 +9,8 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from sqlalchemy import create_engine, text
 from app.core.config import settings
 from app.db.database import Base
-from app.models.conversation import User, Conversation, Message
+from app.models.user import User
+from app.models.conversation import Conversation, Message
 import logging
 
 logging.basicConfig(level=logging.INFO)
@@ -41,10 +42,7 @@ def setup_database():
             
             if not admin_user:
                 logger.info("👤 Creando usuario administrador por defecto...")
-                conn.execute(text("""
-                    INSERT INTO users (username, email, hashed_password, full_name, is_active)
-                    VALUES ('admin', 'admin@erasmo.ai', '$2b$12$dummy_hash', 'Administrador', true)
-                """))
+                conn.execute(text("""INSERT INTO users (username, email, hashed_password, full_name, is_active) VALUES ('admin', 'admin@erasmo.ai', '$2b$12$dummy_hash', 'Administrador', true)"""))
                 conn.commit()
                 logger.info("✅ Usuario administrador creado")
             else:

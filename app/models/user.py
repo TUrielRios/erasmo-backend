@@ -2,7 +2,8 @@
 Modelos de autenticación y gestión de usuarios
 """
 
-from sqlalchemy import Column, Integer, String, Boolean, DateTime
+from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey
+from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from app.db.database import Base
 
@@ -15,6 +16,14 @@ class User(Base):
     email = Column(String(255), unique=True, index=True, nullable=False)
     hashed_password = Column(String(255), nullable=False)
     full_name = Column(String(255), nullable=True)
+    
+    company_id = Column(Integer, ForeignKey("companies.id"), nullable=True)
+    work_area = Column(String(255), nullable=True)  # Área de desempeño
+    role = Column(String(50), default="client")  # 'client' o 'admin'
+    
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    
+    company = relationship("Company", back_populates="users")
+    conversations = relationship("Conversation", back_populates="user", cascade="all, delete-orphan")

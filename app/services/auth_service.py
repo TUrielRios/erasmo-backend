@@ -1,22 +1,20 @@
 """
-Servicio de autenticación y gestión de usuarios
+Servicio de autenticación simplificado - solo verificación de contraseñas
 """
 
 from typing import Optional
 from passlib.context import CryptContext
 from sqlalchemy.orm import Session
-from fastapi import HTTPException, status
-from app.models.conversation import User
-from app.models.schemas import UserCreate, UserResponse, TokenData
-from datetime import datetime, timedelta
-from jose import JWTError, jwt
-from app.core.config import settings
+from sqlalchemy.exc import IntegrityError
 
-# Configuración de hash de contraseñas
+from app.models.user import User
+from app.models.company import Company
+from app.models.schemas import UserCreate
+
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 class AuthService:
-    """Servicio para manejo de autenticación"""
+    """Servicio para manejo de autenticación simplificado"""
     
     @staticmethod
     def verify_password(plain_password: str, hashed_password: str) -> bool:
@@ -29,42 +27,79 @@ class AuthService:
         return pwd_context.hash(password)
     
     @staticmethod
-    def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
-        """Crear token de acceso JWT"""
-        to_encode = data.copy()
-        if expires_delta:
-            expire = datetime.utcnow() + expires_delta
-        else:
-            expire = datetime.utcnow() + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
-        
-        to_encode.update({"exp": expire})
-        encoded_jwt = jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
-        return encoded_jwt
-    
-    @staticmethod
-    def create_refresh_token(data: dict):
-        """Crear token de refresh JWT"""
-        to_encode = data.copy()
-        expire = datetime.utcnow() + timedelta(days=7)  # Refresh token válido por 7 días
-        to_encode.update({"exp": expire, "type": "refresh"})
-        encoded_jwt = jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
-        return encoded_jwt
-    
-    @staticmethod
-    def verify_token(token: str) -> Optional[TokenData]:
-        """Verificar y decodificar token JWT"""
+    def create_user(db: Session, user_data: UserCreate) -> User:
+        """Crear nuevo usuario con compañía"""
         try:
-            payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
-            username: str = payload.get("sub")
-            user_id: int = payload.get("user_id")
+            company = db.query(Company).filter(
+                Company.name == user_data.company_name
+            ).first()
             
-            if username is None or user_id is None:
-                return None
+            if not company:
+                # Crear nueva compañía
+                company = Company(
+                    name=user_data.company_name,
+                    industry=user_data.industry,
+                    sector=user_data.sector,
+                    description=f"Compañía en el sector {user_data.sector} de la industria {user_data.industry}",
+                    is_active=True
+                )
+                db.add(company)
+                db.flush()  # Para obtener el ID de la compañía
             
-            token_data = TokenData(username=username, user_id=user_id)
-            return token_data
-        except JWTError:
+            # Verificar si el usuario ya existe
+            existing_user = db.query(User).filter(
+                (User.email == user_data.email) | (User.username == user_data.username)
+            ).first()
+            
+            if existing_user:
+                if existing_user.email == user_data.email:
+                    raise ValueError("El email ya está registrado")
+                else:
+                    raise ValueError("El nombre de usuario ya está en uso")
+            
+            hashed_password = AuthService.get_password_hash(user_data.password)
+            
+            db_user = User(
+                username=user_data.username,
+                email=user_data.email,
+                hashed_password=hashed_password,
+                full_name=user_data.full_name,
+                work_area=user_data.work_area,
+                company_id=company.id,
+                role="client",  # Por defecto todos los usuarios son clientes
+                is_active=True
+            )
+            
+            db.add(db_user)
+            db.commit()
+            db.refresh(db_user)
+            
+            # Cargar la relación con la compañía
+            db.refresh(db_user)
+            
+            return db_user
+            
+        except IntegrityError as e:
+            db.rollback()
+            if "users_email_key" in str(e):
+                raise ValueError("El email ya está registrado")
+            elif "users_username_key" in str(e):
+                raise ValueError("El nombre de usuario ya está en uso")
+            else:
+                raise ValueError(f"Error de integridad en la base de datos: {str(e)}")
+        except Exception as e:
+            db.rollback()
+            raise ValueError(f"Error al crear usuario: {str(e)}")
+    
+    @staticmethod
+    def authenticate_user(db: Session, email: str, password: str) -> Optional[User]:
+        """Autenticar usuario por email y contraseña"""
+        user = db.query(User).filter(User.email == email).first()
+        if not user:
             return None
+        if not AuthService.verify_password(password, user.hashed_password):
+            return None
+        return user
     
     @staticmethod
     def get_user_by_username(db: Session, username: str) -> Optional[User]:
@@ -82,48 +117,17 @@ class AuthService:
         return db.query(User).filter(User.id == user_id).first()
     
     @staticmethod
-    def create_user(db: Session, user_data: UserCreate) -> User:
-        """Crear nuevo usuario"""
-        # Verificar si el usuario ya existe
-        if AuthService.get_user_by_username(db, user_data.username):
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="El nombre de usuario ya está registrado"
-            )
-        
-        if AuthService.get_user_by_email(db, user_data.email):
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="El email ya está registrado"
-            )
-        
-        # Crear usuario
-        hashed_password = AuthService.get_password_hash(user_data.password)
-        db_user = User(
-            username=user_data.username,
-            email=user_data.email,
-            hashed_password=hashed_password,
-            full_name=user_data.full_name,
-            is_active=True
-        )
-        
-        db.add(db_user)
-        db.commit()
-        db.refresh(db_user)
-        return db_user
+    def get_user_with_company(db: Session, user_id: int) -> Optional[User]:
+        """Obtener usuario con información de compañía cargada"""
+        from sqlalchemy.orm import joinedload
+        return db.query(User).options(joinedload(User.company)).filter(User.id == user_id).first()
     
     @staticmethod
-    def authenticate_user(db: Session, username: str, password: str) -> Optional[User]:
-        """Autenticar usuario"""
-        # Buscar por username o email
-        user = AuthService.get_user_by_username(db, username)
-        if not user:
-            user = AuthService.get_user_by_email(db, username)
-        
-        if not user:
-            return None
-        
-        if not AuthService.verify_password(password, user.hashed_password):
-            return None
-        
-        return user
+    def is_admin(user: User) -> bool:
+        """Verificar si el usuario es administrador"""
+        return user.role == "admin" and user.is_active
+    
+    @staticmethod
+    def is_client(user: User) -> bool:
+        """Verificar si el usuario es cliente"""
+        return user.role == "client" and user.is_active

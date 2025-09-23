@@ -214,6 +214,10 @@ class IngestionService:
         if metadata:
             base_metadata.update(metadata)
         
+        if metadata and 'company_id' in metadata:
+            base_metadata['company_id'] = metadata['company_id']
+            print(f"📋 Including company_id {metadata['company_id']} in chunk metadata for {filename}")
+        
         return base_metadata
     
     async def get_document_stats(self) -> Dict[str, Any]:

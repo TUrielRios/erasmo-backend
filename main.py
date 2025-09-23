@@ -18,6 +18,7 @@ from app.api.endpoints.ingest import router as ingest_router
 from app.api.endpoints.query import router as query_router
 from app.api.endpoints.auth import router as auth_router
 from app.api.endpoints.chat import router as chat_router
+from app.api.endpoints.admin import router as admin_router  # Agregado router de administración
 from app.core.config import settings
 from app.db.vector_store import VectorStore
 from app.db.database import init_db
@@ -80,6 +81,7 @@ app.include_router(ingest_router, prefix="/api/v1", tags=["ingestion"])
 app.include_router(query_router, prefix="/api/v1", tags=["conversation"])
 app.include_router(auth_router, prefix="/api/v1", tags=["authentication"])
 app.include_router(chat_router, prefix="/api/v1", tags=["chat"])
+app.include_router(admin_router, prefix="/api/v1", tags=["administration"])  # Incluido router de administración
 
 @app.get("/")
 async def root():

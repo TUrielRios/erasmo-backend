@@ -1,5 +1,5 @@
 """
-Servicio para manejo de conversaciones y generación de respuestas con IA real
+Servicio mejorado para manejo de conversaciones con seguimiento estricto de instrucciones
 """
 
 from typing import Dict, Any, List, Optional, Tuple
@@ -12,7 +12,8 @@ from app.models.schemas import (
     QueryRequest, 
     ConceptualResponse, 
     AccionalResponse,
-    ClarificationQuestion
+    ClarificationQuestion,
+    DocumentCategory
 )
 from app.db.vector_store import VectorStore
 from app.services.ingestion_service import IngestionService
@@ -22,7 +23,8 @@ from app.core.config import settings
 
 class ConversationService:
     """
-    Servicio encargado de procesar consultas y generar respuestas estratégicas con IA
+    Servicio mejorado para procesamiento de consultas con seguimiento estricto de instrucciones
+    y uso prioritario de fuentes de conocimiento personalizadas
     """
     
     def __init__(self):
@@ -33,83 +35,49 @@ class ConversationService:
         self.conversation_memory: Dict[str, List[Dict]] = {}
         self.encoding = tiktoken.encoding_for_model(settings.OPENAI_MODEL)
     
-    async def analyze_ambiguity(self, message: str) -> bool:
+    async def analyze_ambiguity(self, message: str, user_id: int = None) -> bool:
         """
-        Analiza si un mensaje es ambiguo y requiere clarificación usando IA
-        con umbrales más permisivos
+        Analiza si un mensaje es ambiguo usando instrucciones personalizadas por compañía
         """
-        
-        personality_config = self.ingestion_service.get_personality_config()
-        
-        # If personality is configured, use its protocol for ambiguity analysis
-        if personality_config["status"] == "personality_configured":
-            # With personality configured, we should follow the protocol directly
-            # Only ask for clarification if the message is extremely minimal (less than 3 words)
-            return len(message.split()) < 3
-        
-        # Mensajes muy cortos (menos de 4 palabras) siempre requieren clarificación
-        if len(message.split()) < 4:
-            return True
-        
-        # Si el mensaje contiene palabras clave de ambigüedad
-        ambiguity_keywords = [
-            'estrategia', 'negocio', 'software', 'empresa', 'startup',
-            'qué hacer', 'consejo', 'recomendación', 'idea'
-        ]
-        
-        message_lower = message.lower()
-        has_ambiguity_keywords = any(keyword in message_lower for keyword in ambiguity_keywords)
-        
-        # Si es muy general pero tiene palabras clave, necesita clarificación
-        if len(message.split()) < 8 and has_ambiguity_keywords:
-            return True
-        
-        # Para otros casos, usar IA con umbral más permisivo
-        prompt = f"""
-        Eres un asistente que analiza si las consultas son demasiado generales para responder específicamente.
-        Responde SOLO con "True" o "False" sin comillas.
-        
-        Considera la consulta ambigua SOLO si:
-        1. Es extremadamente vaga (menos de 5 palabras)
-        2. No menciona ningún contexto específico
-        3. Pide "consejo" o "estrategia" sin especificar área
-        
-        Si la consulta da aunque sea un contexto mínimo (ej: "software", "SaaS"), responde "False".
-        
-        Consulta: "{message}"
-        """
-        
+        db = SessionLocal()
         try:
-            response = self.openai_client.chat.completions.create(
-                model=settings.OPENAI_MODEL,
-                messages=[
-                    {"role": "system", "content": prompt},
-                    {"role": "user", "content": message}
-                ],
-                max_tokens=10,
-                temperature=0.1
-            )
+            company_instructions = await self._get_company_instructions(db, user_id)
             
-            result = response.choices[0].message.content.strip().lower()
-            return result == "true"
+            if company_instructions:
+                return await self._analyze_ambiguity_with_instructions(message, company_instructions)
             
-        except Exception:
-            # Fallback menos estricto
+            # Fallback to original logic
+            if len(message.split()) < 4:
+                return True
+            
+            ambiguity_keywords = [
+                'estrategia', 'negocio', 'software', 'empresa', 'startup',
+                'qué hacer', 'consejo', 'recomendación', 'idea'
+            ]
+            
+            message_lower = message.lower()
+            has_ambiguity_keywords = any(keyword in message_lower for keyword in ambiguity_keywords)
+            
+            if len(message.split()) < 8 and has_ambiguity_keywords:
+                return True
+            
             return len(message.split()) < 5
+            
+        finally:
+            db.close()
     
-    async def _analyze_ambiguity_with_personality(self, message: str, personality_config: Dict[str, Any]) -> bool:
+    async def _analyze_ambiguity_with_instructions(self, message: str, instructions: List[Dict]) -> bool:
         """
-        Analiza ambigüedad usando el protocolo de personalidad configurado
+        Analiza ambigüedad usando instrucciones específicas de la compañía
         """
-        
-        personality_text = personality_config.get("full_personality_text", "")
+        instruction_text = self._compile_instructions(instructions)
         
         prompt = f"""
-        Tienes configurado el siguiente protocolo de personalidad:
+        Siguiendo estas instrucciones específicas:
         
-        {personality_text}
+        {instruction_text}
         
-        Basándote en este protocolo, analiza si la siguiente consulta requiere clarificación según las reglas establecidas en tu personalidad.
+        Analiza si la siguiente consulta requiere clarificación según las reglas establecidas.
         
         Responde SOLO con "True" si necesita clarificación o "False" si puedes proceder directamente.
         
@@ -120,7 +88,7 @@ class ConversationService:
             response = self.openai_client.chat.completions.create(
                 model=settings.OPENAI_MODEL,
                 messages=[
-                    {"role": "system", "content": "Eres un agente que sigue estrictamente el protocolo de personalidad configurado."},
+                    {"role": "system", "content": "Sigues estrictamente las instrucciones proporcionadas para determinar si una consulta necesita clarificación."},
                     {"role": "user", "content": prompt}
                 ],
                 max_tokens=10,
@@ -131,32 +99,44 @@ class ConversationService:
             return result == "true"
             
         except Exception as e:
-            print(f"❌ Error analizando ambigüedad con personalidad: {e}")
-            # Fallback to original method
+            print(f"❌ Error analizando ambigüedad con instrucciones: {e}")
             return len(message.split()) < 5
+
+    async def generate_clarification_questions(self, message: str, user_id: int = None) -> List[ClarificationQuestion]:
+        """
+        Genera preguntas de clarificación usando instrucciones personalizadas
+        """
+        db = SessionLocal()
+        try:
+            company_instructions = await self._get_company_instructions(db, user_id)
+            
+            if company_instructions:
+                return await self._generate_clarification_with_instructions(message, company_instructions)
+            
+            # Fallback to original logic
+            return await self._generate_default_clarification(message)
+            
+        finally:
+            db.close()
     
-    async def generate_clarification_questions(self, message: str) -> List[ClarificationQuestion]:
+    async def _generate_clarification_with_instructions(self, message: str, instructions: List[Dict]) -> List[ClarificationQuestion]:
         """
-        Genera preguntas de clarificación concisas y enfocadas
+        Genera preguntas de clarificación siguiendo instrucciones específicas
         """
+        instruction_text = self._compile_instructions(instructions)
         
-        personality_config = self.ingestion_service.get_personality_config()
-        
-        if personality_config["status"] == "personality_configured":
-            return await self._generate_clarification_with_personality(message, personality_config)
-        
-        # Original clarification generation as fallback
         prompt = f"""
-        La siguiente consulta necesita clarificación: "{message}"
+        Siguiendo estas instrucciones específicas:
         
-        Genera EXACTAMENTE 2 preguntas de clarificación que sean:
-        1. Muy específicas y directas
-        2. Centradas en obtener la información más crítica
-        3. Con opciones de respuesta concisas (máximo 3 opciones)
+        {instruction_text}
+        
+        Genera preguntas de clarificación apropiadas para la consulta: "{message}"
+        
+        Usa el estilo, tono y metodología especificados en las instrucciones.
         
         Formato:
-        Pregunta: [pregunta breve]
-        Contexto: [contexto muy breve]
+        Pregunta: [pregunta según las instrucciones]
+        Contexto: [contexto según el estilo]
         Opciones: [opción 1], [opción 2], [opción 3]
         """
         
@@ -164,59 +144,7 @@ class ConversationService:
             response = self.openai_client.chat.completions.create(
                 model=settings.OPENAI_MODEL,
                 messages=[
-                    {"role": "system", "content": prompt},
-                    {"role": "user", "content": message}
-                ],
-                max_tokens=800,
-                temperature=0.7
-            )
-            
-            content = response.choices[0].message.content
-            questions = self._parse_clarification_questions(content)
-            return questions[:2]  # Solo 2 preguntas máximo
-            
-        except Exception as e:
-            # Preguntas de fallback más concisas
-            return [
-                ClarificationQuestion(
-                    question="¿Qué tipo específico de software desarrollas?",
-                    context="Para darte una estrategia precisa",
-                    suggested_answers=["SaaS", "App móvil", "Software empresarial"]
-                ),
-                ClarificationQuestion(
-                    question="¿Cuál es tu objetivo principal?",
-                    context="Para enfocar la estrategia correctamente",
-                    suggested_answers=["Crecimiento rápido", "Rentabilidad", "Innovación"]
-                )
-            ]
-    
-    async def _generate_clarification_with_personality(self, message: str, personality_config: Dict[str, Any]) -> List[ClarificationQuestion]:
-        """
-        Genera preguntas de clarificación usando el protocolo de personalidad
-        """
-        
-        personality_text = personality_config.get("full_personality_text", "")
-        
-        prompt = f"""
-        Tienes configurado el siguiente protocolo de personalidad:
-        
-        {personality_text}
-        
-        Siguiendo EXACTAMENTE este protocolo, genera las preguntas de clarificación apropiadas para la consulta: "{message}"
-        
-        Usa el estilo, tono y metodología especificados en tu protocolo.
-        
-        Formato:
-        Pregunta: [pregunta según tu protocolo]
-        Contexto: [contexto según tu estilo]
-        Opciones: [opción 1], [opción 2], [opción 3]
-        """
-        
-        try:
-            response = self.openai_client.chat.completions.create(
-                model=settings.OPENAI_MODEL,
-                messages=[
-                    {"role": "system", "content": "Sigues estrictamente el protocolo de personalidad configurado para generar preguntas de clarificación."},
+                    {"role": "system", "content": "Sigues estrictamente las instrucciones proporcionadas para generar preguntas de clarificación."},
                     {"role": "user", "content": prompt}
                 ],
                 max_tokens=400,
@@ -225,23 +153,583 @@ class ConversationService:
             
             content = response.choices[0].message.content
             questions = self._parse_clarification_questions(content)
-            return questions[:3]  # Hasta 3 preguntas según el protocolo
+            return questions[:3]
             
         except Exception as e:
-            print(f"❌ Error generando clarificación con personalidad: {e}")
-            # Fallback to default questions
-            return [
-                ClarificationQuestion(
-                    question="¿Podrías ser más específico sobre tu situación?",
-                    context="Para brindarte la mejor orientación",
-                    suggested_answers=["Contexto empresarial", "Contexto personal", "Contexto técnico"]
+            print(f"❌ Error generando clarificación con instrucciones: {e}")
+            return await self._generate_default_clarification(message)
+
+    async def generate_strategic_response(
+        self, 
+        message: str, 
+        session_id: str,
+        user_id: int,
+        context: Optional[Dict[str, Any]] = None,
+        history_context: Optional[List[Dict]] = None
+    ) -> Tuple[ConceptualResponse, AccionalResponse]:
+        """
+        Genera respuesta estratégica usando fuentes de conocimiento e instrucciones personalizadas
+        """
+        print(f"🔄 [DEBUG] Starting enhanced generate_strategic_response for session: {session_id}, user: {user_id}")
+        
+        db = SessionLocal()
+        try:
+            user_company_data = await self._get_user_company_data(db, user_id)
+            company_knowledge = await self._get_company_knowledge(db, user_company_data.get('company_id'))
+            company_instructions = await self._get_company_instructions(db, user_id)
+            ai_config = await self._get_ai_configuration(db, user_company_data.get('company_id'))
+            
+            print(f"✅ [DEBUG] Company data loaded: {len(company_knowledge)} knowledge docs, {len(company_instructions)} instruction docs")
+            
+            # Add message to memory
+            try:
+                self.memory_service.add_message(db, session_id, "user", message)
+                print(f"✅ [DEBUG] User message added to memory")
+            except Exception as e:
+                print(f"❌ [DEBUG] Error adding message to memory: {e}")
+            
+            relevant_context = await self._search_prioritized_context(
+                message, 
+                company_knowledge, 
+                company_id=user_company_data.get('company_id')
+            )
+            print(f"✅ [DEBUG] Prioritized context search completed: {len(relevant_context)} results")
+            
+            # Get conversation history
+            try:
+                if history_context is None:
+                    full_context = self.memory_service.get_full_context_for_ai(db, session_id, memory_limit=200)
+                    conversation_history = full_context.get("messages", [])
+                    print(f"✅ [DEBUG] Fetched conversation context: {len(conversation_history)} messages")
+                else:
+                    conversation_history = history_context
+                
+                key_info = self.memory_service.extract_key_info(db, session_id, message)
+                print(f"✅ [DEBUG] Memory retrieval completed")
+            except Exception as e:
+                print(f"❌ [DEBUG] Error retrieving memory: {e}")
+                conversation_history = history_context or []
+                key_info = {}
+            
+            try:
+                conceptual = await self._generate_conceptual_with_instructions(
+                    message, relevant_context, conversation_history, 
+                    company_instructions, company_knowledge, key_info, ai_config, user_company_data
                 )
-            ]
-    
+                print(f"✅ [DEBUG] Conceptual response generated with instructions")
+            except Exception as e:
+                print(f"❌ [DEBUG] Error generating conceptual response: {e}")
+                conceptual = ConceptualResponse(
+                    content="Error generando respuesta conceptual. Intenta nuevamente.",
+                    sources=[],
+                    confidence=0.1
+                )
+            
+            try:
+                accional = await self._generate_accional_with_instructions(
+                    message, relevant_context, conceptual.content, 
+                    company_instructions, ai_config
+                )
+                print(f"✅ [DEBUG] Accional response generated with instructions")
+            except Exception as e:
+                print(f"❌ [DEBUG] Error generating accional response: {e}")
+                accional = AccionalResponse(
+                    content="Error generando plan de acción. Intenta nuevamente.",
+                    priority="media",
+                    timeline="Indefinido"
+                )
+            
+            # Save assistant response
+            try:
+                full_response = f"## Análisis Conceptual\n{conceptual.content}\n\n## Plan de Acción\n{accional.content}"
+                self.memory_service.add_message(db, session_id, "assistant", full_response)
+                print(f"✅ [DEBUG] Assistant response added to memory")
+            except Exception as e:
+                print(f"❌ [DEBUG] Error adding assistant response to memory: {e}")
+            
+            print(f"✅ [DEBUG] Enhanced generate_strategic_response completed successfully")
+            return conceptual, accional
+            
+        except Exception as e:
+            print(f"❌ [DEBUG] Unexpected error in enhanced generate_strategic_response: {e}")
+            return await self._generate_fallback_responses(message)
+        finally:
+            db.close()
+
+    async def _get_user_company_data(self, db: Session, user_id: int) -> Dict[str, Any]:
+        """
+        Obtiene datos de la compañía del usuario
+        """
+        try:
+            from app.services.auth_service import AuthService
+            user = AuthService.get_user_with_company(db, user_id)
+            
+            if user and user.company:
+                return {
+                    "company_id": user.company.id,
+                    "company_name": user.company.name,
+                    "industry": user.company.industry,
+                    "sector": user.company.sector,
+                    "work_area": user.work_area
+                }
+            return {}
+        except Exception as e:
+            print(f"❌ Error getting user company data: {e}")
+            return {}
+
+    async def _get_company_knowledge(self, db: Session, company_id: int) -> List[Dict[str, Any]]:
+        """
+        Obtiene documentos de fuentes de conocimiento de la compañía
+        """
+        if not company_id:
+            return []
+        
+        try:
+            from app.services.company_service import CompanyDocumentService
+            knowledge_docs = CompanyDocumentService.get_documents_by_priority(
+                db, company_id, DocumentCategory.KNOWLEDGE_BASE, max_priority=3
+            )
+            
+            knowledge_content = []
+            for doc in knowledge_docs:
+                content = CompanyDocumentService.get_document_content(db, company_id, doc.id)
+                if content:
+                    knowledge_content.append({
+                        "filename": doc.filename,
+                        "content": content,
+                        "priority": doc.priority,
+                        "description": doc.description,
+                        "category": "knowledge_base"
+                    })
+            
+            return knowledge_content
+        except Exception as e:
+            print(f"❌ Error getting company knowledge: {e}")
+            return []
+
+    async def _get_company_instructions(self, db: Session, user_id: int) -> List[Dict[str, Any]]:
+        """
+        Obtiene documentos de instrucciones de la compañía del usuario
+        """
+        try:
+            user_data = await self._get_user_company_data(db, user_id)
+            company_id = user_data.get('company_id')
+            
+            if not company_id:
+                return []
+            
+            from app.services.company_service import CompanyDocumentService
+            instruction_docs = CompanyDocumentService.get_documents_by_priority(
+                db, company_id, DocumentCategory.INSTRUCTIONS, max_priority=2
+            )
+            
+            instructions_content = []
+            for doc in instruction_docs:
+                content = CompanyDocumentService.get_document_content(db, company_id, doc.id)
+                if content:
+                    instructions_content.append({
+                        "filename": doc.filename,
+                        "content": content,
+                        "priority": doc.priority,
+                        "description": doc.description,
+                        "category": "instructions"
+                    })
+            
+            return instructions_content
+        except Exception as e:
+            print(f"❌ Error getting company instructions: {e}")
+            return []
+
+    async def _get_ai_configuration(self, db: Session, company_id: int) -> Optional[Any]:
+        """
+        Obtiene configuración de IA de la compañía
+        """
+        if not company_id:
+            return None
+        
+        try:
+            from app.services.ai_configuration_service import AIConfigurationService
+            return AIConfigurationService.get_by_company_id(db, company_id)
+        except Exception as e:
+            print(f"❌ Error getting AI configuration: {e}")
+            return None
+
+    async def _search_prioritized_context(self, message: str, company_knowledge: List[Dict], company_id: int = None) -> List[Dict[str, Any]]:
+        """
+        Busca contexto priorizando fuentes de conocimiento de la compañía
+        """
+        prioritized_context = []
+        
+        for doc in company_knowledge:
+            content = doc.get('content', '')
+            if self._is_content_relevant(message, content):
+                prioritized_context.append({
+                    'content': content[:1000],  # Limit content length
+                    'source': f"conocimiento_{doc['filename']}",
+                    'priority': doc.get('priority', 5),
+                    'category': 'company_knowledge'
+                })
+        
+        # Sort by priority (1 = highest priority)
+        prioritized_context.sort(key=lambda x: x.get('priority', 5))
+        
+        # If we have enough company knowledge, use it primarily
+        if len(prioritized_context) >= 3:
+            return prioritized_context[:5]
+        
+        # Otherwise, supplement with general vector search
+        try:
+            if not hasattr(self.vector_store, 'store') or self.vector_store.store.index is None:
+                await self.vector_store.initialize()
+            
+            general_results = await self.vector_store.similarity_search(message, top_k=3, company_id=company_id)
+            
+            for result in general_results:
+                prioritized_context.append({
+                    'content': result.get('content', '')[:1000],
+                    'source': result.get('source', 'conocimiento_general'),
+                    'priority': 10,  # Lower priority than company knowledge
+                    'category': 'general_knowledge'
+                })
+            
+        except Exception as e:
+            print(f"❌ Error in general context search: {e}")
+        
+        return prioritized_context[:5]
+
+    def _is_content_relevant(self, message: str, content: str) -> bool:
+        """
+        Determina si el contenido es relevante para el mensaje
+        """
+        message_words = set(message.lower().split())
+        content_words = set(content.lower().split())
+        
+        # Simple relevance check based on word overlap
+        overlap = len(message_words.intersection(content_words))
+        return overlap >= 2 or len(message_words.intersection(content_words)) / len(message_words) > 0.2
+
+    def _compile_instructions(self, instructions: List[Dict]) -> str:
+        """
+        Compila las instrucciones en un texto coherente
+        """
+        if not instructions:
+            return "No hay instrucciones específicas configuradas."
+        
+        compiled = "INSTRUCCIONES ESPECÍFICAS A SEGUIR AL PIE DE LA LETRA:\n\n"
+        
+        for i, instruction in enumerate(instructions, 1):
+            priority = instruction.get('priority', 5)
+            filename = instruction.get('filename', f'instruccion_{i}')
+            content = instruction.get('content', '')
+            
+            compiled += f"## INSTRUCCIÓN {i} (Prioridad {priority}) - {filename}\n"
+            compiled += f"{content}\n\n"
+        
+        compiled += "\nDEBES SEGUIR ESTAS INSTRUCCIONES EXACTAMENTE COMO ESTÁN ESCRITAS."
+        return compiled
+
+    async def _generate_conceptual_with_instructions(
+        self, 
+        message: str, 
+        context: List[Dict], 
+        history: List[Dict],
+        instructions: List[Dict],
+        knowledge: List[Dict],
+        key_info: Dict[str, Any],
+        ai_config: Any,
+        user_company_data: Dict[str, Any]
+    ) -> ConceptualResponse:
+        """
+        Genera respuesta conceptual siguiendo instrucciones específicas y usando conocimiento prioritario
+        """
+        company_name = user_company_data.get('company_name', 'tu empresa')
+        industry = user_company_data.get('industry', '')
+        
+        instruction_text = self._compile_instructions(instructions)
+        knowledge_text = self._compile_knowledge(knowledge)
+        
+        system_prompt = f"""
+        ERES UN ASISTENTE DE IA PERSONALIZADO PARA {company_name.upper()}.
+        
+        INSTRUCCIONES CRÍTICAS - DEBES SEGUIR AL PIE DE LA LETRA:
+        {instruction_text}
+        
+        FUENTES DE CONOCIMIENTO PRIORITARIAS (USA ESTAS PRIMERO):
+        {knowledge_text}
+        
+        INFORMACIÓN DE LA EMPRESA:
+        - Empresa: {company_name}
+        - Industria: {industry}
+        - Sector: {user_company_data.get('sector', '')}
+        
+        REGLAS ESTRICTAS:
+        1. SIEMPRE sigue las instrucciones específicas proporcionadas
+        2. USA PRIMERO el conocimiento de las fuentes prioritarias
+        3. Si las fuentes no son suficientes, ENTONCES usa conocimiento general
+        4. RECUERDA información de conversaciones anteriores
+        5. ADAPTA tu respuesta al contexto específico de {company_name}
+        
+        Mantén respuestas concisas y directas.
+        """
+        
+        prompt = self._build_enhanced_conversation_prompt(message, context, history, "conceptual", key_info)
+        
+        model_name = ai_config.model_name if ai_config else settings.OPENAI_MODEL
+        temperature = float(ai_config.temperature) if ai_config else 0.7
+        max_tokens = (ai_config.max_tokens // 2) if ai_config else 800
+        
+        try:
+            response = self.openai_client.chat.completions.create(
+                model=model_name,
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": prompt}
+                ],
+                max_tokens=max_tokens,
+                temperature=temperature
+            )
+            
+            content = response.choices[0].message.content
+            
+            sources = []
+            for doc in knowledge:
+                sources.append(f"conocimiento_{doc['filename']}")
+            for doc in instructions:
+                sources.append(f"instrucciones_{doc['filename']}")
+            
+            if not sources:
+                sources = ["configuracion_personalizada"]
+            
+            return ConceptualResponse(
+                content=content,
+                sources=sources,
+                confidence=0.95 if knowledge and instructions else 0.8
+            )
+            
+        except Exception as e:
+            print(f"❌ Error generating conceptual response with instructions: {e}")
+            return ConceptualResponse(
+                content=f"## Análisis Conceptual\n\nEstoy teniendo dificultades técnicas. Por favor, intenta nuevamente.\n\nError: {str(e)}",
+                sources=[],
+                confidence=0.1
+            )
+
+    async def _generate_accional_with_instructions(
+        self, 
+        message: str, 
+        context: List[Dict],
+        conceptual_content: str,
+        instructions: List[Dict],
+        ai_config: Any
+    ) -> AccionalResponse:
+        """
+        Genera respuesta accional siguiendo instrucciones específicas
+        """
+        instruction_text = self._compile_instructions(instructions)
+        
+        system_prompt = f"""
+        INSTRUCCIONES ESPECÍFICAS PARA PLANES DE ACCIÓN:
+        {instruction_text}
+        
+        DEBES SEGUIR EXACTAMENTE ESTAS INSTRUCCIONES para generar planes de acción.
+        
+        Usa la metodología, estilo y estructura especificados en las instrucciones.
+        
+        Mantén respuestas concisas y accionables.
+        """
+        
+        if len(conceptual_content) > 500:
+            conceptual_content = conceptual_content[:500] + "..."
+        
+        prompt = f"""
+        Basado en el siguiente análisis conceptual:
+        {conceptual_content}
+        
+        Y la consulta original: "{message}"
+        
+        Siguiendo EXACTAMENTE las instrucciones proporcionadas:
+        1. Genera el plan de acción según la metodología especificada
+        2. Usa el formato y estructura indicados en las instrucciones
+        3. Mantén el tono y estilo especificados
+        4. Incluye los elementos requeridos por las instrucciones
+        
+        Respuesta CONCISA en Markdown siguiendo las instrucciones al pie de la letra.
+        """
+        
+        model_name = ai_config.model_name if ai_config else settings.OPENAI_MODEL
+        temperature = float(ai_config.temperature) if ai_config else 0.7
+        max_tokens = (ai_config.max_tokens // 2) if ai_config else 700
+        
+        try:
+            response = self.openai_client.chat.completions.create(
+                model=model_name,
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": prompt}
+                ],
+                max_tokens=max_tokens,
+                temperature=temperature
+            )
+            
+            content = response.choices[0].message.content
+            
+            # Determine priority and timeline from content
+            priority = "media"
+            if any(word in content.lower() for word in ["urgente", "inmediato", "crítico", "prioridad alta"]):
+                priority = "alta"
+            elif any(word in content.lower() for word in ["largo plazo", "eventualmente", "cuando sea posible"]):
+                priority = "baja"
+                
+            timeline = "2-3 semanas"
+            if "días" in content.lower() or "semana" in content.lower():
+                timeline = "1-2 semanas"
+            elif "mes" in content.lower():
+                timeline = "3-4 semanas"
+            
+            return AccionalResponse(
+                content=content,
+                priority=priority,
+                timeline=timeline
+            )
+            
+        except Exception as e:
+            print(f"❌ Error generating accional response with instructions: {e}")
+            return AccionalResponse(
+                content=f"## Plan de Acción\n\nEstoy teniendo dificultades técnicas. Por favor, intenta nuevamente.\n\nError: {str(e)}",
+                priority="media",
+                timeline="Indefinido"
+            )
+
+    def _compile_knowledge(self, knowledge: List[Dict]) -> str:
+        """
+        Compila el conocimiento en un texto coherente
+        """
+        if not knowledge:
+            return "No hay fuentes de conocimiento específicas configuradas."
+        
+        compiled = "FUENTES DE CONOCIMIENTO PRIORITARIAS:\n\n"
+        
+        for i, doc in enumerate(knowledge, 1):
+            priority = doc.get('priority', 5)
+            filename = doc.get('filename', f'documento_{i}')
+            content = doc.get('content', '')[:800]  # Limit content length
+            
+            compiled += f"## FUENTE {i} (Prioridad {priority}) - {filename}\n"
+            compiled += f"{content}\n\n"
+        
+        compiled += "\nUSA ESTAS FUENTES COMO REFERENCIA PRINCIPAL PARA TUS RESPUESTAS."
+        return compiled
+
+    def _build_enhanced_conversation_prompt(self, message: str, context: List[Dict], history: List[Dict], response_type: str, key_info: Dict[str, Any] = None) -> str:
+        """
+        Construye prompt mejorado para conversación con contexto priorizado
+        """
+        company_context = [ctx for ctx in context if ctx.get('category') == 'company_knowledge']
+        general_context = [ctx for ctx in context if ctx.get('category') != 'company_knowledge']
+        
+        context_text = ""
+        if company_context:
+            context_text += "## CONTEXTO DE FUENTES DE CONOCIMIENTO PRIORITARIAS:\n"
+            for i, doc in enumerate(company_context, 1):
+                content = doc.get('content', '')[:500]
+                source = doc.get('source', 'documento')
+                priority = doc.get('priority', 5)
+                context_text += f"{i}. **{source}** (Prioridad {priority}):\n{content}...\n\n"
+        
+        if general_context:
+            context_text += "## CONTEXTO ADICIONAL (usar solo si es necesario):\n"
+            for i, doc in enumerate(general_context, 1):
+                content = doc.get('content', '')[:300]
+                source = doc.get('source', 'documento')
+                context_text += f"{i}. **{source}**:\n{content}...\n\n"
+        
+        history_text = ""
+        if history and len(history) > 0:
+            history_text = "## HISTORIAL COMPLETO DE CONVERSACIÓN:\n"
+            for msg in history:
+                role_label = "Usuario" if msg.get("role") == "user" else "Asistente (tú)"
+                content = msg.get("content", "")
+                timestamp = msg.get("timestamp", "")
+                history_text += f"**{role_label}** ({timestamp}): {content}\n\n"
+            history_text += "---\n\n"
+        
+        key_info_text = ""
+        if key_info:
+            key_info_text = "## INFORMACIÓN CLAVE CONOCIDA:\n"
+            if key_info.get("company_name"):
+                key_info_text += f"- Empresa: {key_info['company_name']}\n"
+            if key_info.get("industry"):
+                key_info_text += f"- Industria: {key_info['industry']}\n"
+            if key_info.get("objectives"):
+                key_info_text += f"- Objetivos: {', '.join(key_info['objectives'])}\n"
+            key_info_text += "\n"
+        
+        if response_type == "conceptual":
+            prompt_specific = """
+            GENERA UNA RESPUESTA CONCEPTUAL que:
+            1. USE PRIORITARIAMENTE las fuentes de conocimiento específicas proporcionadas
+            2. SIGA EXACTAMENTE las instrucciones configuradas
+            3. RECUERDE toda la información previa de la conversación
+            4. Explique el marco teórico basado en las fuentes prioritarias
+            5. Solo use conocimiento general si las fuentes específicas no son suficientes
+            
+            CRÍTICO: Las fuentes de conocimiento prioritarias son tu referencia principal.
+            """
+        else:
+            prompt_specific = """
+            GENERA UN PLAN DE ACCIÓN que:
+            1. USE las recomendaciones específicas de las fuentes de conocimiento prioritarias
+            2. SIGA EXACTAMENTE las instrucciones configuradas para planes de acción
+            3. CONSIDERE toda la información previa de la conversación
+            4. Base las acciones en las fuentes prioritarias proporcionadas
+            5. Solo complemente con conocimiento general si es necesario
+            
+            CRÍTICO: Las fuentes de conocimiento prioritarias definen tu metodología.
+            """
+        
+        return f"""
+        {key_info_text}
+        {context_text}
+        {history_text}
+        
+        {prompt_specific}
+        
+        Consulta actual: {message}
+        """
+
+    async def _generate_default_clarification(self, message: str) -> List[ClarificationQuestion]:
+        """Genera preguntas de clarificación por defecto"""
+        return [
+            ClarificationQuestion(
+                question="¿Qué tipo específico de software desarrollas?",
+                context="Para darte una estrategia precisa",
+                suggested_answers=["SaaS", "App móvil", "Software empresarial"]
+            ),
+            ClarificationQuestion(
+                question="¿Cuál es tu objetivo principal?",
+                context="Para enfocar la estrategia correctamente",
+                suggested_answers=["Crecimiento rápido", "Rentabilidad", "Innovación"]
+            )
+        ]
+
+    async def _generate_fallback_responses(self, message: str) -> Tuple[ConceptualResponse, AccionalResponse]:
+        """Genera respuestas de fallback cuando hay errores"""
+        fallback_conceptual = ConceptualResponse(
+            content="Estoy experimentando dificultades técnicas temporales. Tu consulta es importante y la procesaré tan pronto como sea posible.",
+            sources=[],
+            confidence=0.1
+        )
+        
+        fallback_accional = AccionalResponse(
+            content="Por favor, intenta enviar tu consulta nuevamente en unos momentos.",
+            priority="media",
+            timeline="Inmediato"
+        )
+        
+        return fallback_conceptual, fallback_accional
+
     def _parse_clarification_questions(self, content: str) -> List[ClarificationQuestion]:
-        """
-        Parsea la respuesta de OpenAI en objetos ClarificationQuestion
-        """
+        """Parsea la respuesta de OpenAI en objetos ClarificationQuestion"""
         questions = []
         lines = content.split('\n')
         current_question = None
@@ -266,455 +754,7 @@ class ConversationService:
             questions.append(current_question)
             
         return questions
-    
-    async def generate_strategic_response(
-        self, 
-        message: str, 
-        session_id: str,
-        context: Optional[Dict[str, Any]] = None,
-        history_context: Optional[List[Dict]] = None  # Added history_context parameter
-    ) -> Tuple[ConceptualResponse, AccionalResponse]:
-        """
-        Genera respuesta estratégica completa (conceptual + accional) usando IA
-        incluso con información limitada
-        """
-        
-        print(f"🔄 [DEBUG] Starting generate_strategic_response for session: {session_id}")
-        print(f"🔄 [DEBUG] History context provided: {len(history_context) if history_context else 0} messages")
-        
-        try:
-            db = SessionLocal()
-            print(f"✅ [DEBUG] Database session created successfully")
-        except Exception as e:
-            print(f"❌ [DEBUG] Error creating database session: {e}")
-            # Return fallback without database
-            return await self._generate_fallback_responses(message)
-        
-        try:
-            try:
-                self.memory_service.add_message(db, session_id, "user", message)
-                print(f"✅ [DEBUG] User message added to memory")
-            except Exception as e:
-                print(f"❌ [DEBUG] Error adding message to memory: {e}")
-                # Continue without memory
-            
-            try:
-                relevant_context = await self._search_relevant_context(message)
-                print(f"✅ [DEBUG] Context search completed: {len(relevant_context)} results")
-            except Exception as e:
-                print(f"❌ [DEBUG] Error searching context: {e}")
-                relevant_context = []
-            
-            try:
-                if history_context is None:
-                    full_context = self.memory_service.get_full_context_for_ai(db, session_id, memory_limit=200)
-                    conversation_history = full_context.get("messages", [])
-                    print(f"✅ [DEBUG] Fetched FULL conversation context: {len(conversation_history)} messages")
-                else:
-                    conversation_history = history_context
-                    print(f"✅ [DEBUG] Using provided history context: {len(conversation_history)} messages")
-                
-                key_info = self.memory_service.extract_key_info(db, session_id, message)
-                print(f"✅ [DEBUG] Memory retrieval completed")
-            except Exception as e:
-                print(f"❌ [DEBUG] Error retrieving memory: {e}")
-                conversation_history = history_context or []
-                key_info = {}
-            
-            try:
-                personality_config = self.ingestion_service.get_personality_config()
-                if not isinstance(personality_config, dict):
-                    personality_config = {"status": "no_personality_configured", "files": []}
-                print(f"✅ [DEBUG] Personality config retrieved: {personality_config.get('status', 'unknown')}")
-            except Exception as e:
-                print(f"❌ [DEBUG] Error getting personality config: {e}")
-                personality_config = {"status": "no_personality_configured", "files": []}
-            
-            try:
-                conceptual = await self._generate_conceptual_response(
-                    message, relevant_context, conversation_history, personality_config, key_info
-                )
-                print(f"✅ [DEBUG] Conceptual response generated")
-            except Exception as e:
-                print(f"❌ [DEBUG] Error generating conceptual response: {e}")
-                conceptual = ConceptualResponse(
-                    content="Error generando respuesta conceptual. Intenta nuevamente.",
-                    sources=[],
-                    confidence=0.1
-                )
-            
-            try:
-                accional = await self._generate_accional_response(
-                    message, relevant_context, conceptual.content, personality_config
-                )
-                print(f"✅ [DEBUG] Accional response generated")
-            except Exception as e:
-                print(f"❌ [DEBUG] Error generating accional response: {e}")
-                accional = AccionalResponse(
-                    content="Error generando plan de acción. Intenta nuevamente.",
-                    priority="media",
-                    timeline="Indefinido"
-                )
-            
-            try:
-                full_response = f"## Análisis Conceptual\n{conceptual.content}\n\n## Plan de Acción\n{accional.content}"
-                self.memory_service.add_message(db, session_id, "assistant", full_response)
-                print(f"✅ [DEBUG] Assistant response added to memory")
-            except Exception as e:
-                print(f"❌ [DEBUG] Error adding assistant response to memory: {e}")
-                # Continue without saving to memory
-            
-            print(f"✅ [DEBUG] generate_strategic_response completed successfully")
-            return conceptual, accional
-            
-        except Exception as e:
-            print(f"❌ [DEBUG] Unexpected error in generate_strategic_response: {e}")
-            return await self._generate_fallback_responses(message)
-        finally:
-            try:
-                db.close()
-                print(f"✅ [DEBUG] Database session closed")
-            except Exception as e:
-                print(f"❌ [DEBUG] Error closing database session: {e}")
 
-    async def _generate_fallback_responses(self, message: str) -> Tuple[ConceptualResponse, AccionalResponse]:
-        """
-        Genera respuestas de fallback cuando hay errores en el sistema principal
-        """
-        print(f"🔄 [DEBUG] Generating fallback responses")
-        
-        fallback_conceptual = ConceptualResponse(
-            content="Estoy experimentando dificultades técnicas temporales. Tu consulta es importante y la procesaré tan pronto como sea posible.",
-            sources=[],
-            confidence=0.1
-        )
-        
-        fallback_accional = AccionalResponse(
-            content="Por favor, intenta enviar tu consulta nuevamente en unos momentos.",
-            priority="media",
-            timeline="Inmediato"
-        )
-        
-        return fallback_conceptual, fallback_accional
-
-    async def _search_relevant_context(self, message: str) -> List[Dict[str, Any]]:
-        """
-        Busca contexto relevante en la base vectorial
-        """
-        if not hasattr(self.vector_store, 'store') or self.vector_store.store.index is None:
-            await self.vector_store.initialize()
-        
-        try:
-            results = await self.vector_store.similarity_search(message, top_k=5)
-            print(f"🔍 Encontrados {len(results)} documentos relevantes para: '{message[:50]}...'")
-            return results
-        except Exception as e:
-            print(f"❌ Error buscando contexto: {e}")
-            return []
-
-    def _get_conversation_history(self, session_id: str) -> List[Dict]:
-        """
-        Recupera el historial de conversación de una sesión
-        """
-        return self.conversation_memory.get(session_id, [])
-    
-    def _build_conversation_prompt(self, message: str, context: List[Dict], history: List[Dict], response_type: str, key_info: Dict[str, Any] = None) -> str:
-        """
-        Construye el prompt para la generación de respuestas
-        """
-        context_text = ""
-        if context:
-            context_text = "## Contexto relevante de tus documentos:\n"
-            for i, doc in enumerate(context, 1):
-                content = doc.get('content', '')[:500]  # Limit context length
-                source = doc.get('source', 'documento')
-                context_text += f"{i}. **Fuente: {source}**\n{content}...\n\n"
-        
-        history_text = ""
-        if history and len(history) > 0:
-            history_text = "## HISTORIAL COMPLETO DE CONVERSACIÓN (RECUERDA TODA ESTA INFORMACIÓN):\n"
-            for msg in history:  # Usar TODOS los mensajes, no solo [-8:]
-                role_label = "Usuario" if msg.get("role") == "user" else "Erasmo (tú)"
-                content = msg.get("content", "")
-                timestamp = msg.get("timestamp", "")
-                history_text += f"**{role_label}** ({timestamp}): {content}\n\n"
-            history_text += "---\n\n"
-        
-        key_info_text = ""
-        if key_info:
-            key_info_text = "## INFORMACIÓN CLAVE QUE YA CONOCES (NO PREGUNTES ESTO NUEVAMENTE):\n"
-            if key_info.get("company_name"):
-                key_info_text += f"- Empresa: {key_info['company_name']}\n"
-            if key_info.get("industry"):
-                key_info_text += f"- Industria: {key_info['industry']}\n"
-            if key_info.get("objectives"):
-                key_info_text += f"- Objetivos: {', '.join(key_info['objectives'])}\n"
-            if key_info.get("detected_topics"):
-                key_info_text += f"- Temas tratados: {', '.join(key_info['detected_topics'])}\n"
-            key_info_text += "\n"
-        
-        extracted_info = self._extract_info_from_history(history)
-        if extracted_info:
-            key_info_text += "## INFORMACIÓN ADICIONAL DEL HISTORIAL COMPLETO:\n"
-            for key, value in extracted_info.items():
-                key_info_text += f"- {key}: {value}\n"
-            key_info_text += "\n"
-        
-        if response_type == "conceptual":
-            prompt_specific = """
-            Como Erasmo, el estratega experto, genera una respuesta conceptual que:
-            1. Use ESPECÍFICAMENTE la información de los documentos proporcionados
-            2. RECUERDE y referencie TODA la información previa de la conversación completa (NO REPITAS PREGUNTAS YA RESPONDIDAS)
-            3. Explique el marco teórico relevante basado en TU conocimiento indexado
-            4. Analice por qué es importante esta situación según tus fuentes
-            5. Establezca conexiones con principios estratégicos de tus documentos
-            6. Si ya conoces información del usuario (empresa, industria, etc.), úsala directamente y refiérela específicamente
-            
-            CRÍTICO: NO pidas información que ya tienes del historial conversacional completo.
-            IMPORTANTE: Basa tu respuesta principalmente en el contexto de documentos proporcionado y TODA la información recordada.
-            DEBES DEMOSTRAR que recuerdas información específica mencionada anteriormente.
-            Responde en formato Markdown, siendo claro y estratégico.
-            """
-        else:  # accional
-            prompt_specific = """
-            Como Erasmo, el estratega experto, genera un plan de acción práctico que:
-            1. Use las recomendaciones específicas de tus documentos indexados
-            2. CONSIDERE TODA la información previa de la conversación completa
-            3. Desglose pasos concretos basados en tu conocimiento
-            4. Establezca prioridades según las mejores prácticas de tus fuentes
-            5. Defina un timeline realista basado en experiencias documentadas
-            6. Incorpore TODA la información ya conocida del usuario del historial completo
-            
-            CRÍTICO: NO repitas preguntas sobre información que ya tienes en el historial completo.
-            IMPORTANTE: Fundamenta las acciones en el conocimiento de tus documentos y TODO el contexto conversacional.
-            DEBES REFERENCIAR información específica del historial para demostrar continuidad.
-            Responde en formato Markdown, siendo específico y accionable.
-            """
-        
-        return f"""
-        {key_info_text}
-        {context_text}
-        {history_text}
-        
-        {prompt_specific}
-        
-        Consulta actual: {message}
-        """
-
-    def _extract_info_from_history(self, history: List[Dict]) -> Dict[str, str]:
-        """
-        Extrae información clave del historial conversacional para evitar preguntas repetitivas
-        """
-        extracted = {}
-        
-        if not history:
-            return extracted
-        
-        for msg in history:
-            if msg.get("role") == "user":
-                content = msg.get("content", "").lower()
-                
-                if "empresa" in content or "compañía" in content:
-                    words = content.split()
-                    for i, word in enumerate(words):
-                        if word in ["empresa", "compañía", "negocio"] and i + 1 < len(words):
-                            extracted["Empresa mencionada"] = words[i + 1].title()
-                            break
-                
-                sectors = ["tecnología", "software", "saas", "fintech", "ecommerce", "retail", "salud", "educación", "marketing", "consultoría"]
-                for sector in sectors:
-                    if sector in content:
-                        extracted["Sector/Industria"] = sector.title()
-                        break
-                
-                objectives = ["crecer", "expandir", "mejorar", "optimizar", "aumentar", "reducir", "lanzar"]
-                for obj in objectives:
-                    if obj in content:
-                        extracted["Objetivo mencionado"] = f"Busca {obj}"
-                        break
-        
-        return extracted
-    
-    async def _generate_conceptual_response(
-        self, 
-        message: str, 
-        context: List[Dict], 
-        history: List[Dict],
-        personality_config: Dict[str, Any],
-        key_info: Dict[str, Any] = None
-    ) -> ConceptualResponse:
-        """
-        Genera respuesta a nivel conceptual (por qué) usando OpenAI
-        incluso con información limitada
-        """
-        
-        if personality_config["status"] == "personality_configured":
-            personality_text = personality_config.get("full_personality_text", "")
-            if len(personality_text) > 2000:
-                personality_text = personality_text[:2000] + "..."
-            
-            system_prompt = f"""
-            Tienes configurada la siguiente personalidad y protocolo:
-            
-            {personality_text}
-            
-            Debes seguir EXACTAMENTE este protocolo, estilo y tono en todas tus respuestas.
-            Eres un estratega experto que sigue las reglas y metodología especificadas en tu configuración de personalidad.
-            
-            IMPORTANTE: 
-            - RECUERDA información de conversaciones anteriores
-            - Si el usuario ya te dio información (como nombre de empresa, industria, etc.), úsala y refiérela
-            - NO pidas información que ya tienes del historial conversacional
-            - Sigue tu protocolo de indagación específico solo para información nueva que necesites
-            
-            MANTÉN TUS RESPUESTAS CONCISAS Y DIRECTAS (máximo 800 palabras).
-            """
-        else:
-            system_prompt = "Eres Erasmo, un estratega experto con amplio conocimiento en negocios, liderazgo y toma de decisiones estratégicas. RECUERDA información de conversaciones anteriores. Mantén respuestas concisas (máximo 800 palabras)."
-        
-        prompt = self._build_conversation_prompt(message, context, history, "conceptual", key_info)
-        
-        try:
-            response = self.openai_client.chat.completions.create(
-                model=settings.OPENAI_MODEL,
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": prompt}
-                ],
-                max_tokens=800,  # Aumentado de 400 a 800 para respuestas más completas
-                temperature=0.7
-            )
-            
-            content = response.choices[0].message.content
-            tokens_used = response.usage.total_tokens if response.usage else self._count_tokens(content)
-            
-            sources = []
-            if context:
-                sources = [doc.get('source', '') for doc in context if doc.get('source')]
-            
-            return ConceptualResponse(
-                content=content,
-                sources=sources if sources else ["protocolo_personalidad", "conocimiento_estratégico"],
-                confidence=0.8 if personality_config["status"] == "personality_configured" else 0.7
-            )
-            
-        except Exception as e:
-            return ConceptualResponse(
-                content=f"## Análisis Conceptual\n\nLo siento, estoy teniendo dificultades técnicas. Por favor, intentanuevamente.\n\nError: {str(e)}",
-                sources=[],
-                confidence=0.1
-            )
-
-    async def _generate_accional_response(
-        self, 
-        message: str, 
-        context: List[Dict],
-        conceptual_content: str,
-        personality_config: Dict[str, Any]
-    ) -> AccionalResponse:
-        """
-        Genera respuesta a nivel accional (qué hacer) usando OpenAI
-        """
-        
-        if personality_config["status"] == "personality_configured":
-            personality_text = personality_config.get("full_personality_text", "")
-            if len(personality_text) > 1500:
-                personality_text = personality_text[:1500] + "..."
-            
-            system_prompt = f"""
-            Tienes configurada la siguiente personalidad y protocolo:
-            
-            {personality_text}
-            
-            Debes seguir EXACTAMENTE este protocolo, estilo y tono para generar planes de acción.
-            Usa tu metodología específica de indagación y diagnóstico estratégico.
-            
-            MANTÉN TUS RESPUESTAS CONCISAS Y DIRECTAS (máximo 600 palabras).
-            """
-        else:
-            system_prompt = "Eres Erasmo, un estratega experto en crear planes de acción efectivos. Mantén respuestas concisas (máximo 600 palabras)."
-        
-        if len(conceptual_content) > 500:
-            conceptual_content = conceptual_content[:500] + "..."
-        
-        prompt = f"""
-        Basado en el siguiente análisis conceptual:
-        {conceptual_content}
-        
-        Y la consulta original: "{message}"
-        
-        Siguiendo tu protocolo configurado:
-        1. Genera el plan de acción según tu metodología
-        2. Usa tu sistema de indagación estratégica si necesitas profundizar
-        3. Mantén el tono y estilo de tu personalidad configurada
-        4. RECUERDA información previa de la conversación
-        
-        Respuesta CONCISA en Markdown siguiendo tu protocolo.
-        MÁXIMO 600 palabras.
-        """
-        
-        try:
-            response = self.openai_client.chat.completions.create(
-                model=settings.OPENAI_MODEL,
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": prompt}
-                ],
-                max_tokens=700,  # Aumentado de 500 a 700 para planes más detallados
-                temperature=0.7
-            )
-            
-            content = response.choices[0].message.content
-            
-            priority = "media"
-            if any(word in content.lower() for word in ["urgente", "inmediato", "crítico", "prioridad alta"]):
-                priority = "alta"
-            elif any(word in content.lower() for word in ["largo plazo", "eventualmente", "cuando sea posible"]):
-                priority = "baja"
-                
-            timeline = "2-3 semanas"  # Valor por defecto
-            if "días" in content.lower() or "semana" in content.lower():
-                timeline = "1-2 semanas"
-            elif "mes" in content.lower():
-                timeline = "3-4 semanas"
-            
-            return AccionalResponse(
-                content=content,
-                priority=priority,
-                timeline=timeline
-            )
-            
-        except Exception as e:
-            return AccionalResponse(
-                content=f"## Plan de Acción\n\nLo siento, estoy teniendo dificultades técnicas. Por favor, intenta nuevamente.\n\nError: {str(e)}",
-                priority="media",
-                timeline="Indefinido"
-            )
-    
     def _count_tokens(self, text: str) -> int:
         """Cuenta tokens en un texto"""
         return len(self.encoding.encode(text))
-    
-    def _update_conversation_memory(
-        self, 
-        session_id: str, 
-        message: str,
-        conceptual: ConceptualResponse,
-        accional: AccionalResponse
-    ):
-        """
-        Actualiza la memoria de conversación
-        """
-        
-        if session_id not in self.conversation_memory:
-            self.conversation_memory[session_id] = []
-        
-        self.conversation_memory[session_id].append({
-            "timestamp": datetime.now().isoformat(),
-            "user_message": message,
-            "conceptual_response": conceptual.content,
-            "accional_response": accional.content
-        })
-        
-        if len(self.conversation_memory[session_id]) > settings.CONVERSATION_MEMORY_SIZE:
-            self.conversation_memory[session_id] = self.conversation_memory[session_id][-settings.CONVERSATION_MEMORY_SIZE:]

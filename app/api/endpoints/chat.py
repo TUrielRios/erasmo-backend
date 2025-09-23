@@ -1,5 +1,5 @@
 """
-Endpoints para gestión de chats y conversaciones
+Endpoints para gestión de chats y conversaciones - sin autenticación JWT
 """
 
 from fastapi import APIRouter, Depends, HTTPException, status, Query
@@ -8,27 +8,38 @@ from typing import List, Optional
 from datetime import datetime, timedelta
 
 from app.db.database import get_db
-from app.core.dependencies import get_current_active_user
 from app.services.chat_service import ChatService
-from app.models.conversation import User, Message, Conversation
+from app.models.user import User
+from app.models.conversation import Message, Conversation
 from app.models.schemas import (
     ConversationCreate, 
     ConversationResponse, 
     ConversationWithMessages,
     MessageResponse
 )
+from app.services.auth_service import AuthService
+from app.services.conversation_service import ConversationService
 
 router = APIRouter(prefix="/chat", tags=["chat"])
 chat_service = ChatService()
+conversation_service = ConversationService()
 
 @router.post("/conversations", response_model=ConversationResponse)
 async def create_conversation(
     conversation_data: ConversationCreate,
-    current_user: User = Depends(get_current_active_user),
+    user_id: int,  # Now requires user_id as parameter
     db: Session = Depends(get_db)
 ):
-    """Crear nueva conversación"""
+    """Crear nueva conversación - requiere user_id"""
     try:
+        # Get user from database
+        current_user = AuthService.get_user_by_id(db, user_id)
+        if not current_user:
+            raise HTTPException(
+                status_code=404,
+                detail="Usuario no encontrado"
+            )
+        
         conversation = chat_service.create_conversation(db, current_user, conversation_data)
         
         return ConversationResponse(
@@ -50,13 +61,21 @@ async def create_conversation(
 
 @router.get("/conversations", response_model=List[ConversationResponse])
 async def get_user_conversations(
+    user_id: int,  # Now requires user_id as parameter
     skip: int = Query(0, ge=0),
     limit: int = Query(50, ge=1, le=100),
-    current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
-    """Obtener todas las conversaciones del usuario"""
+    """Obtener todas las conversaciones del usuario - requiere user_id"""
     try:
+        # Get user from database
+        current_user = AuthService.get_user_by_id(db, user_id)
+        if not current_user:
+            raise HTTPException(
+                status_code=404,
+                detail="Usuario no encontrado"
+            )
+        
         conversations = chat_service.get_user_conversations(db, current_user, skip, limit)
         return conversations
         
@@ -69,12 +88,20 @@ async def get_user_conversations(
 @router.get("/conversations/{session_id}", response_model=ConversationWithMessages)
 async def get_conversation_with_messages(
     session_id: str,
+    user_id: int,  # Now requires user_id as parameter
     message_limit: int = Query(100, ge=1, le=500),
-    current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
     """Obtener conversación completa con mensajes"""
     try:
+        # Get user from database
+        current_user = AuthService.get_user_by_id(db, user_id)
+        if not current_user:
+            raise HTTPException(
+                status_code=404,
+                detail="Usuario no encontrado"
+            )
+        
         conversation = chat_service.get_conversation_with_messages(
             db, current_user, session_id, message_limit
         )
@@ -99,11 +126,19 @@ async def get_conversation_with_messages(
 async def update_conversation_title(
     session_id: str,
     new_title: str,
-    current_user: User = Depends(get_current_active_user),
+    user_id: int,  # Now requires user_id as parameter
     db: Session = Depends(get_db)
 ):
     """Actualizar título de conversación"""
     try:
+        # Get user from database
+        current_user = AuthService.get_user_by_id(db, user_id)
+        if not current_user:
+            raise HTTPException(
+                status_code=404,
+                detail="Usuario no encontrado"
+            )
+        
         conversation = chat_service.update_conversation_title(
             db, current_user, session_id, new_title
         )
@@ -127,11 +162,19 @@ async def update_conversation_title(
 @router.delete("/conversations/{session_id}")
 async def delete_conversation(
     session_id: str,
-    current_user: User = Depends(get_current_active_user),
+    user_id: int,  # Now requires user_id as parameter
     db: Session = Depends(get_db)
 ):
     """Eliminar conversación"""
     try:
+        # Get user from database
+        current_user = AuthService.get_user_by_id(db, user_id)
+        if not current_user:
+            raise HTTPException(
+                status_code=404,
+                detail="Usuario no encontrado"
+            )
+        
         success = chat_service.delete_conversation(db, current_user, session_id)
         
         if not success:
@@ -152,14 +195,22 @@ async def delete_conversation(
 
 @router.get("/search", response_model=List[ConversationResponse])
 async def search_conversations(
+    user_id: int,  # Now requires user_id as parameter
     q: str = Query(..., min_length=1, description="Término de búsqueda"),
     skip: int = Query(0, ge=0),
     limit: int = Query(20, ge=1, le=100),
-    current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
     """Buscar conversaciones por contenido o título"""
     try:
+        # Get user from database
+        current_user = AuthService.get_user_by_id(db, user_id)
+        if not current_user:
+            raise HTTPException(
+                status_code=404,
+                detail="Usuario no encontrado"
+            )
+        
         # Buscar en títulos de conversaciones
         title_matches = db.query(Conversation).filter(
             Conversation.user_id == current_user.id,
@@ -207,13 +258,21 @@ async def search_conversations(
 
 @router.get("/recent", response_model=List[ConversationResponse])
 async def get_recent_conversations(
+    user_id: int,  # Now requires user_id as parameter
     days: int = Query(7, ge=1, le=365, description="Días hacia atrás"),
     limit: int = Query(10, ge=1, le=50),
-    current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
     """Obtener conversaciones recientes del usuario"""
     try:
+        # Get user from database
+        current_user = AuthService.get_user_by_id(db, user_id)
+        if not current_user:
+            raise HTTPException(
+                status_code=404,
+                detail="Usuario no encontrado"
+            )
+        
         cutoff_date = datetime.utcnow() - timedelta(days=days)
         
         conversations = db.query(Conversation).filter(
@@ -249,11 +308,19 @@ async def get_recent_conversations(
 
 @router.get("/stats")
 async def get_user_chat_stats(
-    current_user: User = Depends(get_current_active_user),
+    user_id: int,  # Now requires user_id as parameter
     db: Session = Depends(get_db)
 ):
     """Obtener estadísticas de chat del usuario"""
     try:
+        # Get user from database
+        current_user = AuthService.get_user_by_id(db, user_id)
+        if not current_user:
+            raise HTTPException(
+                status_code=404,
+                detail="Usuario no encontrado"
+            )
+        
         # Estadísticas básicas
         total_conversations = db.query(Conversation).filter(
             Conversation.user_id == current_user.id,
@@ -324,12 +391,20 @@ async def get_user_chat_stats(
 @router.get("/export/{session_id}")
 async def export_conversation(
     session_id: str,
+    user_id: int,  # Now requires user_id as parameter
     format: str = Query("json", regex="^(json|txt|md)$"),
-    current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
     """Exportar conversación en diferentes formatos"""
     try:
+        # Get user from database
+        current_user = AuthService.get_user_by_id(db, user_id)
+        if not current_user:
+            raise HTTPException(
+                status_code=404,
+                detail="Usuario no encontrado"
+            )
+        
         conversation_with_messages = chat_service.get_conversation_with_messages(
             db, current_user, session_id
         )
