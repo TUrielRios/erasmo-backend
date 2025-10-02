@@ -87,10 +87,7 @@ class ConversationService:
         try:
             response = self.openai_client.chat.completions.create(
                 model=settings.OPENAI_MODEL,
-                messages=[
-                    {"role": "system", "content": "Sigues estrictamente las instrucciones proporcionadas para determinar si una consulta necesita clarificación."},
-                    {"role": "user", "content": prompt}
-                ],
+                messages=[{"role": "system", "content": "Sigues estrictamente las instrucciones proporcionadas para determinar si una consulta necesita clarificación."}, {"role": "user", "content": prompt}],
                 max_tokens=10,
                 temperature=0.1
             )
@@ -143,10 +140,7 @@ class ConversationService:
         try:
             response = self.openai_client.chat.completions.create(
                 model=settings.OPENAI_MODEL,
-                messages=[
-                    {"role": "system", "content": "Sigues estrictamente las instrucciones proporcionadas para generar preguntas de clarificación."},
-                    {"role": "user", "content": prompt}
-                ],
+                messages=[{"role": "system", "content": "Sigues estrictamente las instrucciones proporcionadas para generar preguntas de clarificación."}, {"role": "user", "content": prompt}],
                 max_tokens=400,
                 temperature=0.7
             )
@@ -287,7 +281,7 @@ class ConversationService:
         try:
             from app.services.company_service import CompanyDocumentService
             knowledge_docs = CompanyDocumentService.get_documents_by_priority(
-                db, company_id, DocumentCategory.KNOWLEDGE_BASE, max_priority=3
+                db, company_id, DocumentCategory.KNOWLEDGE_BASE, max_priority=10
             )
             
             knowledge_content = []
@@ -320,7 +314,7 @@ class ConversationService:
             
             from app.services.company_service import CompanyDocumentService
             instruction_docs = CompanyDocumentService.get_documents_by_priority(
-                db, company_id, DocumentCategory.INSTRUCTIONS, max_priority=2
+                db, company_id, DocumentCategory.INSTRUCTIONS, max_priority=10
             )
             
             instructions_content = []
@@ -356,46 +350,60 @@ class ConversationService:
 
     async def _search_prioritized_context(self, message: str, company_knowledge: List[Dict], company_id: int = None) -> List[Dict[str, Any]]:
         """
-        Busca contexto priorizando fuentes de conocimiento de la compañía
+        Busca contexto usando búsqueda vectorial semántica en Pinecone
         """
         prioritized_context = []
         
+        try:
+            if not hasattr(self.vector_store, 'store') or self.vector_store.store.index is None:
+                await self.vector_store.initialize()
+            
+            # Búsqueda vectorial semántica en Pinecone - encuentra documentos relevantes basándose en el significado
+            vector_results = await self.vector_store.similarity_search(
+                message, 
+                top_k=15,  # Buscar más documentos para asegurar que encontramos todos los valores
+                company_id=company_id
+            )
+            
+            print(f"🔍 [DEBUG] Vector search found {len(vector_results)} relevant documents")
+            
+            # Agregar resultados de búsqueda vectorial
+            for result in vector_results:
+                content = result.get('content', '')
+                source = result.get('source', 'conocimiento_vectorial')
+                score = result.get('score', 0.0)
+                
+                prioritized_context.append({
+                    'content': content,
+                    'source': source,
+                    'priority': 1,  # Alta prioridad para resultados vectoriales relevantes
+                    'category': 'vector_search',
+                    'relevance_score': score
+                })
+            
+            print(f"✅ [DEBUG] Added {len(prioritized_context)} documents from vector search")
+            
+        except Exception as e:
+            print(f"❌ Error in vector search: {e}")
+        
         for doc in company_knowledge:
             content = doc.get('content', '')
-            if self._is_content_relevant(message, content):
+            # Solo agregar si no está ya en los resultados vectoriales
+            if not any(ctx.get('content') == content for ctx in prioritized_context):
                 prioritized_context.append({
-                    'content': content[:1000],  # Limit content length
+                    'content': content[:2500],
                     'source': f"conocimiento_{doc['filename']}",
                     'priority': doc.get('priority', 5),
                     'category': 'company_knowledge'
                 })
         
-        # Sort by priority (1 = highest priority)
-        prioritized_context.sort(key=lambda x: x.get('priority', 5))
+        # Ordenar por relevancia (score de búsqueda vectorial) y prioridad
+        prioritized_context.sort(key=lambda x: (x.get('relevance_score', 0.0), -x.get('priority', 5)), reverse=True)
         
-        # If we have enough company knowledge, use it primarily
-        if len(prioritized_context) >= 3:
-            return prioritized_context[:5]
+        print(f"📊 [DEBUG] Total context documents: {len(prioritized_context)}")
         
-        # Otherwise, supplement with general vector search
-        try:
-            if not hasattr(self.vector_store, 'store') or self.vector_store.store.index is None:
-                await self.vector_store.initialize()
-            
-            general_results = await self.vector_store.similarity_search(message, top_k=3, company_id=company_id)
-            
-            for result in general_results:
-                prioritized_context.append({
-                    'content': result.get('content', '')[:1000],
-                    'source': result.get('source', 'conocimiento_general'),
-                    'priority': 10,  # Lower priority than company knowledge
-                    'category': 'general_knowledge'
-                })
-            
-        except Exception as e:
-            print(f"❌ Error in general context search: {e}")
-        
-        return prioritized_context[:5]
+        # Retornar los documentos más relevantes
+        return prioritized_context[:10]
 
     def _is_content_relevant(self, message: str, content: str) -> bool:
         """
@@ -481,10 +489,7 @@ class ConversationService:
         try:
             response = self.openai_client.chat.completions.create(
                 model=model_name,
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": prompt}
-                ],
+                messages=[{"role": "system", "content": system_prompt}, {"role": "user", "content": prompt}],
                 max_tokens=max_tokens,
                 temperature=temperature
             )
@@ -563,10 +568,7 @@ class ConversationService:
         try:
             response = self.openai_client.chat.completions.create(
                 model=model_name,
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": prompt}
-                ],
+                messages=[{"role": "system", "content": system_prompt}, {"role": "user", "content": prompt}],
                 max_tokens=max_tokens,
                 temperature=temperature
             )
@@ -612,7 +614,7 @@ class ConversationService:
         for i, doc in enumerate(knowledge, 1):
             priority = doc.get('priority', 5)
             filename = doc.get('filename', f'documento_{i}')
-            content = doc.get('content', '')[:800]  # Limit content length
+            content = doc.get('content', '')[:2000]
             
             compiled += f"## FUENTE {i} (Prioridad {priority}) - {filename}\n"
             compiled += f"{content}\n\n"
@@ -631,26 +633,27 @@ class ConversationService:
         if company_context:
             context_text += "## CONTEXTO DE FUENTES DE CONOCIMIENTO PRIORITARIAS:\n"
             for i, doc in enumerate(company_context, 1):
-                content = doc.get('content', '')[:500]
+                content = doc.get('content', '')[:1800]
                 source = doc.get('source', 'documento')
                 priority = doc.get('priority', 5)
-                context_text += f"{i}. **{source}** (Prioridad {priority}):\n{content}...\n\n"
+                context_text += f"{i}. *{source}* (Prioridad {priority}):\n{content}\n\n"
         
         if general_context:
             context_text += "## CONTEXTO ADICIONAL (usar solo si es necesario):\n"
             for i, doc in enumerate(general_context, 1):
-                content = doc.get('content', '')[:300]
+                content = doc.get('content', '')[:1000]
                 source = doc.get('source', 'documento')
-                context_text += f"{i}. **{source}**:\n{content}...\n\n"
+                context_text += f"{i}. *{source}*:\n{content}\n\n"
         
         history_text = ""
         if history and len(history) > 0:
             history_text = "## HISTORIAL COMPLETO DE CONVERSACIÓN:\n"
-            for msg in history:
+            recent_history = history[-10:] if len(history) > 10 else history
+            for msg in recent_history:
                 role_label = "Usuario" if msg.get("role") == "user" else "Asistente (tú)"
                 content = msg.get("content", "")
                 timestamp = msg.get("timestamp", "")
-                history_text += f"**{role_label}** ({timestamp}): {content}\n\n"
+                history_text += f"*{role_label}* ({timestamp}): {content}\n\n"
             history_text += "---\n\n"
         
         key_info_text = ""
@@ -669,7 +672,7 @@ class ConversationService:
             GENERA UNA RESPUESTA CONCEPTUAL que:
             1. USE PRIORITARIAMENTE las fuentes de conocimiento específicas proporcionadas
             2. SIGA EXACTAMENTE las instrucciones configuradas
-            3. RECUERDE toda la información previa de la conversación
+            3. RECUERDA toda la información previa de la conversación
             4. Explique el marco teórico basado en las fuentes prioritarias
             5. Solo use conocimiento general si las fuentes específicas no son suficientes
             
