@@ -29,7 +29,7 @@ class VectorStoreInterface(ABC):
         pass
     
     @abstractmethod
-    async def similarity_search(self, query: str, top_k: int = 5, company_id: int = None) -> List[Dict[str, Any]]:
+    async def similarity_search(self, query: str, top_k: int = 5, company_id: int = None, project_id: int = None) -> List[Dict[str, Any]]:
         """Busca chunks similares a una query"""
         pass
     
@@ -121,7 +121,7 @@ class PineconeVectorStore(VectorStoreInterface):
         print(f"✅ Almacenados {len(chunks)} chunks en Pinecone")
         return chunk_ids
     
-    async def similarity_search(self, query: str, top_k: int = 5, company_id: int = None) -> List[Dict[str, Any]]:
+    async def similarity_search(self, query: str, top_k: int = 5, company_id: int = None, project_id: int = None) -> List[Dict[str, Any]]:
         """Búsqueda de similitud en Pinecone"""
         if not self.index:
             await self.initialize()
@@ -136,10 +136,14 @@ class PineconeVectorStore(VectorStoreInterface):
             query_embedding = query_embeddings[0]
             
             filter_dict = {}
-            if company_id is not None:
+            if project_id is not None:
+                filter_dict["project_id"] = {"$eq": project_id}
+                print(f"🔍 [PINECONE] Filtering by project_id: {project_id}")
+            elif company_id is not None:
                 filter_dict["company_id"] = {"$eq": company_id}
+                print(f"🔍 [PINECONE] Filtering by company_id: {company_id}")
             
-            # Search in Pinecone with company filtering
+            # Search in Pinecone with filtering
             search_results = self.index.query(
                 vector=query_embedding,
                 top_k=top_k,
@@ -157,7 +161,9 @@ class PineconeVectorStore(VectorStoreInterface):
                         "source": match.metadata.get('filename', 'unknown')
                     })
             
-            if company_id:
+            if project_id:
+                print(f"🔍 Encontrados {len(results)} documentos relevantes para proyecto {project_id}: '{query[:50]}...'")
+            elif company_id:
                 print(f"🔍 Encontrados {len(results)} documentos relevantes para empresa {company_id}: '{query[:50]}...'")
             else:
                 print(f"🔍 Encontrados {len(results)} documentos relevantes para: '{query[:50]}...'")
@@ -266,7 +272,7 @@ class FAISSVectorStore(VectorStoreInterface):
         print(f"✅ Almacenados {len(chunks)} chunks en FAISS")
         return chunk_ids
     
-    async def similarity_search(self, query: str, top_k: int = 5, company_id: int = None) -> List[Dict[str, Any]]:
+    async def similarity_search(self, query: str, top_k: int = 5, company_id: int = None, project_id: int = None) -> List[Dict[str, Any]]:
         """Búsqueda en FAISS"""
         if not self.index or self.index.ntotal == 0:
             print("⚠️ No hay documentos indexados para buscar")
@@ -294,7 +300,9 @@ class FAISSVectorStore(VectorStoreInterface):
                 if chunk_id in self.chunk_store and chunk_id in self.metadata_store:
                     metadata = self.metadata_store[chunk_id]
                     
-                    if company_id is not None and metadata.get('company_id') != company_id:
+                    if project_id is not None and metadata.get('project_id') != project_id:
+                        continue
+                    elif company_id is not None and project_id is None and metadata.get('company_id') != company_id:
                         continue
                     
                     results.append({
@@ -304,7 +312,9 @@ class FAISSVectorStore(VectorStoreInterface):
                         "source": metadata.get("filename", "unknown")
                     })
         
-        if company_id:
+        if project_id:
+            print(f"🔍 Encontrados {len(results)} documentos relevantes para proyecto {project_id}: '{query[:50]}...'")
+        elif company_id:
             print(f"🔍 Encontrados {len(results)} documentos relevantes para empresa {company_id}: '{query[:50]}...'")
         else:
             print(f"🔍 Encontrados {len(results)} documentos relevantes para: '{query[:50]}...'")
@@ -382,9 +392,9 @@ class VectorStore:
         """Almacena chunks"""
         return await self.store.store_chunks(chunks, embeddings, metadata)
     
-    async def similarity_search(self, query: str, top_k: int = 5, company_id: int = None) -> List[Dict[str, Any]]:
+    async def similarity_search(self, query: str, top_k: int = 5, company_id: int = None, project_id: int = None) -> List[Dict[str, Any]]:
         """Búsqueda de similitud"""
-        return await self.store.similarity_search(query, top_k, company_id)
+        return await self.store.similarity_search(query, top_k, company_id, project_id)
     
     async def remove_by_metadata(self, metadata_filter: Dict[str, Any]) -> bool:
         """Elimina por metadatos"""

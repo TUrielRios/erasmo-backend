@@ -2,7 +2,7 @@
 Esquemas Pydantic para requests y responses
 """
 
-from pydantic import BaseModel, Field, EmailStr
+from pydantic import BaseModel, Field, EmailStr, field_validator
 from typing import List, Optional, Dict, Any
 from datetime import datetime
 from enum import Enum
@@ -135,6 +135,18 @@ class AIConfigurationUpdate(BaseModel):
     knowledge_base_priority: Optional[str] = None
     fallback_to_general: Optional[bool] = None
 
+class MessageResponse(BaseModel):
+    """Schema para respuesta de mensaje"""
+    id: int
+    conversation_id: int
+    role: str
+    content: str
+    timestamp: datetime
+    message_metadata: Optional[str]
+    
+    class Config:
+        from_attributes = True
+
 class AIConfigurationResponse(BaseModel):
     """Schema para respuesta de configuración de IA"""
     id: int
@@ -184,44 +196,99 @@ class CompanyDocumentUpload(BaseModel):
     """Schema para carga de documentos"""
     files: List[str] = Field(description="Lista de nombres de archivos .txt")
 
-# class AuthResponse(BaseModel):
-#     """Schema para respuesta de autenticación con tokens JWT"""
-#     user: UserResponse
-#     access_token: str
-#     refresh_token: str
-#     token_type: str = "bearer"
+class ProjectCreate(BaseModel):
+    """Schema para crear un nuevo proyecto/folder"""
+    name: str = Field(min_length=1, max_length=255, description="Nombre del proyecto")
+    description: Optional[str] = Field(default=None, description="Descripción del proyecto")
+    custom_instructions: Optional[str] = Field(default=None, description="Instrucciones personalizadas para este proyecto")
 
-# class TokenData(BaseModel):
-#     """Schema para datos del token"""
-#     username: Optional[str] = None
-#     user_id: Optional[int] = None
+class ProjectUpdate(BaseModel):
+    """Schema para actualizar un proyecto"""
+    name: Optional[str] = Field(default=None, min_length=1, max_length=255)
+    description: Optional[str] = None
+    custom_instructions: Optional[str] = None
+    is_active: Optional[bool] = None
+
+class ProjectResponse(BaseModel):
+    """Schema para respuesta de proyecto"""
+    id: int
+    name: str
+    description: Optional[str]
+    user_id: int
+    company_id: int
+    custom_instructions: Optional[str]
+    is_active: bool
+    created_at: datetime
+    updated_at: Optional[datetime]
+    conversation_count: Optional[int] = 0
+    
+    class Config:
+        from_attributes = True
+
+class ProjectShareCreate(BaseModel):
+    """Schema para compartir un proyecto"""
+    shared_with_user_id: int = Field(description="ID del usuario con quien compartir")
+    can_edit: bool = Field(default=False, description="Puede editar configuración del proyecto")
+    can_view_chats: bool = Field(default=True, description="Puede ver conversaciones")
+    can_create_chats: bool = Field(default=False, description="Puede crear nuevas conversaciones")
+
+class ProjectShareResponse(BaseModel):
+    """Schema para respuesta de compartir proyecto"""
+    id: int
+    project_id: int
+    shared_with_user_id: int
+    can_edit: bool
+    can_view_chats: bool
+    can_create_chats: bool
+    shared_at: datetime
+    shared_by_user_id: int
+    
+    class Config:
+        from_attributes = True
+
+class ConversationShareCreate(BaseModel):
+    """Schema para compartir una conversación"""
+    shared_with_user_id: int = Field(description="ID del usuario con quien compartir")
+    can_edit: bool = Field(default=False, description="Puede agregar mensajes")
+    can_view: bool = Field(default=True, description="Puede ver mensajes")
+
+class ConversationShareResponse(BaseModel):
+    """Schema para respuesta de compartir conversación"""
+    id: int
+    conversation_id: int
+    shared_with_user_id: int
+    can_edit: bool
+    can_view: bool
+    shared_at: datetime
+    shared_by_user_id: int
+    
+    class Config:
+        from_attributes = True
 
 class ConversationCreate(BaseModel):
     """Schema para crear una nueva conversación"""
     title: Optional[str] = Field(default=None, max_length=500, description="Título de la conversación")
+    project_id: Optional[int] = Field(default=None, description="ID del proyecto al que pertenece")
+    
+    @field_validator('project_id')
+    @classmethod
+    def validate_project_id(cls, v):
+        """Convertir 0 o valores negativos a None"""
+        if v is not None and v <= 0:
+            return None
+        return v
 
 class ConversationResponse(BaseModel):
     """Schema para respuesta de conversación"""
     id: int
     session_id: str
     user_id: int
+    project_id: Optional[int] = None
     title: Optional[str]
     created_at: datetime
     updated_at: Optional[datetime]
     is_active: bool
     message_count: Optional[int] = 0
-    
-    class Config:
-        from_attributes = True
-
-class MessageResponse(BaseModel):
-    """Schema para respuesta de mensaje"""
-    id: int
-    conversation_id: int
-    role: str
-    content: str
-    timestamp: datetime
-    message_metadata: Optional[str]
     
     class Config:
         from_attributes = True
@@ -232,6 +299,7 @@ class ConversationWithMessages(ConversationResponse):
 
 class ResponseLevel(str, Enum):
     """Niveles de respuesta del agente"""
+    NORMAL = "normal"  # Added NORMAL response type for non-structured responses
     CONCEPTUAL = "conceptual"
     ACCIONAL = "accional"
     CLARIFICATION = "clarification"
@@ -256,6 +324,7 @@ class QueryRequest(BaseModel):
     session_id: Optional[str] = Field(default=None, description="ID de sesión para mantener contexto")
     user_id: Optional[int] = Field(default=None, description="ID del usuario autenticado")
     context: Optional[Dict[str, Any]] = Field(default=None, description="Contexto adicional")
+    require_analysis: bool = Field(default=False, description="Si se requiere análisis conceptual y plan de acción estructurado")
 
 class ConceptualResponse(BaseModel):
     """Respuesta a nivel conceptual (por qué)"""
@@ -308,3 +377,55 @@ class DocumentMetadata(BaseModel):
     file_size: int = Field(description="Tamaño del archivo en bytes")
     chunk_count: int = Field(description="Número de chunks generados")
     processed_at: Optional[datetime] = Field(default=None, description="Fecha de procesamiento")
+
+class MessageUpdate(BaseModel):
+    """Schema para actualizar un mensaje"""
+    content: str = Field(min_length=1, max_length=10000, description="Nuevo contenido del mensaje")
+
+class MessageDeleteResponse(BaseModel):
+    """Schema para respuesta de eliminación de mensaje"""
+    success: bool
+    message: str
+    deleted_message_id: int
+
+class FileCategory(str, Enum):
+    """Categorías de archivos de proyecto"""
+    INSTRUCTIONS = "instructions"
+    KNOWLEDGE_BASE = "knowledge_base"
+    REFERENCE = "reference"
+    GENERAL = "general"
+
+class ProjectFileUpload(BaseModel):
+    """Schema para subir archivo a proyecto"""
+    category: FileCategory = Field(default=FileCategory.GENERAL, description="Categoría del archivo")
+    description: Optional[str] = Field(default=None, description="Descripción del archivo")
+    priority: int = Field(default=5, ge=1, le=10, description="Prioridad del archivo (1=más alta, 10=más baja)")
+
+class ProjectFileResponse(BaseModel):
+    """Schema para respuesta de archivo de proyecto"""
+    id: int
+    project_id: int
+    filename: str
+    original_filename: str
+    file_size: int
+    file_type: str
+    category: str
+    processing_status: str
+    processed_chunks: int
+    total_chunks: int
+    description: Optional[str]
+    priority: int
+    created_at: datetime
+    processed_at: Optional[datetime]
+    is_active: bool
+    error_message: Optional[str]
+    
+    class Config:
+        from_attributes = True
+
+class ProjectFileUpdate(BaseModel):
+    """Schema para actualizar archivo de proyecto"""
+    description: Optional[str] = None
+    priority: Optional[int] = Field(default=None, ge=1, le=10)
+    is_active: Optional[bool] = None
+    category: Optional[FileCategory] = None

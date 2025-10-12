@@ -27,3 +27,6 @@ class User(Base):
     
     company = relationship("Company", back_populates="users")
     conversations = relationship("Conversation", back_populates="user", cascade="all, delete-orphan")
+    projects = relationship("Project", back_populates="user", cascade="all, delete-orphan")
+    shared_projects = relationship("ProjectShare", foreign_keys="ProjectShare.shared_with_user_id", back_populates="shared_with_user")
+    shared_conversations = relationship("ConversationShare", foreign_keys="ConversationShare.shared_with_user_id", back_populates="shared_with_user")

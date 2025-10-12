@@ -27,6 +27,12 @@ def get_db():
 async def init_db():
     """Inicializar base de datos y crear tablas"""
     try:
+        from app.models.user import User
+        from app.models.company import Company
+        from app.models.conversation import Conversation, Message
+        from app.models.project import Project, ProjectShare, ConversationShare
+        from app.models.project_file import ProjectFile
+        
         Base.metadata.create_all(bind=engine)
         print("✅ Base de datos PostgreSQL inicializada correctamente")
     except Exception as e:

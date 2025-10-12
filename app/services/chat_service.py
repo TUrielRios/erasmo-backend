@@ -35,10 +35,11 @@ class ChatService:
         if not title:
             title = f"Chat {datetime.now().strftime('%d/%m/%Y %H:%M')}"
         
-        # Crear conversación
+        # Crear conversación con o sin proyecto
         db_conversation = Conversation(
             session_id=session_id,
             user_id=user.id,
+            project_id=conversation_data.project_id,  # Puede ser None
             title=title,
             is_active=True
         )
@@ -72,6 +73,7 @@ class ChatService:
                 id=conv.id,
                 session_id=conv.session_id,
                 user_id=conv.user_id,
+                project_id=conv.project_id,  # Incluir project_id en la respuesta
                 title=conv.title,
                 created_at=conv.created_at,
                 updated_at=conv.updated_at,
@@ -131,6 +133,7 @@ class ChatService:
             id=conversation.id,
             session_id=conversation.session_id,
             user_id=conversation.user_id,
+            project_id=conversation.project_id,  # Incluir project_id en la respuesta
             title=conversation.title,
             created_at=conversation.created_at,
             updated_at=conversation.updated_at,
@@ -386,6 +389,7 @@ class ChatService:
                 id=conversation.id,
                 session_id=conversation.session_id,
                 user_id=conversation.user_id,
+                project_id=conversation.project_id,  # Incluir project_id en la respuesta
                 title=conversation.title,
                 created_at=conversation.created_at,
                 updated_at=conversation.updated_at,
@@ -421,6 +425,7 @@ class ChatService:
         context_summary = {
             "conversation_id": conversation.id,
             "session_id": session_id,
+            "project_id": conversation.project_id,  # Incluir project_id en el resumen
             "total_messages": len(messages),
             "duration_minutes": self._calculate_conversation_duration(messages),
             "topics_discussed": self._extract_topics_from_messages(messages),

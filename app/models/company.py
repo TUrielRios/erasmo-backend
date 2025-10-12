@@ -26,6 +26,7 @@ class Company(Base):
     users = relationship("User", back_populates="company")
     documents = relationship("CompanyDocument", back_populates="company", cascade="all, delete-orphan")
     ai_configurations = relationship("AIConfiguration", back_populates="company", cascade="all, delete-orphan")
+    projects = relationship("Project", back_populates="company", cascade="all, delete-orphan")
 
 class CompanyDocument(Base):
     """Modelo de documento de compañía"""
