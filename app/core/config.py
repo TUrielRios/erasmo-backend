@@ -55,7 +55,14 @@ class Settings(BaseSettings):
     
     # Configuración de archivos
     MAX_FILE_SIZE: int = 10 * 1024 * 1024  # 10MB
-    ALLOWED_FILE_TYPES: List[str] = [".txt", ".md"]
+    ALLOWED_FILE_TYPES: List[str] = [
+        ".txt", ".md",           # Text files
+        ".pdf",                  # PDF documents
+        ".docx", ".doc",         # Word documents
+        ".xlsx", ".xls",         # Excel spreadsheets
+        ".pptx", ".ppt",         # PowerPoint presentations
+        ".png", ".jpg", ".jpeg"  # Images/Screenshots
+    ]
     
     # Configuración de conversación
     MAX_CONTEXT_LENGTH: int = 4000

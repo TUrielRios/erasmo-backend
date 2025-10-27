@@ -268,7 +268,7 @@ class ConversationService:
             response = self.openai_client.chat.completions.create(
                 model=settings.OPENAI_MODEL,
                 messages=[{"role": "system", "content": "Sigues estrictamente las instrucciones proporcionadas para generar preguntas de clarificación."}, {"role": "user", "content": prompt}],
-                max_tokens=400,
+                max_tokens=1000,
                 temperature=0.7
             )
 

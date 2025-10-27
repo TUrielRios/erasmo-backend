@@ -15,7 +15,9 @@ from app.models.schemas import (
     ConversationCreate, 
     ConversationResponse, 
     ConversationWithMessages,
-    MessageResponse
+    MessageResponse,
+    MessageUpdate,
+    MessageDeleteResponse
 )
 from app.services.auth_service import AuthService
 from app.services.conversation_service import ConversationService
@@ -457,4 +459,130 @@ async def export_conversation(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error exportando conversación: {str(e)}"
+        )
+
+@router.put("/messages/{message_id}", response_model=MessageResponse)
+async def update_message(
+    message_id: int,
+    message_update: MessageUpdate,
+    user_id: int,
+    db: Session = Depends(get_db)
+):
+    """Actualizar contenido de un mensaje enviado"""
+    try:
+        # Get user from database
+        current_user = AuthService.get_user_by_id(db, user_id)
+        if not current_user:
+            raise HTTPException(
+                status_code=404,
+                detail="Usuario no encontrado"
+            )
+        
+        # Update the message
+        updated_message = chat_service.update_message(
+            db, current_user, message_id, message_update.content
+        )
+        
+        if not updated_message:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Mensaje no encontrado o no tienes permiso para editarlo"
+            )
+        
+        return MessageResponse(
+            id=updated_message.id,
+            conversation_id=updated_message.conversation_id,
+            role=updated_message.role,
+            content=updated_message.content,
+            timestamp=updated_message.timestamp,
+            message_metadata=updated_message.message_metadata
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error actualizando mensaje: {str(e)}"
+        )
+
+@router.delete("/messages/{message_id}", response_model=MessageDeleteResponse)
+async def delete_message(
+    message_id: int,
+    user_id: int,
+    db: Session = Depends(get_db)
+):
+    """Eliminar un mensaje enviado"""
+    try:
+        # Get user from database
+        current_user = AuthService.get_user_by_id(db, user_id)
+        if not current_user:
+            raise HTTPException(
+                status_code=404,
+                detail="Usuario no encontrado"
+            )
+        
+        # Delete the message
+        success = chat_service.delete_message(db, current_user, message_id)
+        
+        if not success:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Mensaje no encontrado o no tienes permiso para eliminarlo"
+            )
+        
+        return MessageDeleteResponse(
+            success=True,
+            message="Mensaje eliminado exitosamente",
+            deleted_message_id=message_id
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error eliminando mensaje: {str(e)}"
+        )
+
+@router.get("/messages/{message_id}", response_model=MessageResponse)
+async def get_message(
+    message_id: int,
+    user_id: int,
+    db: Session = Depends(get_db)
+):
+    """Obtener un mensaje específico"""
+    try:
+        # Get user from database
+        current_user = AuthService.get_user_by_id(db, user_id)
+        if not current_user:
+            raise HTTPException(
+                status_code=404,
+                detail="Usuario no encontrado"
+            )
+        
+        # Get the message
+        message = chat_service.get_message_by_id(db, current_user, message_id)
+        
+        if not message:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Mensaje no encontrado"
+            )
+        
+        return MessageResponse(
+            id=message.id,
+            conversation_id=message.conversation_id,
+            role=message.role,
+            content=message.content,
+            timestamp=message.timestamp,
+            message_metadata=message.message_metadata
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error obteniendo mensaje: {str(e)}"
         )

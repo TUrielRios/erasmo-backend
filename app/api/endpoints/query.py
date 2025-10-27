@@ -265,7 +265,7 @@ async def process_query(
             response_type = ResponseLevel.CLARIFICATION
             conceptual = None
             accional = None
-            tokens_used = 100
+            tokens_used = 500
             
         else:
             print(f"[DEBUG] Generating strategic response with full context")

@@ -95,7 +95,16 @@ class DocumentType(str, Enum):
     """Tipos de documentos soportados"""
     TXT = "txt"
     MARKDOWN = "md"
-    PDF = "pdf"  # Added PDF support
+    PDF = "pdf"
+    DOCX = "docx"
+    DOC = "doc"
+    XLSX = "xlsx"
+    XLS = "xls"
+    PPTX = "pptx"
+    PPT = "ppt"
+    PNG = "png"
+    JPG = "jpg"
+    JPEG = "jpeg"
 
 class IngestionType(str, Enum):
     """Tipos de ingesta de documentos"""

@@ -818,3 +818,88 @@ class ChatService:
             print(f"Error generating company insights: {e}")
         
         return insights[:2]
+    
+    def update_message(
+        self, 
+        db: Session, 
+        user: User, 
+        message_id: int, 
+        new_content: str
+    ) -> Optional[Message]:
+        """Actualizar contenido de un mensaje existente"""
+        
+        # Obtener el mensaje y verificar que pertenece al usuario
+        message = db.query(Message).join(Conversation).filter(
+            Message.id == message_id,
+            Conversation.user_id == user.id,
+            Conversation.is_active == True
+        ).first()
+        
+        if not message:
+            return None
+        
+        # Solo permitir editar mensajes del usuario (no del asistente)
+        if message.role != "user":
+            return None
+        
+        # Actualizar el mensaje
+        message.content = new_content
+        message.is_edited = True
+        message.updated_at = datetime.utcnow()
+        
+        # Actualizar timestamp de la conversación
+        conversation = message.conversation
+        conversation.updated_at = datetime.utcnow()
+        
+        db.commit()
+        db.refresh(message)
+        
+        return message
+    
+    def delete_message(
+        self, 
+        db: Session, 
+        user: User, 
+        message_id: int
+    ) -> bool:
+        """Eliminar un mensaje existente"""
+        
+        # Obtener el mensaje y verificar que pertenece al usuario
+        message = db.query(Message).join(Conversation).filter(
+            Message.id == message_id,
+            Conversation.user_id == user.id,
+            Conversation.is_active == True
+        ).first()
+        
+        if not message:
+            return False
+        
+        # Solo permitir eliminar mensajes del usuario (no del asistente)
+        if message.role != "user":
+            return False
+        
+        # Actualizar timestamp de la conversación antes de eliminar
+        conversation = message.conversation
+        conversation.updated_at = datetime.utcnow()
+        
+        # Eliminar el mensaje
+        db.delete(message)
+        db.commit()
+        
+        return True
+    
+    def get_message_by_id(
+        self, 
+        db: Session, 
+        user: User, 
+        message_id: int
+    ) -> Optional[Message]:
+        """Obtener un mensaje específico verificando permisos del usuario"""
+        
+        message = db.query(Message).join(Conversation).filter(
+            Message.id == message_id,
+            Conversation.user_id == user.id,
+            Conversation.is_active == True
+        ).first()
+        
+        return message

@@ -21,6 +21,7 @@ from app.api.endpoints.chat import router as chat_router
 from app.api.endpoints.admin import router as admin_router  # Agregado router de administración
 from app.api.endpoints.projects import router as projects_router  # Added projects router
 from app.api.endpoints.project_files import router as project_files_router  # Added project files router
+from app.api.endpoints.users import router as users_router  # Added users router
 from app.core.config import settings
 from app.db.vector_store import VectorStore
 from app.db.database import init_db
@@ -86,6 +87,7 @@ app.include_router(chat_router, prefix="/api/v1", tags=["chat"])
 app.include_router(admin_router, prefix="/api/v1", tags=["administration"])  # Incluido router de administración
 app.include_router(projects_router, prefix="/api/v1", tags=["projects"])  # Included projects router
 app.include_router(project_files_router, prefix="/api/v1", tags=["project_files"])  # Included project files router
+app.include_router(users_router, prefix="/api/v1", tags=["users"])  # Included users router
 
 @app.get("/")
 async def root():

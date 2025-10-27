@@ -11,6 +11,7 @@ from datetime import datetime
 from app.models.schemas import DocumentMetadata, DocumentType, IngestionType
 from app.db.vector_store import VectorStore
 from app.utils.text_processor import TextProcessor
+from app.utils.file_extractor import FileExtractor
 
 class IngestionService:
     """
@@ -22,6 +23,7 @@ class IngestionService:
     def __init__(self):
         self.vector_store = VectorStore()
         self.text_processor = TextProcessor()
+        self.file_extractor = FileExtractor()
         self._ensure_personality_storage_dir()
     
     def _ensure_personality_storage_dir(self):
@@ -107,11 +109,16 @@ class IngestionService:
         
         print(f"📄 Procesando archivo de conocimiento: {filename}")
         
-        # 1. Decodificar contenido
+        # 1. Extract text based on file type
         try:
-            text_content = content.decode('utf-8')
-        except UnicodeDecodeError:
-            print(f"❌ Error decodificando {filename}")
+            text_content = self.file_extractor.extract_text(content, filename)
+            
+            if not text_content or not text_content.strip():
+                print(f"⚠️ No se pudo extraer texto de {filename}")
+                return []
+                
+        except Exception as e:
+            print(f"❌ Error extrayendo texto de {filename}: {e}")
             return []
         
         # 2. Limpiar y procesar texto
