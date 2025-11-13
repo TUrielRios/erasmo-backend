@@ -47,7 +47,7 @@ class ConversationService:
         """
         Genera respuesta estratégica con streaming usando fuentes de conocimiento e instrucciones personalizadas
         """
-        print(f"🔄 [DEBUG] Starting streaming response for session: {session_id}, user: {user_id}")
+        print(f"🔄 [DEBUG] Starting streaming response for session: {session_id}, user: {user_id}, require_analysis: {require_analysis}")
 
         db = SessionLocal()
         try:
@@ -99,7 +99,38 @@ class ConversationService:
             if project_id:
                 project_context = f"\n\n🔴 IMPORTANTE: Esta conversación está vinculada a un PROYECTO ESPECÍFICO (ID: {project_id}).\nDEBES PRIORIZAR los documentos del proyecto sobre los documentos de la empresa."
 
-            system_prompt = f"""
+            if require_analysis:
+                system_prompt = f"""
+            ERES UN ASISTENTE DE IA PERSONALIZADO PARA {company_name.upper()}.{project_context}
+
+            INSTRUCCIONES CRÍTICAS - DEBES SEGUIR AL PIE DE LA LETRA:
+            {instruction_text}
+
+            FUENTES DE CONOCIMIENTO PRIORITARIAS (USA ESTAS PRIMERO):
+            {knowledge_text}
+
+            INFORMACIÓN DE LA EMPRESA:
+            - Empresa: {company_name}
+            - Industria: {industry}
+            - Sector: {user_company_data.get('sector', '')}
+
+            REGLAS ESTRICTAS:
+            1. SIEMPRE sigue las instrucciones específicas proporcionadas
+            2. USA PRIMERO el conocimiento de las fuentes prioritarias
+            3. Si las fuentes no son suficientes, ENTONCES usa conocimiento general
+            4. RECUERDA información de conversaciones anteriores
+            5. ADAPTA tu respuesta al contexto específico de {company_name}
+            6. GENERA un ANÁLISIS CONCEPTUAL ESTRUCTURADO y un PLAN DE ACCIÓN DETALLADO
+
+            FORMATO REQUERIDO:
+            ## Análisis Conceptual
+            [Análisis detallado del tema]
+
+            ## Plan de Acción
+            [Plan estructurado con pasos específicos]
+            """
+            else:
+                system_prompt = f"""
             ERES UN ASISTENTE DE IA PERSONALIZADO PARA {company_name.upper()}.{project_context}
 
             INSTRUCCIONES CRÍTICAS - DEBES SEGUIR AL PIE DE LA LETRA:
@@ -125,10 +156,12 @@ class ConversationService:
             """
 
             if require_analysis:
+                print(f"📊 [DEBUG] Building STRUCTURED analysis prompt (require_analysis=True)")
                 prompt = self._build_enhanced_conversation_prompt(
                     message, relevant_context, conversation_history, "conceptual", key_info, project_id
                 )
             else:
+                print(f"💬 [DEBUG] Building NORMAL conversation prompt (require_analysis=False)")
                 prompt = self._build_normal_conversation_prompt(
                     message, relevant_context, conversation_history, key_info, project_id
                 )
@@ -842,14 +875,12 @@ class ConversationService:
         1. Genera el plan de acción según la metodología especificada
         2. Usa el formato y estructura indicados en las instrucciones
         3. Mantén el tono y estilo especificados
-        4. Incluye los elementos requeridos por las instrucciones
-
-        Respuesta CONCISA en Markdown siguiendo las instrucciones al pie de la letra.
+        4. Incluye todas las acciones necesarias para completar la tarea.
         """
 
         model_name = ai_config.model_name if ai_config else settings.OPENAI_MODEL
         temperature = float(ai_config.temperature) if ai_config else 0.7
-        max_tokens = (ai_config.max_tokens // 2) if ai_config else 700
+        max_tokens = (ai_config.max_tokens // 2) if ai_config else 800
 
         try:
             response = self.openai_client.chat.completions.create(
@@ -861,32 +892,157 @@ class ConversationService:
 
             content = response.choices[0].message.content
 
-            # Determine priority and timeline from content
-            priority = "media"
-            if any(word in content.lower() for word in ["urgente", "inmediato", "crítico", "prioridad alta"]):
-                priority = "alta"
-            elif any(word in content.lower() for word in ["largo plazo", "eventualmente", "cuando sea posible"]):
-                priority = "baja"
-
-            timeline = "2-3 semanas"
-            if "días" in content.lower() or "semana" in content.lower():
-                timeline = "1-2 semanas"
-            elif "mes" in content.lower():
-                timeline = "3-4 semanas"
-
             return AccionalResponse(
                 content=content,
-                priority=priority,
-                timeline=timeline
+                priority="media",
+                timeline="Indefinido"
             )
 
         except Exception as e:
             print(f"❌ Error generating accional response with instructions: {e}")
             return AccionalResponse(
-                content=f"## Plan de Acción\n\nEstoy teniendo dificultades técnicas. Por favor, intenta nuevamente.\n\nError: {str(e)}",
+                content="Error generando plan de acción. Intenta nuevamente.",
                 priority="media",
                 timeline="Indefinido"
             )
+
+    def _build_prompt(
+        self,
+        message: str,
+        context: List[Dict],
+        history: List[Dict],
+        prompt_type: str,
+        key_info: Dict[str, Any],
+        project_id: Optional[int] = None
+    ) -> str:
+        """
+        Construye el prompt para la respuesta basado en el tipo de prompt
+        """
+        if prompt_type == "conceptual":
+            return self._build_conceptual_prompt(message, context, history, key_info, project_id)
+        elif prompt_type == "normal":
+            return self._build_normal_prompt(message, context, history, key_info, project_id)
+        else:
+            raise ValueError("Tipo de prompt no soportado")
+
+    def _build_conceptual_prompt(
+        self,
+        message: str,
+        context: List[Dict],
+        history: List[Dict],
+        key_info: Dict[str, Any],
+        project_id: Optional[int] = None
+    ) -> str:
+        """
+        Construye el prompt para una respuesta conceptual
+        """
+        prompt = f"""
+        Basado en la siguiente consulta:
+        "{message}"
+
+        Y el siguiente contexto relevante:
+        {self._format_context(context)}
+
+        Y el historial de la conversación:
+        {self._format_history(history)}
+
+        Genera un análisis conceptual detallado que responda a la consulta, siguiendo las instrucciones y usando el conocimiento proporcionado.
+
+        Incluye:
+        - Un resumen de la consulta
+        - Un análisis detallado de la información relevante
+        - Una conclusión basada en el análisis
+        """
+
+        return prompt
+
+    def _build_normal_prompt(
+        self,
+        message: str,
+        context: List[Dict],
+        history: List[Dict],
+        key_info: Dict[str, Any],
+        project_id: Optional[int] = None
+    ) -> str:
+        """
+        Construye el prompt para una respuesta normal
+        """
+        prompt = f"""
+        Basado en la siguiente consulta:
+        "{message}"
+
+        Y el siguiente contexto relevante:
+        {self._format_context(context)}
+
+        Y el historial de la conversación:
+        {self._format_history(history)}
+
+        Genera una respuesta conversacional que responda a la consulta, siguiendo las instrucciones y usando el conocimiento proporcionado.
+
+        Mantén la respuesta concisa y directa.
+        """
+
+        return prompt
+
+    def _format_context(self, context: List[Dict]) -> str:
+        """
+        Formatea el contexto relevante para el prompt
+        """
+        formatted_context = ""
+        for item in context:
+            formatted_context += f"Fuente: {item['source']}\n"
+            formatted_context += f"Contenido: {item['content']}\n\n"
+        return formatted_context
+
+    def _format_history(self, history: List[Dict]) -> str:
+        """
+        Formatea el historial de la conversación para el prompt
+        """
+        formatted_history = ""
+        for message in history:
+            role = message.get('role', 'desconocido')
+            content = message.get('content', 'sin contenido')
+            formatted_history += f"{role}: {content}\n"
+        return formatted_history
+
+    async def _generate_default_clarification(self, message: str) -> List[ClarificationQuestion]:
+        """
+        Genera preguntas de clarificación por defecto
+        """
+        questions = [
+            ClarificationQuestion(
+                question="¿Podrías proporcionar más detalles sobre lo que estás preguntando?",
+                context="Necesito más información para poder ayudarte de la mejor manera posible."
+            ),
+            ClarificationQuestion(
+                question="¿Hay algún contexto específico que deba tener en cuenta?",
+                context="Algunos detalles adicionales pueden ayudarme a entender mejor tu consulta."
+            ),
+            ClarificationQuestion(
+                question="¿Estás buscando información sobre un tema en particular?",
+                context="Especificar el tema puede ayudarme a proporcionarte una respuesta más precisa."
+            )
+        ]
+
+        return questions
+
+    async def _generate_fallback_responses(self, message: str) -> Tuple[ConceptualResponse, AccionalResponse]:
+        """
+        Genera respuestas de fallback en caso de error
+        """
+        conceptual = ConceptualResponse(
+            content="Lo siento, hubo un error al procesar tu consulta. Por favor, intenta nuevamente.",
+            sources=[],
+            confidence=0.1
+        )
+
+        accional = AccionalResponse(
+            content="No se pudo generar un plan de acción debido a un error técnico.",
+            priority="media",
+            timeline="Indefinido"
+        )
+
+        return conceptual, accional
 
     def _compile_knowledge(self, knowledge: List[Dict]) -> str:
         """
@@ -895,17 +1051,15 @@ class ConversationService:
         if not knowledge:
             return "No hay fuentes de conocimiento específicas configuradas."
 
-        compiled = "FUENTES DE CONOCIMIENTO PRIORITARIAS:\n\n"
+        compiled = "FUENTES DE CONOCIMIENTO ESPECÍFICAS:\n\n"
 
         for i, doc in enumerate(knowledge, 1):
-            priority = doc.get('priority', 5)
             filename = doc.get('filename', f'documento_{i}')
-            content = doc.get('content', '')[:2000]
+            content = doc.get('content', '')
 
-            compiled += f"## FUENTE {i} (Prioridad {priority}) - {filename}\n"
+            compiled += f"## DOCUMENTO {i} - {filename}\n"
             compiled += f"{content}\n\n"
 
-        compiled += "\nUSA ESTAS FUENTES COMO REFERENCIA PRINCIPAL PARA TUS RESPUESTAS."
         return compiled
 
     def _build_enhanced_conversation_prompt(
@@ -915,7 +1069,7 @@ class ConversationService:
         history: List[Dict],
         response_type: str,
         key_info: Dict[str, Any] = None,
-        project_id: Optional[int] = None  # Add project_id parameter
+        project_id: Optional[int] = None
     ) -> str:
         """
         Construye prompt mejorado para conversación con contexto priorizado
@@ -977,12 +1131,19 @@ class ConversationService:
                 project_emphasis = "\n🔴 CRÍTICO: Esta conversación está vinculada a un proyecto específico. DEBES usar PRIMERO los documentos del proyecto marcados con 'CONTEXTO DEL PROYECTO'."
 
             prompt_specific = f"""
-            GENERA UNA RESPUESTA CONCEPTUAL que:
+            GENERA UNA RESPUESTA CONCEPTUAL ESTRUCTURADA que:
             1. USE PRIORITARIAMENTE las fuentes de conocimiento específicas proporcionadas{project_emphasis}
             2. SIGA EXACTAMENTE las instrucciones configuradas
             3. RECUERDA toda la información previa de la conversación
             4. Explique el marco teórico basado en las fuentes prioritarias
             5. Solo use conocimiento general si las fuentes específicas no son suficientes
+
+            FORMATO REQUERIDO:
+            ## Análisis Conceptual
+            [Análisis detallado y estructurado]
+
+            ## Plan de Acción
+            [Pasos específicos y accionables]
 
             CRÍTICO: Las fuentes de conocimiento prioritarias son tu referencia principal.
             """
@@ -1007,78 +1168,6 @@ class ConversationService:
 
         Consulta actual: {message}
         """
-
-    async def _generate_normal_response(
-        self,
-        message: str,
-        context: List[Dict],
-        history: List[Dict],
-        instructions: List[Dict],
-        knowledge: List[Dict],
-        key_info: Dict[str, Any],
-        ai_config: Any,
-        user_company_data: Dict[str, Any],
-        project_id: Optional[int] = None
-    ) -> str:
-        """
-        Genera una respuesta conversacional normal sin estructura de análisis/plan de acción
-        """
-        company_name = user_company_data.get('company_name', 'tu empresa')
-        industry = user_company_data.get('industry', '')
-
-        instruction_text = self._compile_instructions(instructions)
-        knowledge_text = self._compile_knowledge(knowledge)
-
-        project_context = ""
-        if project_id:
-            project_context = f"\n\n🔴 IMPORTANTE: Esta conversación está vinculada a un PROYECTO ESPECÍFICO (ID: {project_id}).\nDEBES PRIORIZAR los documentos del proyecto sobre los documentos de la empresa."
-
-        system_prompt = f"""
-        ERES UN ASISTENTE DE IA PERSONALIZADO PARA {company_name.upper()}.{project_context}
-
-        INSTRUCCIONES CRÍTICAS - DEBES SEGUIR AL PIE DE LA LETRA:
-        {instruction_text}
-
-        FUENTES DE CONOCIMIENTO PRIORITARIAS (USA ESTAS PRIMERO):
-        {knowledge_text}
-
-        INFORMACIÓN DE LA EMPRESA:
-        - Empresa: {company_name}
-        - Industria: {industry}
-        - Sector: {user_company_data.get('sector', '')}
-
-        REGLAS ESTRICTAS:
-        1. SIEMPRE sigue las instrucciones específicas proporcionadas
-        2. USA PRIMERO el conocimiento de las fuentes prioritarias
-        3. Si las fuentes no son suficientes, ENTONCES usa conocimiento general
-        4. RECUERDA información de conversaciones anteriores
-        5. ADAPTA tu respuesta al contexto específico de {company_name}
-        6. Responde de manera CONVERSACIONAL y NATURAL, sin estructura forzada
-        7. NO generes secciones de "Análisis Conceptual" o "Plan de Acción" a menos que sea explícitamente necesario
-
-        Mantén respuestas concisas, directas y conversacionales.
-        """
-
-        prompt = self._build_normal_conversation_prompt(message, context, history, key_info, project_id)
-
-        model_name = ai_config.model_name if ai_config else settings.OPENAI_MODEL
-        temperature = float(ai_config.temperature) if ai_config else 0.7
-        max_tokens = ai_config.max_tokens if ai_config else 1500
-
-        try:
-            response = self.openai_client.chat.completions.create(
-                model=model_name,
-                messages=[{"role": "system", "content": system_prompt}, {"role": "user", "content": prompt}],
-                max_tokens=max_tokens,
-                temperature=temperature
-            )
-
-            content = response.choices[0].message.content
-            return content
-
-        except Exception as e:
-            print(f"❌ Error generating normal response: {e}")
-            return f"Estoy teniendo dificultades técnicas. Por favor, intenta nuevamente.\n\nError: {str(e)}"
 
     def _build_normal_conversation_prompt(
         self,
@@ -1159,71 +1248,3 @@ class ConversationService:
 
         Consulta actual: {message}
         """
-
-    def _extract_sources(self, company_knowledge: List[Dict], company_instructions: List[Dict], project_knowledge: List[Dict]) -> List[str]:
-        """
-        Extrae lista de fuentes utilizadas
-        """
-        sources = []
-        for doc in project_knowledge:
-            sources.append(f"proyecto_{doc['filename']}")
-        for doc in company_knowledge:
-            sources.append(f"conocimiento_{doc['filename']}")
-        for doc in company_instructions:
-            sources.append(f"instrucciones_{doc['filename']}")
-        
-        if not sources:
-            sources = ["configuracion_personalizada"]
-        
-        return sources
-
-    async def _generate_fallback_responses(self, message: str) -> Tuple[ConceptualResponse, AccionalResponse]:
-        """Genera respuestas de fallback cuando hay errores"""
-        fallback_conceptual = ConceptualResponse(
-            content="Estoy experimentando dificultades técnicas temporales. Tu consulta es importante y la procesaré tan pronto como sea posible.",
-            sources=[],
-            confidence=0.1
-        )
-
-        fallback_accional = AccionalResponse(
-            content="Por favor, intenta enviar tu consulta nuevamente en unos momentos.",
-            priority="media",
-            timeline="Inmediato"
-        )
-
-        return fallback_conceptual, fallback_accional
-
-    def _parse_clarification_questions(self, content: str) -> List[ClarificationQuestion]:
-        """Parsea la respuesta de OpenAI en objetos ClarificationQuestion"""
-        questions = []
-        lines = content.split('\n')
-        current_question = None
-
-        for line in lines:
-            line = line.strip()
-            if line.startswith('Pregunta:'):
-                if current_question:
-                    questions.append(current_question)
-                current_question = ClarificationQuestion(
-                    question=line.replace('Pregunta:', '').strip(),
-                    context="",
-                    suggested_answers=[]
-                )
-            elif line.startswith('Contexto:') and current_question:
-                current_question.context = line.replace('Contexto:', '').strip()
-            elif line.startswith('Opciones:') and current_question:
-                options = line.replace('Opciones:', '').strip().split(',')
-                current_question.suggested_answers = [opt.strip() for opt in options if opt.strip()]
-
-        if current_question:
-            questions.append(current_question)
-
-        return questions
-
-    def _count_tokens(self, text: str) -> int:
-        """Cuenta tokens en un texto"""
-        return len(self.encoding.encode(text))
-
-    def _count_tokens(self, text: str) -> int:
-        """Cuenta tokens en un texto"""
-        return len(self.encoding.encode(text))
