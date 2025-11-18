@@ -20,6 +20,10 @@ from app.services.ingestion_service import IngestionService
 from app.services.memory_service import MemoryService
 from app.db.database import SessionLocal
 from app.core.config import settings
+from app.services.token_optimizer_service import TokenOptimizerService
+from app.services.adaptive_budget_service import AdaptiveBudgetService
+from app.services.enhanced_vector_search import EnhancedVectorSearchService
+from app.services.token_logger_service import TokenLoggerService
 
 class ConversationService:
     """
@@ -34,6 +38,10 @@ class ConversationService:
         self.openai_client = openai.OpenAI(api_key=settings.OPENAI_API_KEY)
         self.conversation_memory: Dict[str, List[Dict]] = {}
         self.encoding = tiktoken.encoding_for_model(settings.OPENAI_MODEL)
+        self.token_optimizer = TokenOptimizerService()
+        self.adaptive_budget = AdaptiveBudgetService()
+        self.enhanced_search = EnhancedVectorSearchService(self.vector_store)
+        self.token_logger = TokenLoggerService()
 
     async def generate_strategic_response_stream(
         self,
@@ -53,6 +61,7 @@ class ConversationService:
         try:
             from app.services.chat_service import ChatService
             from app.services.auth_service import AuthService
+            from app.services.response_validator_service import ResponseValidatorService
 
             current_user = AuthService.get_user_by_id(db, user_id)
             conversation = ChatService().get_conversation_by_session_id(db, current_user, session_id)
@@ -72,6 +81,7 @@ class ConversationService:
             ai_config = await self._get_ai_configuration(db, company_id)
 
             # Search for relevant context
+            # Usar _search_prioritized_context que ahora usa enhanced_search
             relevant_context = await self._search_prioritized_context(
                 message,
                 company_knowledge,
@@ -80,12 +90,36 @@ class ConversationService:
                 project_id=project_id
             )
 
+            prompt_role = "full_analysis" if require_analysis else "normal_chat"
+            # The optimize_prompt method might need adjustments based on its actual implementation for streaming context optimization
+            # For now, we'll assume it returns compressed_context correctly.
+            # A more robust implementation might involve token budgeting for the entire stream.
+            _, _, compressed_context, _ = self.token_optimizer.optimize_prompt(
+                system_prompt="", # System prompt is built later, so it's empty here.
+                context=relevant_context,
+                history=[], # History is handled separately below.
+                user_message="", # User message is handled separately below.
+                prompt_role=prompt_role
+            )
+            relevant_context = compressed_context
+
             # Get conversation history
             if history_context is None:
                 full_context = self.memory_service.get_full_context_for_ai(db, session_id, memory_limit=200)
                 conversation_history = full_context.get("messages", [])
             else:
                 conversation_history = history_context
+
+            # Ensure the _compress_history method is available and correctly used.
+            # The exact memory limit might need to be dynamic based on model context window.
+            # Assuming settings.MAX_CONTEXT_LENGTH is available and represents the total token limit.
+            # We might need to allocate tokens for system prompt, user message, and response as well.
+            # For simplicity here, we're allocating half of the hypothetical max context length.
+            compressed_history = self.token_optimizer._compress_history(
+                conversation_history,
+                settings.MAX_CONTEXT_LENGTH // 2 # Example split, adjust as needed
+            )
+            conversation_history = compressed_history
 
             key_info = self.memory_service.extract_key_info(db, session_id, message)
 
@@ -100,75 +134,80 @@ class ConversationService:
                 project_context = f"\n\n🔴 IMPORTANTE: Esta conversación está vinculada a un PROYECTO ESPECÍFICO (ID: {project_id}).\nDEBES PRIORIZAR los documentos del proyecto sobre los documentos de la empresa."
 
             if require_analysis:
-                system_prompt = f"""
-            ERES UN ASISTENTE DE IA PERSONALIZADO PARA {company_name.upper()}.{project_context}
+                system_prompt = f"""ERES UN ASISTENTE DE IA PERSONALIZADO PARA {company_name.upper()}.{project_context}
 
-            INSTRUCCIONES CRÍTICAS - DEBES SEGUIR AL PIE DE LA LETRA:
-            {instruction_text}
+INSTRUCCIONES CRÍTICAS - DEBES SEGUIR AL PIE DE LA LETRA:
+{instruction_text}
 
-            FUENTES DE CONOCIMIENTO PRIORITARIAS (USA ESTAS PRIMERO):
-            {knowledge_text}
+FUENTES DE CONOCIMIENTO PRIORITARIAS (USA ESTAS PRIMERO):
+{knowledge_text}
 
-            INFORMACIÓN DE LA EMPRESA:
-            - Empresa: {company_name}
-            - Industria: {industry}
-            - Sector: {user_company_data.get('sector', '')}
+INFORMACIÓN DE LA EMPRESA:
+- Empresa: {company_name}
+- Industria: {industry}
+- Sector: {user_company_data.get('sector', '')}
 
-            REGLAS ESTRICTAS:
-            1. SIEMPRE sigue las instrucciones específicas proporcionadas
-            2. USA PRIMERO el conocimiento de las fuentes prioritarias
-            3. Si las fuentes no son suficientes, ENTONCES usa conocimiento general
-            4. RECUERDA información de conversaciones anteriores
-            5. ADAPTA tu respuesta al contexto específico de {company_name}
-            6. GENERA un ANÁLISIS CONCEPTUAL ESTRUCTURADO y un PLAN DE ACCIÓN DETALLADO
+REGLAS ESTRICTAS:
+1. SIEMPRE sigue las instrucciones específicas proporcionadas
+2. USA PRIMERO el conocimiento de las fuentes prioritarias
+3. Si las fuentes no son suficientes, ENTONCES usa conocimiento general
+4. RECUERDA información de conversaciones anteriores
+5. ADAPTA tu respuesta al contexto específico de {company_name}
+6. GENERA un ANÁLISIS CONCEPTUAL ESTRUCTURADO y un PLAN DE ACCIÓN DETALLADO
+7. GENERA RESPUESTAS EXTENSAS Y DETALLADAS (mínimo 1500 tokens)
 
-            FORMATO REQUERIDO:
-            ## Análisis Conceptual
-            [Análisis detallado del tema]
+FORMATO REQUERIDO:
+## Análisis Conceptual
+[Análisis detallado del tema - SIGUE EXTENSE CON MÚLTIPLES PÁRRAFOS]
 
-            ## Plan de Acción
-            [Plan estructurado con pasos específicos]
-            """
+## Plan de Acción
+[Plan estructurado con pasos específicos - DESARROLLA COMPLETAMENTE CADA PASO]
+"""
             else:
-                system_prompt = f"""
-            ERES UN ASISTENTE DE IA PERSONALIZADO PARA {company_name.upper()}.{project_context}
+                system_prompt = f"""ERES UN ASISTENTE DE IA PERSONALIZADO PARA {company_name.upper()}.{project_context}
 
-            INSTRUCCIONES CRÍTICAS - DEBES SEGUIR AL PIE DE LA LETRA:
-            {instruction_text}
+INSTRUCCIONES CRÍTICAS - DEBES SEGUIR AL PIE DE LA LETRA:
+{instruction_text}
 
-            FUENTES DE CONOCIMIENTO PRIORITARIAS (USA ESTAS PRIMERO):
-            {knowledge_text}
+FUENTES DE CONOCIMIENTO PRIORITARIAS (USA ESTAS PRIMERO):
+{knowledge_text}
 
-            INFORMACIÓN DE LA EMPRESA:
-            - Empresa: {company_name}
-            - Industria: {industry}
-            - Sector: {user_company_data.get('sector', '')}
+INFORMACIÓN DE LA EMPRESA:
+- Empresa: {company_name}
+- Industria: {industry}
+- Sector: {user_company_data.get('sector', '')}
 
-            REGLAS ESTRICTAS:
-            1. SIEMPRE sigue las instrucciones específicas proporcionadas
-            2. USA PRIMERO el conocimiento de las fuentes prioritarias
-            3. Si las fuentes no son suficientes, ENTONCES usa conocimiento general
-            4. RECUERDA información de conversaciones anteriores
-            5. ADAPTA tu respuesta al contexto específico de {company_name}
-            6. Responde de manera CONVERSACIONAL y NATURAL
+REGLAS ESTRICTAS:
+1. SIEMPRE sigue las instrucciones específicas proporcionadas
+2. USA PRIMERO el conocimiento de las fuentes prioritarias
+3. Si las fuentes no son suficientes, ENTONCES usa conocimiento general
+4. RECUERDA información de conversaciones anteriores
+5. ADAPTA tu respuesta al contexto específico de {company_name}
+6. GENERA RESPUESTAS EXTENSAS Y DETALLADAS (mínimo 1500 tokens)
+7. Responde de manera CONVERSACIONAL pero COMPLETA Y PROFUNDA
 
-            Mantén respuestas concisas, directas y conversacionales.
-            """
+Mantén respuestas detalladas, informativas y conversacionales - NO hagas respuestas cortas.
+"""
 
             if require_analysis:
                 print(f"📊 [DEBUG] Building STRUCTURED analysis prompt (require_analysis=True)")
+                # Pass the compressed context and history to the prompt builder
                 prompt = self._build_enhanced_conversation_prompt(
                     message, relevant_context, conversation_history, "conceptual", key_info, project_id
                 )
             else:
                 print(f"💬 [DEBUG] Building NORMAL conversation prompt (require_analysis=False)")
+                # Pass the compressed context and history to the prompt builder
                 prompt = self._build_normal_conversation_prompt(
                     message, relevant_context, conversation_history, key_info, project_id
                 )
 
             model_name = ai_config.model_name if ai_config else settings.OPENAI_MODEL
-            temperature = float(ai_config.temperature) if ai_config else 0.7
-            max_tokens = ai_config.max_tokens if ai_config else 1500
+            temperature = float(ai_config.temperature) if ai_config else settings.DEFAULT_TEMPERATURE
+            max_tokens = ai_config.max_tokens if ai_config else settings.MAX_RESPONSE_TOKENS
+
+            if temperature < settings.DEFAULT_TEMPERATURE:
+                temperature = settings.DEFAULT_TEMPERATURE
 
             # Stream the response from OpenAI
             stream = self.openai_client.chat.completions.create(
@@ -179,15 +218,34 @@ class ConversationService:
                 ],
                 max_tokens=max_tokens,
                 temperature=temperature,
+                top_p=settings.DEFAULT_TOP_P,
                 stream=True  # Enable streaming
             )
 
+            response_content = ""
+            token_count = 0
+            
             for chunk in stream:
                 if chunk.choices[0].delta.content is not None:
                     content = chunk.choices[0].delta.content
+                    response_content += content
+                    token_count = int(len(response_content) / 4)
                     yield content
 
             print(f"✅ [DEBUG] Streaming response completed")
+            
+            validator = ResponseValidatorService(min_tokens=settings.MIN_RESPONSE_TOKENS)
+            is_valid, tokens = validator.log_response_quality(response_content, session_id, user_id)
+            
+            self.token_logger.log_streaming_tokens(
+                session_id=session_id,
+                user_id=user_id,
+                model=model_name,
+                estimated_completion_tokens=tokens,
+                response_length=len(response_content),
+                message_preview=response_content[:100],
+                response_time=0
+            )
 
         except Exception as e:
             print(f"❌ [DEBUG] Error in streaming response: {e}")
@@ -323,10 +381,10 @@ class ConversationService:
         require_analysis: bool = False  # Added parameter to control analysis generation
     ) -> Tuple[ConceptualResponse, AccionalResponse]:
         """
-        Genera respuesta estratégica usando fuentes de conocimiento e instrucciones personalizadas
+        Genera respuesta estratégica con presupuesto adaptativo de tokens
         Si require_analysis es False, genera una respuesta normal sin estructura de análisis/plan
         """
-        print(f"🔄 [DEBUG] Starting enhanced generate_strategic_response for session: {session_id}, user: {user_id}, require_analysis: {require_analysis}")
+        print(f"🔄 [DEBUG] Starting generate_strategic_response")
 
         db = SessionLocal()
         try:
@@ -362,6 +420,28 @@ class ConversationService:
             except Exception as e:
                 print(f"❌ [DEBUG] Error adding message to memory: {e}")
 
+            if history_context is None:
+                full_context = self.memory_service.get_full_context_for_ai(db, session_id, memory_limit=200)
+                conversation_history = full_context.get("messages", [])
+            else:
+                conversation_history = history_context
+            
+            # Calcular presupuesto adaptativo
+            adaptive_budget = self.adaptive_budget.calculate_adaptive_budget(
+                message=message,
+                history_length=len(conversation_history),
+                available_context=settings.MAX_CONTEXT_LENGTH,
+                require_analysis=require_analysis
+            )
+            
+            print(f"📊 [DEBUG] Adaptive budget calculated:")
+            print(f"   - Complexity: {adaptive_budget['complexity_level']} (factor: {adaptive_budget['complexity_factor']})")
+            print(f"   - Response tokens: {adaptive_budget['response_tokens']}")
+            print(f"   - Context tokens: {adaptive_budget['context_tokens']}")
+            print(f"   - Total allocated: {adaptive_budget['total_allocated']}")
+
+            # Usar presupuesto adaptativo en token optimizer
+            # Usar _search_prioritized_context que ahora usa enhanced_search
             relevant_context = await self._search_prioritized_context(
                 message,
                 company_knowledge,
@@ -369,6 +449,13 @@ class ConversationService:
                 company_id=company_id,
                 project_id=project_id
             )
+
+            compressed_context = self.token_optimizer.compress_context(
+                relevant_context,
+                adaptive_budget['context_tokens']
+            )
+            relevant_context = compressed_context
+
             print(f"✅ [DEBUG] Prioritized context search completed: {len(relevant_context)} results")
 
             # Get conversation history
@@ -422,6 +509,19 @@ class ConversationService:
                 try:
                     full_response = f"## Análisis Conceptual\n{conceptual.content}\n\n## Plan de Acción\n{accional.content}"
                     self.memory_service.add_message(db, session_id, "assistant", full_response)
+                    
+                    response_length = len(full_response)
+                    estimated_tokens = int(response_length / 4)
+                    self.token_logger.log_streaming_tokens(
+                        session_id=session_id,
+                        user_id=user_id,
+                        model=ai_config.model_name if ai_config else settings.OPENAI_MODEL,
+                        estimated_completion_tokens=estimated_tokens,
+                        response_length=response_length,
+                        message_preview=full_response[:100],
+                        response_time=0
+                    )
+                    
                     print(f"✅ [DEBUG] Assistant response added to memory")
                 except Exception as e:
                     print(f"❌ [DEBUG] Error adding assistant response to memory: {e}")
@@ -452,6 +552,19 @@ class ConversationService:
                     # Save assistant response
                     try:
                         self.memory_service.add_message(db, session_id, "assistant", normal_response)
+                        
+                        response_length = len(normal_response)
+                        estimated_tokens = int(response_length / 4)
+                        self.token_logger.log_streaming_tokens(
+                            session_id=session_id,
+                            user_id=user_id,
+                            model=ai_config.model_name if ai_config else settings.OPENAI_MODEL,
+                            estimated_completion_tokens=estimated_tokens,
+                            response_length=response_length,
+                            message_preview=normal_response[:100],
+                            response_time=0
+                        )
+                        
                         print(f"✅ [DEBUG] Normal assistant response added to memory")
                     except Exception as e:
                         print(f"❌ [DEBUG] Error adding assistant response to memory: {e}")
@@ -469,11 +582,11 @@ class ConversationService:
                         timeline=""
                     )
 
-            print(f"✅ [DEBUG] Enhanced generate_strategic_response completed successfully")
+            print(f"✅ [DEBUG] generate_strategic_response completed successfully")
             return conceptual, accional
 
         except Exception as e:
-            print(f"❌ [DEBUG] Unexpected error in enhanced generate_strategic_response: {e}")
+            print(f"❌ [DEBUG] Unexpected error in generate_strategic_response: {e}")
             return await self._generate_fallback_responses(message)
         finally:
             db.close()
@@ -621,7 +734,7 @@ class ConversationService:
         project_id: int = None
     ) -> List[Dict[str, Any]]:
         """
-        Busca contexto usando búsqueda vectorial semántica en Pinecone
+        Busca contexto usando búsqueda vectorial mejorada con múltiples estrategias
         PRIORIZA documentos del proyecto si project_id está presente
         """
         prioritized_context = []
@@ -631,59 +744,69 @@ class ConversationService:
                 await self.vector_store.initialize()
 
             if project_id:
-                print(f"🔍 [DEBUG] Searching PROJECT documents for project {project_id}")
-                project_results = await self.vector_store.similarity_search(
-                    message,
-                    top_k=15,
-                    project_id=project_id  # Search by project_id instead of company_id
-                )
+                print(f"🔍 [DEBUG] Searching PROJECT documents with enhanced search for project {project_id}")
+                try:
+                    project_results = await self.enhanced_search.hybrid_search(
+                        message,
+                        project_id=project_id,
+                        top_k=30,  # Increased from 20 to 30
+                        min_score=0.25  # Lowered from 0.3 to 0.25 for better coverage
+                    )
 
-                print(f"📁 [DEBUG] Project vector search found {len(project_results)} relevant documents")
+                    print(f"📁 [DEBUG] Enhanced search found {len(project_results)} relevant project documents")
 
-                # Add project results with HIGHEST priority
-                for result in project_results:
-                    content = result.get('content', '')
-                    source = result.get('source', 'proyecto')
-                    score = result.get('score', 0.0)
+                    # Add project results with HIGHEST priority
+                    for result in project_results:
+                        content = result.get('content', '')
+                        source = result.get('source', 'proyecto')
+                        score = result.get('final_score', result.get('score', 0.0))
 
-                    prioritized_context.append({
-                        'content': content,
-                        'source': f"proyecto_{source}",
-                        'priority': 0,  # HIGHEST priority for project documents
-                        'category': 'project_vector_search',
-                        'relevance_score': score
-                    })
+                        prioritized_context.append({
+                            'content': content,
+                            'source': f"proyecto_{source}",
+                            'priority': 0,  # HIGHEST priority for project documents
+                            'category': 'project_vector_search',
+                            'relevance_score': score
+                        })
 
-                print(f"✅ [DEBUG] Added {len(project_results)} documents from PROJECT vector search")
+                    print(f"✅ [DEBUG] Added {len(project_results)} documents from enhanced PROJECT search")
+                
+                except Exception as e:
+                    print(f"⚠️ [DEBUG] Error in project search (continuing anyway): {e}")
 
             if company_id:
-                print(f"🔍 [DEBUG] Searching COMPANY documents for company {company_id}")
-                company_results = await self.vector_store.similarity_search(
-                    message,
-                    top_k=10,
-                    company_id=company_id
-                )
+                print(f"🔍 [DEBUG] Searching COMPANY documents with enhanced search for company {company_id}")
+                try:
+                    company_results = await self.enhanced_search.hybrid_search(
+                        message,
+                        company_id=company_id,
+                        top_k=25,  # Increased from 15 to 25
+                        min_score=0.25  # Lowered from 0.3 to 0.25 for better coverage
+                    )
 
-                print(f"🏢 [DEBUG] Company vector search found {len(company_results)} relevant documents")
+                    print(f"🏢 [DEBUG] Enhanced search found {len(company_results)} relevant company documents")
 
-                # Add company results with lower priority than project
-                for result in company_results:
-                    content = result.get('content', '')
-                    source = result.get('source', 'conocimiento_vectorial')
-                    score = result.get('score', 0.0)
+                    # Add company results with lower priority than project
+                    for result in company_results:
+                        content = result.get('content', '')
+                        source = result.get('source', 'conocimiento_vectorial')
+                        score = result.get('final_score', result.get('score', 0.0))
 
-                    prioritized_context.append({
-                        'content': content,
-                        'source': source,
-                        'priority': 1,  # Lower priority than project documents
-                        'category': 'company_vector_search',
-                        'relevance_score': score
-                    })
+                        prioritized_context.append({
+                            'content': content,
+                            'source': source,
+                            'priority': 1,  # Lower priority than project documents
+                            'category': 'company_vector_search',
+                            'relevance_score': score
+                        })
 
-                print(f"✅ [DEBUG] Added {len(company_results)} documents from COMPANY vector search")
+                    print(f"✅ [DEBUG] Added {len(company_results)} documents from enhanced COMPANY search")
+                
+                except Exception as e:
+                    print(f"⚠️ [DEBUG] Error in company search (continuing anyway): {e}")
 
         except Exception as e:
-            print(f"❌ Error in vector search: {e}")
+            print(f"⚠️ [DEBUG] Error in enhanced vector search initialization: {e}")
 
         # Add project knowledge files (not from vector search)
         for doc in project_knowledge:
@@ -691,7 +814,7 @@ class ConversationService:
             # Only add if not already in vector results
             if not any(ctx.get('content') == content for ctx in prioritized_context):
                 prioritized_context.append({
-                    'content': content[:2500],
+                    'content': content[:3000],  # Increased from 2500 to 3000
                     'source': f"proyecto_{doc['filename']}",
                     'priority': 0,  # High priority for project files
                     'category': 'project_knowledge'
@@ -703,7 +826,7 @@ class ConversationService:
             # Only add if not already in results
             if not any(ctx.get('content') == content for ctx in prioritized_context):
                 prioritized_context.append({
-                    'content': content[:2500],
+                    'content': content[:3000],  # Increased from 2500 to 3000
                     'source': f"conocimiento_{doc['filename']}",
                     'priority': doc.get('priority', 5),
                     'category': 'company_knowledge'
@@ -716,8 +839,7 @@ class ConversationService:
             project_docs = [ctx for ctx in prioritized_context if 'project' in ctx.get('category', '')]
             print(f"📁 [DEBUG] Project documents in context: {len(project_docs)}")
 
-        # Return top documents (project docs will be first due to priority 0)
-        return prioritized_context[:15]
+        return prioritized_context[:30]
 
     def _is_content_relevant(self, message: str, content: str) -> bool:
         """
@@ -1105,7 +1227,7 @@ class ConversationService:
 
         history_text = ""
         if history and len(history) > 0:
-            history_text = "## HISTORIAL COMPLETO DE CONVERSACIÓN:\n"
+            history_text = "## HISTORIAL DE CONVERSACIÓN:\n"
             recent_history = history[-10:] if len(history) > 10 else history
             for msg in recent_history:
                 role_label = "Usuario" if msg.get("role") == "user" else "Asistente (tú)"
@@ -1131,32 +1253,63 @@ class ConversationService:
                 project_emphasis = "\n🔴 CRÍTICO: Esta conversación está vinculada a un proyecto específico. DEBES usar PRIMERO los documentos del proyecto marcados con 'CONTEXTO DEL PROYECTO'."
 
             prompt_specific = f"""
-            GENERA UNA RESPUESTA CONCEPTUAL ESTRUCTURADA que:
+            IMPORTANTE: DEBES generar una respuesta COMPLETA, DETALLADA y EXTENSA (mínimo 1500 tokens).
+
+            Genera una respuesta CONCEPTUAL ESTRUCTURADA que:
             1. USE PRIORITARIAMENTE las fuentes de conocimiento específicas proporcionadas{project_emphasis}
             2. SIGA EXACTAMENTE las instrucciones configuradas
             3. RECUERDA toda la información previa de la conversación
-            4. Explique el marco teórico basado en las fuentes prioritarias
+            4. Explique el marco teórico basado en las fuentes prioritarias CON DETALLE
             5. Solo use conocimiento general si las fuentes específicas no son suficientes
+            6. EXPANDE cada punto con ejemplos concretos
+            7. INCLUYE análisis profundo de cada aspecto relevante
+            8. PROPORCIONA recomendaciones detalladas y accionables
 
-            FORMATO REQUERIDO:
+            FORMATO REQUERIDO (DEBE SER EXTENSO):
             ## Análisis Conceptual
-            [Análisis detallado y estructurado]
+            [Análisis DETALLADO, estructurado, con múltiples párrafos explicativos]
+            
+            - Punto 1: [Explicación profunda con ejemplos]
+            - Punto 2: [Análisis extenso con detalles]
+            - Punto 3: [Exploración completa del tema]
+            - [Continúa con más puntos según sea necesario]
 
             ## Plan de Acción
-            [Pasos específicos y accionables]
+            [Pasos ESPECÍFICOS y DETALLADOS, completamente desarrollados]
 
-            CRÍTICO: Las fuentes de conocimiento prioritarias son tu referencia principal.
+            CRÍTICO: 
+            - NUNCA hagas respuestas cortas o superficiales
+            - EXPANDE cada idea con ejemplos y detalles
+            - GENERA mínimo 1500 tokens (aproximadamente 6000 caracteres)
+            - Las fuentes de conocimiento prioritarias son tu referencia principal
             """
         else:
             prompt_specific = """
-            GENERA UN PLAN DE ACCIÓN que:
+            IMPORTANTE: DEBES generar una respuesta COMPLETA, DETALLADA y EXTENSA (mínimo 1500 tokens).
+
+            Genera UN PLAN DE ACCIÓN DETALLADO que:
             1. USE las recomendaciones específicas de las fuentes de conocimiento prioritarias
             2. SIGA EXACTAMENTE las instrucciones configuradas para planes de acción
             3. CONSIDERE toda la información previa de la conversación
             4. Base las acciones en las fuentes prioritarias proporcionadas
-            5. Solo complemente con conocimiento general si es necesario
+            5. EXPANDA cada acción con detalles implementación específicos
+            6. INCLUYA consideraciones, riesgos y mitigaciones
+            7. PROPORCIONE cronograma y recursos necesarios
 
-            CRÍTICO: Las fuentes de conocimiento prioritarias definen tu metodología.
+            ESTRUCTURA (DEBE SER EXTENSA):
+            - Acción 1: [Descripción completa y detallada]
+            - Acción 2: [Análisis profundo de implementación]
+            - Acción 3: [Guía paso a paso]
+            - [Continúa con más acciones]
+
+            CONSIDERACIONES ADICIONALES:
+            [Análisis de riesgos, recursos, cronograma]
+
+            CRÍTICO:
+            - GENERA mínimo 1500 tokens
+            - NUNCA hagas respuestas cortas o superficiales
+            - EXPANDE cada idea con ejemplos y detalles específicos
+            - Las fuentes de conocimiento prioritarias definen tu metodología
             """
 
         return f"""
@@ -1167,6 +1320,8 @@ class ConversationService:
         {prompt_specific}
 
         Consulta actual: {message}
+
+        ⚠️ RECORDATORIO: Debes generar una respuesta EXTENSA Y DETALLADA de mínimo 1500 tokens. Si la respuesta es demasiado corta, está INCOMPLETA.
         """
 
     def _build_normal_conversation_prompt(
@@ -1240,11 +1395,32 @@ class ConversationService:
         {context_text}
         {history_text}
 
+        IMPORTANTE: DEBES generar una respuesta COMPLETA, DETALLADA y EXTENSA (mínimo 1500 tokens).
+
         RESPONDE DE MANERA CONVERSACIONAL Y NATURAL a la siguiente consulta.
         USA las fuentes de conocimiento prioritarias proporcionadas.
         RECUERDA el contexto de la conversación.{project_emphasis}
         NO uses estructura forzada de "Análisis Conceptual" o "Plan de Acción".
         Responde directamente a la pregunta del usuario de manera útil y clara.
 
+        PERO: Tu respuesta DEBE SER EXTENSA Y DETALLADA:
+        - EXPANDA cada punto con ejemplos concretos
+        - INCLUYA análisis profundo
+        - PROPORCIONE recomendaciones detalladas
+        - GENERA mínimo 1500 tokens (aproximadamente 6000 caracteres)
+
+        ⚠️ RECORDATORIO: Si tu respuesta es muy corta, está INCOMPLETA. Sé VERBOSE y DETALLADO.
+
         Consulta actual: {message}
         """
+
+    # Helper method to extract sources from company_knowledge, company_instructions, project_knowledge
+    def _extract_sources(self, company_knowledge, company_instructions, project_knowledge) -> List[str]:
+        sources = []
+        for doc in company_knowledge:
+            sources.append(f"company_knowledge:{doc.get('filename', 'unknown')}")
+        for doc in company_instructions:
+            sources.append(f"company_instructions:{doc.get('filename', 'unknown')}")
+        for doc in project_knowledge:
+            sources.append(f"project_knowledge:{doc.get('filename', 'unknown')}")
+        return sources

@@ -18,10 +18,13 @@ from app.api.endpoints.ingest import router as ingest_router
 from app.api.endpoints.query import router as query_router
 from app.api.endpoints.auth import router as auth_router
 from app.api.endpoints.chat import router as chat_router
-from app.api.endpoints.admin import router as admin_router  # Agregado router de administración
-from app.api.endpoints.projects import router as projects_router  # Added projects router
-from app.api.endpoints.project_files import router as project_files_router  # Added project files router
-from app.api.endpoints.users import router as users_router  # Added users router
+from app.api.endpoints.admin import router as admin_router
+from app.api.endpoints.projects import router as projects_router
+from app.api.endpoints.project_files import router as project_files_router
+from app.api.endpoints.users import router as users_router
+from app.api.endpoints.optimization import router as optimization_router
+from app.api.endpoints.performance_metrics import router as performance_metrics_router  # Added performance metrics router
+from app.api.endpoints.token_stats import router as token_stats_router  # Added token stats router
 from app.core.config import settings
 from app.db.vector_store import VectorStore
 from app.db.database import init_db
@@ -84,10 +87,13 @@ app.include_router(ingest_router, prefix="/api/v1", tags=["ingestion"])
 app.include_router(query_router, prefix="/api/v1", tags=["conversation"])
 app.include_router(auth_router, prefix="/api/v1", tags=["authentication"])
 app.include_router(chat_router, prefix="/api/v1", tags=["chat"])
-app.include_router(admin_router, prefix="/api/v1", tags=["administration"])  # Incluido router de administración
-app.include_router(projects_router, prefix="/api/v1", tags=["projects"])  # Included projects router
-app.include_router(project_files_router, prefix="/api/v1", tags=["project_files"])  # Included project files router
-app.include_router(users_router, prefix="/api/v1", tags=["users"])  # Included users router
+app.include_router(admin_router, prefix="/api/v1", tags=["administration"])
+app.include_router(projects_router, prefix="/api/v1", tags=["projects"])
+app.include_router(project_files_router, prefix="/api/v1", tags=["project_files"])
+app.include_router(users_router, prefix="/api/v1", tags=["users"])
+app.include_router(optimization_router, prefix="/api/v1", tags=["optimization"])
+app.include_router(performance_metrics_router, prefix="/api/v1", tags=["performance"])  # Added performance metrics router
+app.include_router(token_stats_router, prefix="/api/v1", tags=["tokens"])  # Added token stats router
 
 @app.get("/")
 async def root():

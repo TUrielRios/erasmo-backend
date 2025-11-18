@@ -33,7 +33,9 @@ class Settings(BaseSettings):
     
     # Configuración de OpenAI
     OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", "")
-    OPENAI_MODEL: str = "gpt-4o-mini"
+    OPENAI_MODEL: str = "gpt-4o-mini"  # gpt-4o-mini supports up to 16K output tokens
+    OPENAI_MODEL_MINI: str = "gpt-4o-mini"  # Fallback for quick analyses
+    OPENAI_MODEL_ADVANCED: str = "gpt-4o"  # Advanced model for complex tasks (16K output tokens)
     
     # Configuración de Vector Database
     VECTOR_DB_TYPE: str = "pinecone"
@@ -65,8 +67,33 @@ class Settings(BaseSettings):
     ]
     
     # Configuración de conversación
-    MAX_CONTEXT_LENGTH: int = 4000
-    CONVERSATION_MEMORY_SIZE: int = 10
+    MAX_CONTEXT_LENGTH: int = 128000  # Maximum context tokens the model can process
+    CONVERSATION_MEMORY_SIZE: int = 300  # Number of messages to keep in memory
+    
+    # Nuevas configuraciones para optimización de tokens
+    MAX_RESPONSE_TOKENS: int = 15000  # Safe limit under 16,384 max
+    MIN_RESPONSE_TOKENS: int = 1500   # Minimum for detailed responses
+    TOKEN_BUDGET_BUFFER: int = 2000   # Safety buffer for token calculations
+    
+    ENABLE_ADVANCED_CACHING: bool = True
+    ENABLE_STREAMING_OPTIMIZATION: bool = True
+    ENABLE_RAAG: bool = True  # Retrieval Augmented Analysis Generation
+    MAX_PARALLEL_SEARCHES: int = 10  # Aumentado de 5 a 10
+    CACHE_TTL_SECONDS: int = 7200  # Aumentado de 3600 a 7200 (2 horas)
+    ENABLE_RESPONSE_REFINEMENT: bool = True  # Refinar respuestas con análisis secundario
+    ENABLE_CONTEXT_RERANKING: bool = True  # Re-rankear contexto por relevancia
+    
+    ENABLE_TOKEN_OPTIMIZATION: bool = True
+    ENABLE_CONTEXT_CACHING: bool = True
+    MAX_SEARCH_RESULTS: int = 100  # Aumentado de 50 a 100 (2x)
+    
+    # Nuevas configuraciones para temperatura y creatividad
+    DEFAULT_TEMPERATURE: float = 0.95  # Increased for more verbose responses
+    DEFAULT_TOP_P: float = 0.98  # Increased for maximum diversity
+    
+    # Nuevas configuraciones para presupuesto de tokens adaptable
+    ENABLE_ADAPTIVE_TOKEN_BUDGET: bool = True
+    MAX_ADAPTIVE_MULTIPLIER: float = 2.5  # Respuestas complejas pueden usar 2.5x más tokens
     
     class Config:
         env_file = ".env"
@@ -84,5 +111,6 @@ def validate_settings():
         print("⚠️  ADVERTENCIA: PINECONE_API_KEY no está configurada")
     if settings.DEBUG:
         print("⚠️  MODO DEBUG ACTIVADO - No usar en producción")
+    print(f"✅ Configuración cargada: Modelo={settings.OPENAI_MODEL}, MaxContextTokens={settings.MAX_CONTEXT_LENGTH}")
 
 validate_settings()
