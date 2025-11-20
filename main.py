@@ -14,6 +14,7 @@ import logging
 from dotenv import load_dotenv
 
 from app.api.endpoints.health import router as health_router
+from app.api.endpoints.transcribe import router as transcribe_router
 from app.api.endpoints.ingest import router as ingest_router
 from app.api.endpoints.query import router as query_router
 from app.api.endpoints.auth import router as auth_router
@@ -95,11 +96,10 @@ app.include_router(project_files_router, prefix="/api/v1", tags=["project_files"
 app.include_router(users_router, prefix="/api/v1", tags=["users"])
 app.include_router(optimization_router, prefix="/api/v1", tags=["optimization"])
 app.include_router(performance_metrics_router, prefix="/api/v1", tags=["performance"])  # Added performance metrics router
-app.include_router(token_stats_router, prefix="/api/v1", tags=["tokens"])  # Added token stats router
-app.include_router(file_upload_router, prefix="/api/v1", tags=["files"])  # Added file upload router
-app.include_router(protocols_router, prefix="/api/v1", tags=["protocols"])  # Added protocols router
-
+app.include_router(token_stats_router, prefix="/api/v1", tags=["tokens"]) 
+app.include_router(transcribe_router, prefix="/api/v1", tags=["transcription"])
 @app.get("/")
+
 async def root():
     """Endpoint raíz con información básica"""
     return {
