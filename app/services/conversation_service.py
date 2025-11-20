@@ -57,6 +57,9 @@ class ConversationService:
         """
         print(f"🔄 [DEBUG] Starting streaming response for session: {session_id}, user: {user_id}, require_analysis: {require_analysis}")
 
+        is_simple_conversational = self._is_simple_conversational_message(message)
+        print(f"💬 [DEBUG] Is simple conversational: {is_simple_conversational}")
+        
         db = SessionLocal()
         try:
             from app.services.chat_service import ChatService
@@ -80,28 +83,33 @@ class ConversationService:
             company_instructions = await self._get_company_instructions(db, user_id)
             ai_config = await self._get_ai_configuration(db, company_id)
 
-            # Search for relevant context
-            # Usar _search_prioritized_context que ahora usa enhanced_search
-            relevant_context = await self._search_prioritized_context(
-                message,
-                company_knowledge,
-                project_knowledge,
-                company_id=company_id,
-                project_id=project_id
-            )
+            if not is_simple_conversational:
+                # Search for relevant context
+                # Usar _search_prioritized_context que ahora usa enhanced_search
+                relevant_context = await self._search_prioritized_context(
+                    message,
+                    company_knowledge,
+                    project_knowledge,
+                    company_id=company_id,
+                    project_id=project_id
+                )
 
-            prompt_role = "full_analysis" if require_analysis else "normal_chat"
-            # The optimize_prompt method might need adjustments based on its actual implementation for streaming context optimization
-            # For now, we'll assume it returns compressed_context correctly.
-            # A more robust implementation might involve token budgeting for the entire stream.
-            _, _, compressed_context, _ = self.token_optimizer.optimize_prompt(
-                system_prompt="", # System prompt is built later, so it's empty here.
-                context=relevant_context,
-                history=[], # History is handled separately below.
-                user_message="", # User message is handled separately below.
-                prompt_role=prompt_role
-            )
-            relevant_context = compressed_context
+                prompt_role = "full_analysis" if require_analysis else "normal_chat"
+                # The optimize_prompt method might need adjustments based on its actual implementation for streaming context optimization
+                # For now, we'll assume it returns compressed_context correctly.
+                # A more robust implementation might involve token budgeting for the entire stream.
+                _, _, compressed_context, _ = self.token_optimizer.optimize_prompt(
+                    system_prompt="", # System prompt is built later, so it's empty here.
+                    context=relevant_context,
+                    history=[], # History is handled separately below.
+                    user_message="", # User message is handled separately below.
+                    prompt_role=prompt_role
+                )
+                relevant_context = compressed_context
+            else:
+                print(f"💬 [DEBUG] Simple conversational message detected, skipping document search")
+                relevant_context = []
+
 
             # Get conversation history
             if history_context is None:
@@ -133,7 +141,20 @@ class ConversationService:
             if project_id:
                 project_context = f"\n\n🔴 IMPORTANTE: Esta conversación está vinculada a un PROYECTO ESPECÍFICO (ID: {project_id}).\nDEBES PRIORIZAR los documentos del proyecto sobre los documentos de la empresa."
 
-            if require_analysis:
+            if is_simple_conversational:
+                system_prompt = f"""ERES UN ASISTENTE DE IA PERSONALIZADO PARA {company_name.upper()}.
+
+Responde de manera amigable, natural y profesional a los saludos y preguntas conversacionales del usuario.
+
+INFORMACIÓN DE LA EMPRESA:
+- Empresa: {company_name}
+- Industria: {industry}
+
+Mantén respuestas conversacionales, cálidas y breves para saludos simples.
+"""
+                prompt = message
+                
+            elif require_analysis:
                 system_prompt = f"""ERES UN ASISTENTE DE IA PERSONALIZADO PARA {company_name.upper()}.{project_context}
 
 INSTRUCCIONES CRÍTICAS - DEBES SEGUIR AL PIE DE LA LETRA:
@@ -163,6 +184,11 @@ FORMATO REQUERIDO:
 ## Plan de Acción
 [Plan estructurado con pasos específicos - DESARROLLA COMPLETAMENTE CADA PASO]
 """
+                print(f"📊 [DEBUG] Building STRUCTURED analysis prompt (require_analysis=True)")
+                # Pass the compressed context and history to the prompt builder
+                prompt = self._build_enhanced_conversation_prompt(
+                    message, relevant_context, conversation_history, "conceptual", key_info, project_id
+                )
             else:
                 system_prompt = f"""ERES UN ASISTENTE DE IA PERSONALIZADO PARA {company_name.upper()}.{project_context}
 
@@ -188,14 +214,6 @@ REGLAS ESTRICTAS:
 
 Mantén respuestas detalladas, informativas y conversacionales - NO hagas respuestas cortas.
 """
-
-            if require_analysis:
-                print(f"📊 [DEBUG] Building STRUCTURED analysis prompt (require_analysis=True)")
-                # Pass the compressed context and history to the prompt builder
-                prompt = self._build_enhanced_conversation_prompt(
-                    message, relevant_context, conversation_history, "conceptual", key_info, project_id
-                )
-            else:
                 print(f"💬 [DEBUG] Building NORMAL conversation prompt (require_analysis=False)")
                 # Pass the compressed context and history to the prompt builder
                 prompt = self._build_normal_conversation_prompt(
@@ -840,6 +858,38 @@ Mantén respuestas detalladas, informativas y conversacionales - NO hagas respue
             print(f"📁 [DEBUG] Project documents in context: {len(project_docs)}")
 
         return prioritized_context[:30]
+
+    def _is_simple_conversational_message(self, message: str) -> bool:
+        """
+        Detecta si un mensaje es conversacional simple (saludos, preguntas cortas)
+        que no requiere búsqueda de documentos
+        """
+        message_lower = message.lower().strip()
+        
+        # Saludos y despedidas
+        simple_greetings = [
+            'hola', 'hi', 'hello', 'hey', 'buenos días', 'buenas tardes', 
+            'buenas noches', 'buen día', 'que tal', 'qué tal', 'como estas',
+            'cómo estás', 'gracias', 'thank you', 'adiós', 'chau', 'bye',
+            'hasta luego', 'nos vemos'
+        ]
+        
+        # Preguntas muy cortas y generales
+        simple_questions = [
+            '¿cómo estás?', 'como estas?', 'que haces?', '¿qué haces?',
+            'todo bien?', '¿todo bien?', 'ayuda', 'help'
+        ]
+        
+        # Verificar si el mensaje es exactamente un saludo
+        if message_lower in simple_greetings or message_lower in simple_questions:
+            return True
+        
+        # Verificar si el mensaje empieza con un saludo y es muy corto
+        for greeting in simple_greetings:
+            if message_lower.startswith(greeting) and len(message.split()) <= 3:
+                return True
+        
+        return False
 
     def _is_content_relevant(self, message: str, content: str) -> bool:
         """
