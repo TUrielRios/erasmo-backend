@@ -128,7 +128,8 @@ async def process_query_stream(
                 async for chunk in conversation_service.generate_strategic_response_stream(
                     request.message, session_id, current_user.id, 
                     history_context=history,
-                    require_analysis=request.require_analysis
+                    require_analysis=request.require_analysis,
+                    attachments=request.attachments  # Pass attachments
                 ):
                     full_response += chunk
                     yield f"data: {json.dumps({'type': 'content', 'content': chunk})}\n\n"
@@ -275,7 +276,8 @@ async def process_query(
                     conceptual, accional = await conversation_service.generate_strategic_response(
                         request.message, session_id, current_user.id, 
                         history_context=history,
-                        require_analysis=True
+                        require_analysis=True,
+                        attachments=request.attachments  # Pass attachments
                     )
                     print(f"✅ [DEBUG] Conceptual response generated with instructions")
                 except Exception as e:
@@ -290,7 +292,8 @@ async def process_query(
                     accional = await conversation_service.generate_strategic_response(
                         request.message, session_id, current_user.id, 
                         history_context=history,
-                        require_analysis=True
+                        require_analysis=True,
+                        attachments=request.attachments  # Pass attachments
                     )[1]  # Get accional from tuple
                     print(f"✅ [DEBUG] Accional response generated with instructions")
                 except Exception as e:
@@ -325,7 +328,8 @@ async def process_query(
                     conceptual, accional = await conversation_service.generate_strategic_response(
                         request.message, session_id, current_user.id, 
                         history_context=history,
-                        require_analysis=False
+                        require_analysis=False,
+                        attachments=request.attachments  # Pass attachments
                     )
                     
                     # For normal responses, conceptual.content has the full response

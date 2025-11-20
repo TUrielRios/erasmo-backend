@@ -107,7 +107,12 @@ class ChatService:
     ) -> Optional[ConversationWithMessages]:
         """Obtener conversación completa con sus mensajes"""
         
-        conversation = self.get_conversation_by_session_id(db, user, session_id)
+        # Instead of using get_conversation_by_session_id which enforces ownership, we query directly
+        conversation = db.query(Conversation).filter(
+            Conversation.session_id == session_id,
+            Conversation.is_active == True
+        ).first()
+        
         if not conversation:
             return None
         

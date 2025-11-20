@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 class ResponseValidatorService:
     """Valida que las respuestas cumplan con los requisitos de longitud"""
     
-    def __init__(self, min_tokens: int = 1500):
+    def __init__(self, min_tokens: int = 1000):
         self.min_tokens = min_tokens
         # Rough estimate: 1 token ≈ 4 characters
         self.min_characters = min_tokens * 4

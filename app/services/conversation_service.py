@@ -24,6 +24,7 @@ from app.services.token_optimizer_service import TokenOptimizerService
 from app.services.adaptive_budget_service import AdaptiveBudgetService
 from app.services.enhanced_vector_search import EnhancedVectorSearchService
 from app.services.token_logger_service import TokenLoggerService
+from app.services.attachment_handler_service import AttachmentHandlerService
 
 class ConversationService:
     """
@@ -42,6 +43,7 @@ class ConversationService:
         self.adaptive_budget = AdaptiveBudgetService()
         self.enhanced_search = EnhancedVectorSearchService(self.vector_store)
         self.token_logger = TokenLoggerService()
+        self.attachment_handler = AttachmentHandlerService()
 
     async def generate_strategic_response_stream(
         self,
@@ -50,13 +52,23 @@ class ConversationService:
         user_id: int,
         context: Optional[Dict[str, Any]] = None,
         history_context: Optional[List[Dict]] = None,
-        require_analysis: bool = False
+        require_analysis: bool = False,
+        attachments: Optional[List[Dict[str, Any]]] = None  # Added attachments parameter
     ) -> AsyncGenerator[str, None]:
         """
         Genera respuesta estratégica con streaming usando fuentes de conocimiento e instrucciones personalizadas
+        Now supports file attachments (images and documents)
         """
         print(f"🔄 [DEBUG] Starting streaming response for session: {session_id}, user: {user_id}, require_analysis: {require_analysis}")
-
+        
+        if attachments:
+            if self.attachment_handler.validate_attachments(attachments):
+                print(f"📎 [DEBUG] {len(attachments)} valid attachments received")
+            else:
+                print(f"⚠️ [DEBUG] Some attachments have invalid structure")
+                # Don't discard attachments, try to use them anyway if possible or filter invalid ones
+                # For now, we'll keep them but log the warning
+        
         db = SessionLocal()
         try:
             from app.services.chat_service import ChatService
@@ -133,8 +145,13 @@ class ConversationService:
             if project_id:
                 project_context = f"\n\n🔴 IMPORTANTE: Esta conversación está vinculada a un PROYECTO ESPECÍFICO (ID: {project_id}).\nDEBES PRIORIZAR los documentos del proyecto sobre los documentos de la empresa."
 
+            attachment_instructions = ""
+            if attachments:
+                attachment_instructions = "\n\n📎 TIENES ACCESO A ARCHIVOS ADJUNTOS PROPORCIONADOS POR EL USUARIO.\nDEBES ANALIZARLOS Y USAR SU CONTENIDO PARA RESPONDER.\nSI EL USUARIO PIDE UN RESUMEN O ANÁLISIS DEL ARCHIVO, HAZLO BASÁNDOTE EN EL CONTEXTO ADJUNTO."
+
             if require_analysis:
                 system_prompt = f"""ERES UN ASISTENTE DE IA PERSONALIZADO PARA {company_name.upper()}.{project_context}
+{attachment_instructions}
 
 INSTRUCCIONES CRÍTICAS - DEBES SEGUIR AL PIE DE LA LETRA:
 {instruction_text}
@@ -154,7 +171,7 @@ REGLAS ESTRICTAS:
 4. RECUERDA información de conversaciones anteriores
 5. ADAPTA tu respuesta al contexto específico de {company_name}
 6. GENERA un ANÁLISIS CONCEPTUAL ESTRUCTURADO y un PLAN DE ACCIÓN DETALLADO
-7. GENERA RESPUESTAS EXTENSAS Y DETALLADAS (mínimo 1500 tokens)
+7. GENERA RESPUESTAS EXTENSAS Y DETALLADAS (mínimo 1000 tokens)
 
 FORMATO REQUERIDO:
 ## Análisis Conceptual
@@ -165,6 +182,7 @@ FORMATO REQUERIDO:
 """
             else:
                 system_prompt = f"""ERES UN ASISTENTE DE IA PERSONALIZADO PARA {company_name.upper()}.{project_context}
+{attachment_instructions}
 
 INSTRUCCIONES CRÍTICAS - DEBES SEGUIR AL PIE DE LA LETRA:
 {instruction_text}
@@ -183,7 +201,7 @@ REGLAS ESTRICTAS:
 3. Si las fuentes no son suficientes, ENTONCES usa conocimiento general
 4. RECUERDA información de conversaciones anteriores
 5. ADAPTA tu respuesta al contexto específico de {company_name}
-6. GENERA RESPUESTAS EXTENSAS Y DETALLADAS (mínimo 1500 tokens)
+6. GENERA RESPUESTAS EXTENSAS Y DETALLADAS (mínimo 1000 tokens)
 7. Responde de manera CONVERSACIONAL pero COMPLETA Y PROFUNDA
 
 Mantén respuestas detalladas, informativas y conversacionales - NO hagas respuestas cortas.
@@ -193,13 +211,13 @@ Mantén respuestas detalladas, informativas y conversacionales - NO hagas respue
                 print(f"📊 [DEBUG] Building STRUCTURED analysis prompt (require_analysis=True)")
                 # Pass the compressed context and history to the prompt builder
                 prompt = self._build_enhanced_conversation_prompt(
-                    message, relevant_context, conversation_history, "conceptual", key_info, project_id
+                    message, relevant_context, conversation_history, "conceptual", key_info, project_id, attachments
                 )
             else:
                 print(f"💬 [DEBUG] Building NORMAL conversation prompt (require_analysis=False)")
                 # Pass the compressed context and history to the prompt builder
                 prompt = self._build_normal_conversation_prompt(
-                    message, relevant_context, conversation_history, key_info, project_id
+                    message, relevant_context, conversation_history, key_info, project_id, attachments
                 )
 
             model_name = ai_config.model_name if ai_config else settings.OPENAI_MODEL
@@ -257,6 +275,13 @@ Mantén respuestas detalladas, informativas y conversacionales - NO hagas respue
         """
         Analiza si un mensaje es ambiguo usando instrucciones personalizadas por compañía
         """
+        greetings = ['hola', 'buenos dias', 'buenas tardes', 'buenas noches', 'hi', 'hello', 'hey', 'saludos', 'que tal']
+        message_lower = message.lower().strip()
+        
+        # If it's just a greeting or very short greeting phrase, it's not ambiguous
+        if any(message_lower.startswith(greet) for greet in greetings) and len(message.split()) < 6:
+            return False
+
         db = SessionLocal()
         try:
             company_instructions = await self._get_company_instructions(db, user_id)
@@ -378,13 +403,21 @@ Mantén respuestas detalladas, informativas y conversacionales - NO hagas respue
         user_id: int,
         context: Optional[Dict[str, Any]] = None,
         history_context: Optional[List[Dict]] = None,
-        require_analysis: bool = False  # Added parameter to control analysis generation
+        require_analysis: bool = False,  # Added parameter to control analysis generation
+        attachments: Optional[List[Dict[str, Any]]] = None  # Added attachments parameter
     ) -> Tuple[ConceptualResponse, AccionalResponse]:
         """
         Genera respuesta estratégica con presupuesto adaptativo de tokens
         Si require_analysis es False, genera una respuesta normal sin estructura de análisis/plan
         """
         print(f"🔄 [DEBUG] Starting generate_strategic_response")
+
+        if attachments:
+            if self.attachment_handler.validate_attachments(attachments):
+                print(f"📎 [DEBUG] {len(attachments)} valid attachments received")
+            else:
+                print(f"⚠️ [DEBUG] Some attachments have invalid structure")
+                attachments = None
 
         db = SessionLocal()
         try:
@@ -480,7 +513,8 @@ Mantén respuestas detalladas, informativas y conversacionales - NO hagas respue
                     conceptual = await self._generate_conceptual_with_instructions(
                         message, relevant_context, conversation_history,
                         company_instructions, company_knowledge, key_info, ai_config, user_company_data,
-                        project_id=project_id
+                        project_id=project_id,
+                        attachments=attachments  # Pass attachments
                     )
                     print(f"✅ [DEBUG] Conceptual response generated with instructions")
                 except Exception as e:
@@ -531,7 +565,8 @@ Mantén respuestas detalladas, informativas y conversacionales - NO hagas respue
                     normal_response = await self._generate_normal_response(
                         message, relevant_context, conversation_history,
                         company_instructions, company_knowledge, key_info, ai_config, user_company_data,
-                        project_id=project_id
+                        project_id=project_id,
+                        attachments=attachments  # Pass attachments
                     )
                     print(f"✅ [DEBUG] Normal response generated")
                     
@@ -882,7 +917,8 @@ Mantén respuestas detalladas, informativas y conversacionales - NO hagas respue
         key_info: Dict[str, Any],
         ai_config: Any,
         user_company_data: Dict[str, Any],
-        project_id: Optional[int] = None  # Add project_id parameter
+        project_id: Optional[int] = None,  # Add project_id parameter
+        attachments: Optional[List[Dict[str, Any]]] = None  # Added attachments parameter
     ) -> ConceptualResponse:
         """
         Genera respuesta conceptual siguiendo instrucciones específicas y usando conocimiento prioritario
@@ -897,8 +933,13 @@ Mantén respuestas detalladas, informativas y conversacionales - NO hagas respue
         if project_id:
             project_context = f"\n\n🔴 IMPORTANTE: Esta conversación está vinculada a un PROYECTO ESPECÍFICO (ID: {project_id}).\nDEBES PRIORIZAR los documentos del proyecto sobre los documentos de la empresa.\nLos documentos del proyecto son los más relevantes para esta conversación."
 
+        attachment_instructions = ""
+        if attachments:
+            attachment_instructions = "\n\n📎 TIENES ACCESO A ARCHIVOS ADJUNTOS PROPORCIONADOS POR EL USUARIO.\nDEBES ANALIZARLOS Y USAR SU CONTENIDO PARA RESPONDER.\nSI EL USUARIO PIDE UN RESUMEN O ANÁLISIS DEL ARCHIVO, HAZLO BASÁNDOTE EN EL CONTEXTO ADJUNTO."
+
         system_prompt = f"""
         ERES UN ASISTENTE DE IA PERSONALIZADO PARA {company_name.upper()}.{project_context}
+        {attachment_instructions}
 
         INSTRUCCIONES CRÍTICAS - DEBES SEGUIR AL PIE DE LA LETRA:
         {instruction_text}
@@ -921,7 +962,7 @@ Mantén respuestas detalladas, informativas y conversacionales - NO hagas respue
         Mantén respuestas concisas y directas.
         """
 
-        prompt = self._build_enhanced_conversation_prompt(message, context, history, "conceptual", key_info, project_id)
+        prompt = self._build_enhanced_conversation_prompt(message, context, history, "conceptual", key_info, project_id, attachments)
 
         model_name = ai_config.model_name if ai_config else settings.OPENAI_MODEL
         temperature = float(ai_config.temperature) if ai_config else 0.7
@@ -1191,11 +1232,17 @@ Mantén respuestas detalladas, informativas y conversacionales - NO hagas respue
         history: List[Dict],
         response_type: str,
         key_info: Dict[str, Any] = None,
-        project_id: Optional[int] = None
+        project_id: Optional[int] = None,
+        attachments: Optional[List[Dict[str, Any]]] = None  # Added attachments parameter
     ) -> str:
         """
         Construye prompt mejorado para conversación con contexto priorizado
+        Now includes attachment context formatting
         """
+        attachments_context = ""
+        if attachments:
+            attachments_context = self.attachment_handler.format_attachments_for_context(attachments)
+
         project_context = [ctx for ctx in context if 'project' in ctx.get('category', '')]
         company_context = [ctx for ctx in context if ctx.get('category') == 'company_knowledge']
         general_context = [ctx for ctx in context if ctx.get('category') not in ['company_knowledge', 'project_knowledge', 'project_vector_search']]
@@ -1253,7 +1300,7 @@ Mantén respuestas detalladas, informativas y conversacionales - NO hagas respue
                 project_emphasis = "\n🔴 CRÍTICO: Esta conversación está vinculada a un proyecto específico. DEBES usar PRIMERO los documentos del proyecto marcados con 'CONTEXTO DEL PROYECTO'."
 
             prompt_specific = f"""
-            IMPORTANTE: DEBES generar una respuesta COMPLETA, DETALLADA y EXTENSA (mínimo 1500 tokens).
+            IMPORTANTE: DEBES generar una respuesta COMPLETA, DETALLADA y EXTENSA (mínimo 1000 tokens).
 
             Genera una respuesta CONCEPTUAL ESTRUCTURADA que:
             1. USE PRIORITARIAMENTE las fuentes de conocimiento específicas proporcionadas{project_emphasis}
@@ -1262,8 +1309,8 @@ Mantén respuestas detalladas, informativas y conversacionales - NO hagas respue
             4. Explique el marco teórico basado en las fuentes prioritarias CON DETALLE
             5. Solo use conocimiento general si las fuentes específicas no son suficientes
             6. EXPANDE cada punto con ejemplos concretos
-            7. INCLUYE análisis profundo de cada aspecto relevante
-            8. PROPORCIONA recomendaciones detalladas y accionables
+            7. INCLUYA análisis profundo de cada aspecto relevante
+            8. PROPORCIONE recomendaciones detalladas y accionables
 
             FORMATO REQUERIDO (DEBE SER EXTENSO):
             ## Análisis Conceptual
@@ -1280,12 +1327,12 @@ Mantén respuestas detalladas, informativas y conversacionales - NO hagas respue
             CRÍTICO: 
             - NUNCA hagas respuestas cortas o superficiales
             - EXPANDE cada idea con ejemplos y detalles
-            - GENERA mínimo 1500 tokens (aproximadamente 6000 caracteres)
+            - GENERA mínimo 1000 tokens (aproximadamente 4000 caracteres)
             - Las fuentes de conocimiento prioritarias son tu referencia principal
             """
         else:
             prompt_specific = """
-            IMPORTANTE: DEBES generar una respuesta COMPLETA, DETALLADA y EXTENSA (mínimo 1500 tokens).
+            IMPORTANTE: DEBES generar una respuesta COMPLETA, DETALLADA y EXTENSA (mínimo 1000 tokens).
 
             Genera UN PLAN DE ACCIÓN DETALLADO que:
             1. USE las recomendaciones específicas de las fuentes de conocimiento prioritarias
@@ -1306,14 +1353,15 @@ Mantén respuestas detalladas, informativas y conversacionales - NO hagas respue
             [Análisis de riesgos, recursos, cronograma]
 
             CRÍTICO:
-            - GENERA mínimo 1500 tokens
+            - GENERA mínimo 1000 tokens
             - NUNCA hagas respuestas cortas o superficiales
-            - EXPANDE cada idea con ejemplos y detalles específicos
+            - EXPANDA cada idea con ejemplos y detalles específicos
             - Las fuentes de conocimiento prioritarias definen tu metodología
             """
 
         return f"""
         {key_info_text}
+        {attachments_context}
         {context_text}
         {history_text}
 
@@ -1321,7 +1369,7 @@ Mantén respuestas detalladas, informativas y conversacionales - NO hagas respue
 
         Consulta actual: {message}
 
-        ⚠️ RECORDATORIO: Debes generar una respuesta EXTENSA Y DETALLADA de mínimo 1500 tokens. Si la respuesta es demasiado corta, está INCOMPLETA.
+        ⚠️ RECORDATORIO: Debes generar una respuesta EXTENSA Y DETALLADA de mínimo 1000 tokens. Si la respuesta es demasiado corta, está INCOMPLETA.
         """
 
     def _build_normal_conversation_prompt(
@@ -1330,11 +1378,17 @@ Mantén respuestas detalladas, informativas y conversacionales - NO hagas respue
         context: List[Dict],
         history: List[Dict],
         key_info: Dict[str, Any] = None,
-        project_id: Optional[int] = None
+        project_id: Optional[int] = None,
+        attachments: Optional[List[Dict[str, Any]]] = None  # Added attachments parameter
     ) -> str:
         """
         Construye prompt para respuesta conversacional normal
+        Now includes attachment context formatting
         """
+        attachments_context = ""
+        if attachments:
+            attachments_context = self.attachment_handler.format_attachments_for_context(attachments)
+
         project_context = [ctx for ctx in context if 'project' in ctx.get('category', '')]
         company_context = [ctx for ctx in context if ctx.get('category') == 'company_knowledge']
         general_context = [ctx for ctx in context if ctx.get('category') not in ['company_knowledge', 'project_knowledge', 'project_vector_search']]
@@ -1392,10 +1446,11 @@ Mantén respuestas detalladas, informativas y conversacionales - NO hagas respue
 
         return f"""
         {key_info_text}
+        {attachments_context}
         {context_text}
         {history_text}
 
-        IMPORTANTE: DEBES generar una respuesta COMPLETA, DETALLADA y EXTENSA (mínimo 1500 tokens).
+        IMPORTANTE: DEBES generar una respuesta COMPLETA, DETALLADA y EXTENSA (mínimo 1000 tokens).
 
         RESPONDE DE MANERA CONVERSACIONAL Y NATURAL a la siguiente consulta.
         USA las fuentes de conocimiento prioritarias proporcionadas.
@@ -1407,7 +1462,7 @@ Mantén respuestas detalladas, informativas y conversacionales - NO hagas respue
         - EXPANDA cada punto con ejemplos concretos
         - INCLUYA análisis profundo
         - PROPORCIONE recomendaciones detalladas
-        - GENERA mínimo 1500 tokens (aproximadamente 6000 caracteres)
+        - GENERA mínimo 1000 tokens (aproximadamente 4000 caracteres)
 
         ⚠️ RECORDATORIO: Si tu respuesta es muy corta, está INCOMPLETA. Sé VERBOSE y DETALLADO.
 
@@ -1424,3 +1479,177 @@ Mantén respuestas detalladas, informativas y conversacionales - NO hagas respue
         for doc in project_knowledge:
             sources.append(f"project_knowledge:{doc.get('filename', 'unknown')}")
         return sources
+
+    async def _generate_conceptual_with_instructions(
+        self,
+        message: str,
+        context: List[Dict],
+        history: List[Dict],
+        instructions: List[Dict],
+        knowledge: List[Dict],
+        key_info: Dict[str, Any],
+        ai_config: Any,
+        user_company_data: Dict[str, Any],
+        project_id: Optional[int] = None,
+        attachments: Optional[List[Dict[str, Any]]] = None  # Added attachments parameter
+    ) -> ConceptualResponse:
+        """
+        Genera respuesta conceptual siguiendo instrucciones específicas y usando conocimiento prioritario
+        """
+        company_name = user_company_data.get('company_name', 'tu empresa')
+        industry = user_company_data.get('industry', '')
+
+        instruction_text = self._compile_instructions(instructions)
+        knowledge_text = self._compile_knowledge(knowledge)
+
+        project_context = ""
+        if project_id:
+            project_context = f"\n\n🔴 IMPORTANTE: Esta conversación está vinculada a un PROYECTO ESPECÍFICO (ID: {project_id}).\nDEBES PRIORIZAR los documentos del proyecto sobre los documentos de la empresa.\nLos documentos del proyecto son los más relevantes para esta conversación."
+
+        attachment_instructions = ""
+        if attachments:
+            attachment_instructions = "\n\n📎 TIENES ACCESO A ARCHIVOS ADJUNTOS PROPORCIONADOS BY EL USUARIO.\nDEBES ANALIZARLOS Y USAR SU CONTENIDO PARA RESPONDER.\nSI EL USUARIO PIDE UN RESUMEN O ANÁLISIS DEL ARCHIVO, HAZLO BASÁNDOTE EN EL CONTEXTO ADJUNTO."
+
+        system_prompt = f"""
+        ERES UN ASISTENTE DE IA PERSONALIZADO PARA {company_name.upper()}.{project_context}
+        {attachment_instructions}
+
+        INSTRUCCIONES CRÍTICAS - DEBES SEGUIR AL PIE DE LA LETRA:
+        {instruction_text}
+
+        FUENTES DE CONOCIMIENTO PRIORITARIAS (USA ESTAS PRIMERO):
+        {knowledge_text}
+
+        INFORMACIÓN DE LA EMPRESA:
+        - Empresa: {company_name}
+        - Industria: {industry}
+        - Sector: {user_company_data.get('sector', '')}
+
+        REGLAS ESTRICTAS:
+        1. SIEMPRE sigue las instrucciones específicas proporcionadas
+        2. USA PRIMERO el conocimiento de las fuentes prioritarias
+        3. Si las fuentes no son suficientes, ENTONCES usa conocimiento general
+        4. RECUERDA información de conversaciones anteriores
+        5. ADAPTA tu respuesta al contexto específico de {company_name}
+
+        Mantén respuestas concisas y directas.
+        """
+
+        prompt = self._build_enhanced_conversation_prompt(message, context, history, "conceptual", key_info, project_id, attachments)
+
+        model_name = ai_config.model_name if ai_config else settings.OPENAI_MODEL
+        temperature = float(ai_config.temperature) if ai_config else 0.7
+        max_tokens = (ai_config.max_tokens // 2) if ai_config else 800
+
+        try:
+            response = self.openai_client.chat.completions.create(
+                model=model_name,
+                messages=[{"role": "system", "content": system_prompt}, {"role": "user", "content": prompt}],
+                max_tokens=max_tokens,
+                temperature=temperature
+            )
+
+            content = response.choices[0].message.content
+
+            sources = []
+            for doc in knowledge:
+                sources.append(f"conocimiento_{doc['filename']}")
+            for doc in instructions:
+                sources.append(f"instrucciones_{doc['filename']}")
+
+            if not sources:
+                sources = ["configuracion_personalizada"]
+
+            return ConceptualResponse(
+                content=content,
+                sources=sources,
+                confidence=0.95 if knowledge and instructions else 0.8
+            )
+
+        except Exception as e:
+            print(f"❌ Error generating conceptual response with instructions: {e}")
+            return ConceptualResponse(
+                content=f"## Análisis Conceptual\n\nEstoy teniendo dificultades técnicas. Por favor, intenta nuevamente.\n\nError: {str(e)}",
+                sources=[],
+                confidence=0.1
+            )
+
+    async def _generate_normal_response(
+        self,
+        message: str,
+        context: List[Dict],
+        history: List[Dict],
+        instructions: List[Dict],
+        knowledge: List[Dict],
+        key_info: Dict[str, Any],
+        ai_config: Any,
+        user_company_data: Dict[str, Any],
+        project_id: Optional[int] = None,
+        attachments: Optional[List[Dict[str, Any]]] = None  # Added attachments parameter
+    ) -> str:
+        """
+        Genera respuesta normal siguiendo instrucciones específicas
+        """
+        company_name = user_company_data.get('company_name', 'tu empresa')
+        industry = user_company_data.get('industry', '')
+
+        instruction_text = self._compile_instructions(instructions)
+        knowledge_text = self._compile_knowledge(knowledge)
+
+        project_context = ""
+        if project_id:
+            project_context = f"\n\n🔴 IMPORTANTE: Esta conversación está vinculada a un PROYECTO ESPECÍFICO (ID: {project_id}).\nDEBES PRIORIZAR los documentos del proyecto sobre los documentos de la empresa."
+
+        attachment_instructions = ""
+        if attachments:
+            attachment_instructions = "\n\n📎 TIENES ACCESO A ARCHIVOS ADJUNTOS PROPORCIONADOS BY EL USUARIO.\nDEBES ANALIZARLOS Y USAR SU CONTENIDO PARA RESPONDER.\nSI EL USUARIO PIDE UN RESUMEN O ANÁLISIS DEL ARCHIVO, HAZLO BASÁNDOTE EN EL CONTEXTO ADJUNTO."
+
+        system_prompt = f"""
+        ERES UN ASISTENTE DE IA PERSONALIZADO PARA {company_name.upper()}.{project_context}
+        {attachment_instructions}
+
+        INSTRUCCIONES CRÍTICAS - DEBES SEGUIR AL PIE DE LA LETRA:
+        {instruction_text}
+
+        FUENTES DE CONOCIMIENTO PRIORITARIAS (USA ESTAS PRIMERO):
+        {knowledge_text}
+
+        INFORMACIÓN DE LA EMPRESA:
+        - Empresa: {company_name}
+        - Industria: {industry}
+        - Sector: {user_company_data.get('sector', '')}
+
+        REGLAS ESTRICTAS:
+        1. SIEMPRE sigue las instrucciones específicas proporcionadas
+        2. USA PRIMERO el conocimiento de las fuentes prioritarias
+        3. Si las fuentes no son suficientes, ENTONCES usa conocimiento general
+        4. RECUERDA información de conversaciones anteriores
+        5. ADAPTA tu respuesta al contexto específico de {company_name}
+        6. GENERA RESPUESTAS EXTENSAS Y DETALLADAS (mínimo 1000 tokens)
+        7. Responde de manera CONVERSACIONAL pero COMPLETA Y PROFUNDA
+
+        Mantén respuestas detalladas, informativas y conversacionales - NO hagas respuestas cortas.
+        """
+
+        prompt = self._build_normal_conversation_prompt(message, context, history, key_info, project_id, attachments)
+
+        model_name = ai_config.model_name if ai_config else settings.OPENAI_MODEL
+        temperature = float(ai_config.temperature) if ai_config else settings.DEFAULT_TEMPERATURE
+        max_tokens = ai_config.max_tokens if ai_config else settings.MAX_RESPONSE_TOKENS
+
+        if temperature < settings.DEFAULT_TEMPERATURE:
+            temperature = settings.DEFAULT_TEMPERATURE
+
+        try:
+            response = self.openai_client.chat.completions.create(
+                model=model_name,
+                messages=[{"role": "system", "content": system_prompt}, {"role": "user", "content": prompt}],
+                max_tokens=max_tokens,
+                temperature=temperature
+            )
+
+            return response.choices[0].message.content
+
+        except Exception as e:
+            print(f"❌ Error generating normal response: {e}")
+            return "Lo siento, hubo un error al generar la respuesta. Por favor, intenta nuevamente."

@@ -3,9 +3,13 @@ Utilidad para extraer texto de diferentes formatos de archivo
 """
 
 import io
+import logging
 from typing import Optional
 from PIL import Image
 import pytesseract
+
+# Configurar logger
+logger = logging.getLogger(__name__)
 
 class FileExtractor:
     """
@@ -30,21 +34,31 @@ class FileExtractor:
             reader = PdfReader(pdf_file)
             
             text_parts = []
+            logger.info(f"📄 Iniciando extracción de PDF. Total páginas: {len(reader.pages)}")
+            
             for page_num, page in enumerate(reader.pages):
                 try:
                     page_text = page.extract_text()
                     if page_text:
                         text_parts.append(f"--- Página {page_num + 1} ---\n{page_text}")
+                        logger.debug(f"✅ Página {page_num + 1} extraída: {len(page_text)} caracteres")
+                    else:
+                        logger.warning(f"⚠️ Página {page_num + 1} vacía o sin texto seleccionable")
                 except Exception as e:
-                    print(f"⚠️ Error extrayendo página {page_num + 1}: {e}")
+                    logger.warning(f"⚠️ Error extrayendo página {page_num + 1}: {e}")
                     continue
             
             extracted_text = "\n\n".join(text_parts)
-            print(f"✅ PDF procesado: {len(reader.pages)} páginas, {len(extracted_text)} caracteres")
+            
+            if not extracted_text.strip():
+                logger.warning("⚠️ PDF procesado pero no se extrajo texto (posible PDF escaneado)")
+                return "[No se pudo extraer texto del documento. Es posible que sea un PDF escaneado o imagen.]"
+                
+            logger.info(f"✅ PDF procesado exitosamente: {len(extracted_text)} caracteres extraídos")
             return extracted_text
             
         except Exception as e:
-            print(f"❌ Error procesando PDF: {e}")
+            logger.error(f"❌ Error procesando PDF: {e}")
             return ""
     
     @staticmethod
@@ -79,11 +93,11 @@ class FileExtractor:
                         text_parts.append(row_text)
             
             extracted_text = "\n\n".join(text_parts)
-            print(f"✅ Word procesado: {len(doc.paragraphs)} párrafos, {len(extracted_text)} caracteres")
+            logger.info(f"✅ Word procesado: {len(doc.paragraphs)} párrafos, {len(extracted_text)} caracteres")
             return extracted_text
             
         except Exception as e:
-            print(f"❌ Error procesando Word: {e}")
+            logger.error(f"❌ Error procesando Word: {e}")
             return ""
     
     @staticmethod
@@ -116,11 +130,11 @@ class FileExtractor:
                         text_parts.append(" | ".join(row_values))
             
             extracted_text = "\n".join(text_parts)
-            print(f"✅ Excel procesado: {len(workbook.sheetnames)} hojas, {len(extracted_text)} caracteres")
+            logger.info(f"✅ Excel procesado: {len(workbook.sheetnames)} hojas, {len(extracted_text)} caracteres")
             return extracted_text
             
         except Exception as e:
-            print(f"❌ Error procesando Excel: {e}")
+            logger.error(f"❌ Error procesando Excel: {e}")
             return ""
     
     @staticmethod
@@ -158,11 +172,11 @@ class FileExtractor:
                                 text_parts.append(row_text)
             
             extracted_text = "\n\n".join(text_parts)
-            print(f"✅ PowerPoint procesado: {len(presentation.slides)} diapositivas, {len(extracted_text)} caracteres")
+            logger.info(f"✅ PowerPoint procesado: {len(presentation.slides)} diapositivas, {len(extracted_text)} caracteres")
             return extracted_text
             
         except Exception as e:
-            print(f"❌ Error procesando PowerPoint: {e}")
+            logger.error(f"❌ Error procesando PowerPoint: {e}")
             return ""
     
     @staticmethod
@@ -189,15 +203,15 @@ class FileExtractor:
             extracted_text = pytesseract.image_to_string(image, lang='spa+eng')
             
             if extracted_text.strip():
-                print(f"✅ Imagen procesada ({filename}): {len(extracted_text)} caracteres extraídos")
+                logger.info(f"✅ Imagen procesada ({filename}): {len(extracted_text)} caracteres extraídos")
                 return extracted_text
             else:
-                print(f"⚠️ No se encontró texto en la imagen: {filename}")
+                logger.warning(f"⚠️ No se encontró texto en la imagen: {filename}")
                 return ""
             
         except Exception as e:
-            print(f"❌ Error procesando imagen {filename}: {e}")
-            print("💡 Asegúrate de tener Tesseract OCR instalado: https://github.com/tesseract-ocr/tesseract")
+            logger.error(f"❌ Error procesando imagen {filename}: {e}")
+            logger.info("💡 Asegúrate de tener Tesseract OCR instalado: https://github.com/tesseract-ocr/tesseract")
             return ""
     
     @staticmethod
@@ -235,8 +249,8 @@ class FileExtractor:
             try:
                 return extractor(content)
             except Exception as e:
-                print(f"❌ Error extrayendo texto de {filename}: {e}")
+                logger.error(f"❌ Error extrayendo texto de {filename}: {e}")
                 return ""
         else:
-            print(f"⚠️ Formato no soportado: {file_extension}")
+            logger.warning(f"⚠️ Formato no soportado: {file_extension}")
             return ""

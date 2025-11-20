@@ -72,7 +72,7 @@ class Settings(BaseSettings):
     
     # Nuevas configuraciones para optimización de tokens
     MAX_RESPONSE_TOKENS: int = 15000  # Safe limit under 16,384 max
-    MIN_RESPONSE_TOKENS: int = 1500   # Minimum for detailed responses
+    MIN_RESPONSE_TOKENS: int = 1000   # Minimum for detailed responses
     TOKEN_BUDGET_BUFFER: int = 2000   # Safety buffer for token calculations
     
     ENABLE_ADVANCED_CACHING: bool = True

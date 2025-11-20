@@ -334,6 +334,7 @@ class QueryRequest(BaseModel):
     user_id: Optional[int] = Field(default=None, description="ID del usuario autenticado")
     context: Optional[Dict[str, Any]] = Field(default=None, description="Contexto adicional")
     require_analysis: bool = Field(default=False, description="Si se requiere análisis conceptual y plan de acción estructurado")
+    attachments: Optional[List[Dict[str, Any]]] = Field(default=None, description="Archivos adjuntos (imágenes o documentos procesados)")
 
 class ConceptualResponse(BaseModel):
     """Respuesta a nivel conceptual (por qué)"""
