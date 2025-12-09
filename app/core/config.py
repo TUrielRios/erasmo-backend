@@ -19,11 +19,17 @@ class Settings(BaseSettings):
     DEBUG: bool = False  # Por defecto False por seguridad
     
     # Configuración de CORS
-    ALLOWED_ORIGINS: List[str] = [
-        "http://localhost:3000", 
-        "http://localhost:8080",
-        "http://localhost:5173"
-    ]
+    # Leer desde variable de entorno o usar valores por defecto
+    _allowed_origins_str = os.getenv("ALLOWED_ORIGINS", "")
+    ALLOWED_ORIGINS: List[str] = (
+        _allowed_origins_str.split(",") if _allowed_origins_str 
+        else [
+            "http://localhost:3000", 
+            "http://localhost:8080",
+            "http://localhost:5173",
+            "https://clara-ai-frontend.vercel.app"
+        ]
+    )
     
     # Configuración de autenticación JWT
     SECRET_KEY: str = os.getenv("SECRET_KEY", "fallback-secret-key-change-in-production")
@@ -33,9 +39,9 @@ class Settings(BaseSettings):
     
     # Configuración de OpenAI
     OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", "")
-    OPENAI_MODEL: str = "gpt-5o-mini"  # gpt-4o-mini supports up to 16K output tokens
-    OPENAI_MODEL_MINI: str = "gpt-5o-mini"  # Fallback for quick analyses
-    OPENAI_MODEL_ADVANCED: str = "gpt-5o"  # Advanced model for complex tasks (16K output tokens)
+    OPENAI_MODEL: str = "gpt-5-mini"  # gpt-4o-mini supports up to 16K output tokens
+    OPENAI_MODEL_MINI: str = "gpt-5-mini"  # Fallback for quick analyses
+    OPENAI_MODEL_ADVANCED: str = "gpt-5"  # Advanced model for complex tasks (16K output tokens)
     
     # Configuración de Vector Database
     VECTOR_DB_TYPE: str = "pinecone"
