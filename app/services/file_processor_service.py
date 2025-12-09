@@ -58,7 +58,7 @@ class FileProcessorService:
         try:
             # Llamar a Vision API
             response = self.client.chat.completions.create(
-                model="gpt-4o",
+                model="gpt-4o-mini",
                 messages=[
                     {
                         "role": "user",
@@ -118,7 +118,7 @@ Sé muy específico y detallado en tu análisis."""
             
             # Limpiar y resumir el texto si es muy largo
             text = text.strip()
-            if len(text) > 10000:
+            if len(text) > 30000:  # Umbral aumentado de 10K a 30K
                 # Para documentos muy largos, usar resumen con API
                 summary = self._summarize_text(text)
                 logger.info(f"[v0] Documento resumido: {len(text)} -> {len(summary)} caracteres")
@@ -126,7 +126,7 @@ Sé muy específico y detallado en tu análisis."""
                     "type": "document",
                     "filename": filename,
                     "file_format": file_ext,
-                    "content": text[:5000],  # Primeros 5000 caracteres
+                    "content": text[:50000],  # Aumentado de 5K a 50K caracteres
                     "summary": summary,
                     "full_length": len(text),
                     "file_size": len(file_content)
@@ -138,7 +138,7 @@ Sé muy específico y detallado en tu análisis."""
                 "type": "document",
                 "filename": filename,
                 "file_format": file_ext,
-                "content": text,
+                "content": text,  # Texto completo para docs <30K
                 "file_size": len(file_content)
             }
             
@@ -152,7 +152,7 @@ Sé muy específico y detallado en tu análisis."""
         
         try:
             response = self.client.chat.completions.create(
-                model="gpt-4o",
+                model="gpt-4o-mini",
                 messages=[
                     {
                         "role": "user",

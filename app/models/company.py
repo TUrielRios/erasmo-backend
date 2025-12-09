@@ -50,8 +50,13 @@ class CompanyDocument(Base):
     uploaded_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
     
+    # Campos para soporte de protocolos centralizados
+    protocol_id = Column(Integer, ForeignKey("protocols.id", ondelete="SET NULL"), nullable=True)
+    use_protocol = Column(Boolean, default=False, nullable=False)
+    
     # Relaciones
     company = relationship("Company", back_populates="documents")
+    protocol = relationship("Protocol", back_populates="company_documents")
 
 class AIConfiguration(Base):
     """Modelo de configuración de IA por compañía"""

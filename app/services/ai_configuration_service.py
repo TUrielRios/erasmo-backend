@@ -11,7 +11,7 @@ import json
 class AIConfigurationService:
     """Servicio para gestionar configuraciones de IA por compañía"""
     
-    DEFAULT_MAX_TOKENS = 15000  # Safe limit under 16,384 max for gpt-4o-mini
+    DEFAULT_max_tokens = 15000  # Safe limit under 16,384 max for gpt-4o-mini
     DEFAULT_TEMPERATURE = 0.85  # Increased for more creative responses
     DEFAULT_TOP_P = 0.95        # For more diverse outputs
     
@@ -30,7 +30,7 @@ class AIConfigurationService:
             response_style=config_data.response_style,
             model_name=config_data.model_name,
             temperature=config_data.temperature if config_data.temperature is not None else AIConfigurationService.DEFAULT_TEMPERATURE,
-            max_tokens=config_data.max_tokens if config_data.max_tokens is not None else AIConfigurationService.DEFAULT_MAX_TOKENS,
+            max_tokens=config_data.max_tokens if config_data.max_tokens is not None else AIConfigurationService.DEFAULT_max_tokens,
             instruction_priority=config_data.instruction_priority,
             knowledge_base_priority=config_data.knowledge_base_priority,
             fallback_to_general=config_data.fallback_to_general

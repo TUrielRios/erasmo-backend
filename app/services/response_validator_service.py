@@ -10,31 +10,33 @@ logger = logging.getLogger(__name__)
 class ResponseValidatorService:
     """Valida que las respuestas cumplan con los requisitos de longitud"""
     
-    def __init__(self, min_tokens: int = 1000):
+    def __init__(self, min_tokens: int = None, max_tokens: int = None):
         self.min_tokens = min_tokens
-        # Rough estimate: 1 token ≈ 4 characters
-        self.min_characters = min_tokens * 4
+        self.max_tokens = max_tokens
     
     def validate_response_length(self, response: str) -> Tuple[bool, str, int]:
         """
-        Valida que la respuesta cumpla con la longitud mínima
+        Valida que la respuesta cumpla con la longitud mínima y máxima
         
         Returns:
             (is_valid, message, token_estimate)
         """
         response_length = len(response)
+        # Rough estimate: 1 token ≈ 4 characters
         estimated_tokens = int(response_length / 4)
         
-        if estimated_tokens >= self.min_tokens:
-            return True, f"Respuesta válida: {estimated_tokens} tokens", estimated_tokens
-        
-        # Si no cumple, reportar déficit
-        deficit_tokens = self.min_tokens - estimated_tokens
-        deficit_chars = deficit_tokens * 4
-        
-        message = f"⚠️ Respuesta muy corta: {estimated_tokens} tokens (mínimo: {self.min_tokens}). Falta: {deficit_tokens} tokens ({deficit_chars} caracteres)"
-        
-        return False, message, estimated_tokens
+        if self.min_tokens and estimated_tokens < self.min_tokens:
+            deficit_tokens = self.min_tokens - estimated_tokens
+            deficit_chars = deficit_tokens * 4
+            message = f"⚠️ Respuesta muy corta: {estimated_tokens} tokens (mínimo: {self.min_tokens}). Falta: {deficit_tokens} tokens ({deficit_chars} caracteres)"
+            return False, message, estimated_tokens
+
+        if self.max_tokens and estimated_tokens > self.max_tokens:
+            excess_tokens = estimated_tokens - self.max_tokens
+            message = f"⚠️ Respuesta muy larga: {estimated_tokens} tokens (máximo: {self.max_tokens}). Excede por: {excess_tokens} tokens"
+            return False, message, estimated_tokens
+            
+        return True, f"Respuesta válida: {estimated_tokens} tokens", estimated_tokens
     
     def log_response_quality(self, response: str, session_id: str, user_id: int):
         """Registra la calidad de la respuesta en los logs"""

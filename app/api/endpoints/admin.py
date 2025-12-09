@@ -58,20 +58,78 @@ async def get_company_details(
 @router.post("/companies/{company_id}/documents")
 async def upload_company_documents(
     company_id: int,
-    files: List[UploadFile] = File(...),
     category: DocumentCategory = Form(...),
     description: Optional[str] = Form(None),
     priority: int = Form(1),
+    files: Optional[List[UploadFile]] = File(None),
     vectorize: bool = Form(True),
+    use_protocol: bool = Form(False),
+    protocol_id: Optional[int] = Form(None),
+    filename: Optional[str] = Form(None),
     db: Session = Depends(get_db)
 ):
-    """Cargar documentos categorizados para personalizar la IA de una compañía"""
+    """Cargar documentos categorizados o vincular protocolos para personalizar la IA de una compañía"""
     # Verificar que la compañía existe
     company = CompanyService.get_company_by_id(db, company_id)
     if not company:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Compañía no encontrada"
+        )
+    
+    # Si se está vinculando un protocolo
+    if use_protocol:
+        if not protocol_id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Debes proporcionar un protocol_id cuando use_protocol=True"
+            )
+        
+        # Verificar que el protocolo existe
+        from app.models.protocol import Protocol
+        protocol = db.query(Protocol).filter(Protocol.id == protocol_id).first()
+        if not protocol:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Protocolo no encontrado"
+            )
+        
+        # Crear documento vinculado a protocolo
+        document = CompanyDocumentService.create_document(
+            db, 
+            company_id, 
+            filename or f"Protocol_{protocol.name}_{protocol.version}",
+            None,  # No file_path
+            category=category,
+            description=description,
+            priority=priority
+        )
+        
+        # Vincular protocolo
+        document.use_protocol = True
+        document.protocol_id = protocol_id
+        db.commit()
+        db.refresh(document)
+        
+        return {
+            "message": "Protocolo vinculado exitosamente",
+            "document": {
+                "id": document.id,
+                "filename": document.filename,
+                "category": category.value,
+                "description": description,
+                "priority": priority,
+                "use_protocol": True,
+                "protocol_id": protocol_id,
+                "protocol_name": protocol.name
+            }
+        }
+    
+    # Flujo original: subida de archivos
+    if not files:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Debes subir archivos o vincular un protocolo"
         )
     
     uploaded_files = []

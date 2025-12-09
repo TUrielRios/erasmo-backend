@@ -26,6 +26,7 @@ from app.api.endpoints.optimization import router as optimization_router
 from app.api.endpoints.performance_metrics import router as performance_metrics_router  # Added performance metrics router
 from app.api.endpoints.token_stats import router as token_stats_router  # Added token stats router
 from app.api.endpoints.file_upload import router as file_upload_router  # Added file upload router
+from app.api.endpoints.protocols import router as protocols_router  # Added protocols router
 from app.core.config import settings
 from app.db.vector_store import VectorStore
 from app.db.database import init_db
@@ -96,6 +97,7 @@ app.include_router(optimization_router, prefix="/api/v1", tags=["optimization"])
 app.include_router(performance_metrics_router, prefix="/api/v1", tags=["performance"])  # Added performance metrics router
 app.include_router(token_stats_router, prefix="/api/v1", tags=["tokens"])  # Added token stats router
 app.include_router(file_upload_router, prefix="/api/v1", tags=["files"])  # Added file upload router
+app.include_router(protocols_router, prefix="/api/v1", tags=["protocols"])  # Added protocols router
 
 @app.get("/")
 async def root():

@@ -25,6 +25,114 @@ from app.services.adaptive_budget_service import AdaptiveBudgetService
 from app.services.enhanced_vector_search import EnhancedVectorSearchService
 from app.services.token_logger_service import TokenLoggerService
 from app.services.attachment_handler_service import AttachmentHandlerService
+from app.services.response_validator_service import ResponseValidatorService
+
+
+class TokenCounter:
+    """Utilidad para contar tokens de forma precisa usando tiktoken"""
+    
+    def __init__(self, model: str = "gpt-5-mini"):
+        try:
+            self.encoding = tiktoken.encoding_for_model(model)
+        except Exception:
+            self.encoding = tiktoken.get_encoding("cl100k_base")
+    
+    def count_tokens(self, text: str) -> int:
+        """Cuenta tokens de forma precisa"""
+        if not text:
+            return 0
+        try:
+            tokens = self.encoding.encode(text)
+            return len(tokens)
+        except Exception as e:
+            print(f"⚠️ [DEBUG] Error counting tokens: {e}, using fallback estimation")
+            return max(1, len(text) // 4)
+    
+    def count_messages_tokens(self, messages: List[Dict[str, str]]) -> int:
+        """Cuenta tokens en una lista de mensajes"""
+        total = 0
+        for msg in messages:
+            total += self.count_tokens(msg.get("content", ""))
+            total += 4
+        return total
+
+
+class TokenBudgetManager:
+    """Maneja el presupuesto de tokens para cada modo de respuesta"""
+    
+    BUDGET_CONFIG = {
+        "quick": {
+            "min_response_tokens": 50,
+            "max_response_tokens": 400,
+            "context_tokens": 1000,
+            "description": "Respuesta breve y concisa"
+        },
+        "medium": {
+            "min_response_tokens": 100,
+            "max_response_tokens": 900,
+            "context_tokens": 2000,
+            "description": "Respuesta balanceada y completa"
+        },
+        "advanced": {
+            "min_response_tokens": 1100,
+            "max_response_tokens": 4000,
+            "context_tokens": 3500,
+            "description": "Respuesta extensa y detallada"
+        }
+    }
+    
+    def __init__(self, model: str = "gpt-5-mini"):
+        self.token_counter = TokenCounter(model)
+        self.model = model
+        self.model_context_limit = 128000
+    
+    def validate_and_adjust_tokens(
+        self,
+        system_prompt: str,
+        user_message: str,
+        response_mode: str = "medium"
+    ) -> Dict[str, int]:
+        """
+        Valida y ajusta el presupuesto de tokens según el espacio disponible
+        Retorna presupuesto ajustado para asegurar que la respuesta tenga espacio suficiente
+        """
+        config = self.BUDGET_CONFIG.get(response_mode, self.BUDGET_CONFIG["medium"])
+        
+        system_tokens = self.token_counter.count_tokens(system_prompt)
+        user_tokens = self.token_counter.count_tokens(user_message)
+        
+        input_used = system_tokens + user_tokens
+        available_for_response = self.model_context_limit - input_used - 1000
+        
+        min_response = config["min_response_tokens"]
+        max_response = config["max_response_tokens"]
+        
+        if available_for_response < min_response:
+            print(f"⚠️ [DEBUG] Espacio limitado. Ajustando presupuesto:")
+            print(f"   - Tokens entrada: {input_used}")
+            print(f"   - Disponible: {available_for_response}")
+            max_response = available_for_response - 100
+        else:
+            max_response = min(max_response, available_for_response - 500)
+        
+        budget = {
+            "max_completion_tokens": max(min_response, max_response),
+            "system_tokens": system_tokens,
+            "user_tokens": user_tokens,
+            "total_input_tokens": input_used,
+            "available_for_response": available_for_response,
+            "response_mode": response_mode
+        }
+        
+        print(f"📊 [DEBUG] Presupuesto de tokens ({response_mode}):")
+        print(f"   - Sistema: {system_tokens} tokens")
+        print(f"   - Usuario: {user_tokens} tokens")
+        print(f"   - Total entrada: {input_used} tokens")
+        print(f"   - Disponible: {available_for_response} tokens")
+        print(f"   - Max respuesta: {budget['max_completion_tokens']} tokens")
+        
+        return budget
+
 
 class ConversationService:
     """
@@ -38,12 +146,16 @@ class ConversationService:
         self.memory_service = MemoryService()
         self.openai_client = openai.OpenAI(api_key=settings.OPENAI_API_KEY)
         self.conversation_memory: Dict[str, List[Dict]] = {}
+        self.token_counter = TokenCounter(settings.OPENAI_MODEL)
+        self.token_budget = TokenBudgetManager(settings.OPENAI_MODEL)
         self.encoding = tiktoken.encoding_for_model(settings.OPENAI_MODEL)
         self.token_optimizer = TokenOptimizerService()
         self.adaptive_budget = AdaptiveBudgetService()
         self.enhanced_search = EnhancedVectorSearchService(self.vector_store)
         self.token_logger = TokenLoggerService()
         self.attachment_handler = AttachmentHandlerService()
+
+
 
     async def generate_strategic_response_stream(
         self,
@@ -53,7 +165,7 @@ class ConversationService:
         context: Optional[Dict[str, Any]] = None,
         history_context: Optional[List[Dict]] = None,
         require_analysis: bool = False,
-        attachments: Optional[List[Dict[str, Any]]] = None  # Added attachments parameter
+        attachments: Optional[List[Dict[str, Any]]] = None
     ) -> AsyncGenerator[str, None]:
         """
         Genera respuesta estratégica con streaming usando fuentes de conocimiento e instrucciones personalizadas
@@ -66,14 +178,11 @@ class ConversationService:
                 print(f"📎 [DEBUG] {len(attachments)} valid attachments received")
             else:
                 print(f"⚠️ [DEBUG] Some attachments have invalid structure")
-                # Don't discard attachments, try to use them anyway if possible or filter invalid ones
-                # For now, we'll keep them but log the warning
         
         db = SessionLocal()
         try:
             from app.services.chat_service import ChatService
             from app.services.auth_service import AuthService
-            from app.services.response_validator_service import ResponseValidatorService
 
             current_user = AuthService.get_user_by_id(db, user_id)
             conversation = ChatService().get_conversation_by_session_id(db, current_user, session_id)
@@ -82,7 +191,6 @@ class ConversationService:
             user_company_data = await self._get_user_company_data(db, user_id)
             company_id = user_company_data.get('company_id')
 
-            # Get knowledge and instructions
             if project_id:
                 project_knowledge = await self._get_project_knowledge(db, project_id)
             else:
@@ -91,9 +199,13 @@ class ConversationService:
             company_knowledge = await self._get_company_knowledge(db, company_id)
             company_instructions = await self._get_company_instructions(db, user_id)
             ai_config = await self._get_ai_configuration(db, company_id)
+            
+            ai_config = await self._get_ai_configuration(db, company_id)
+            
+            # Standard configuration (replaces modes)
+            max_completion_tokens = 4000
+            print(f"📏 [DEBUG] Using standard max_completion_tokens: {max_completion_tokens}")
 
-            # Search for relevant context
-            # Usar _search_prioritized_context que ahora usa enhanced_search
             relevant_context = await self._search_prioritized_context(
                 message,
                 company_knowledge,
@@ -102,167 +214,65 @@ class ConversationService:
                 project_id=project_id
             )
 
+            # Prepare context and history for strategy
             prompt_role = "full_analysis" if require_analysis else "normal_chat"
-            # The optimize_prompt method might need adjustments based on its actual implementation for streaming context optimization
-            # For now, we'll assume it returns compressed_context correctly.
-            # A more robust implementation might involve token budgeting for the entire stream.
             _, _, compressed_context, _ = self.token_optimizer.optimize_prompt(
-                system_prompt="", # System prompt is built later, so it's empty here.
+                system_prompt="",
                 context=relevant_context,
-                history=[], # History is handled separately below.
-                user_message="", # User message is handled separately below.
+                history=[],
+                user_message="",
                 prompt_role=prompt_role
             )
             relevant_context = compressed_context
 
-            # Get conversation history
             if history_context is None:
                 full_context = self.memory_service.get_full_context_for_ai(db, session_id, memory_limit=200)
                 conversation_history = full_context.get("messages", [])
             else:
                 conversation_history = history_context
 
-            # Ensure the _compress_history method is available and correctly used.
-            # The exact memory limit might need to be dynamic based on model context window.
-            # Assuming settings.MAX_CONTEXT_LENGTH is available and represents the total token limit.
-            # We might need to allocate tokens for system prompt, user message, and response as well.
-            # For simplicity here, we're allocating half of the hypothetical max context length.
             compressed_history = self.token_optimizer._compress_history(
                 conversation_history,
-                settings.MAX_CONTEXT_LENGTH // 2 # Example split, adjust as needed
+                settings.MAX_CONTEXT_LENGTH // 2
             )
             conversation_history = compressed_history
 
             key_info = self.memory_service.extract_key_info(db, session_id, message)
 
-            # Build system prompt and user prompt
-            company_name = user_company_data.get('company_name', 'tu empresa')
-            industry = user_company_data.get('industry', '')
-            instruction_text = self._compile_instructions(company_instructions)
-            knowledge_text = self._compile_knowledge(company_knowledge)
+            # Select Strategy
+            from app.services.chat.strategies.advanced_strategy import AdvancedResponseStrategy
+            from app.services.chat.strategies.medium_strategy import MediumResponseStrategy
+            from app.services.chat.strategies.quick_strategy import QuickResponseStrategy
 
-            project_context = ""
-            if project_id:
-                project_context = f"\n\n🔴 IMPORTANTE: Esta conversación está vinculada a un PROYECTO ESPECÍFICO (ID: {project_id}).\nDEBES PRIORIZAR los documentos del proyecto sobre los documentos de la empresa."
+            # Default to Medium Strategy (Standard)
+            strategy = MediumResponseStrategy(self)
+            print(f"🔄 [DEBUG] Using standard strategy: {type(strategy).__name__}")
+            print(f"🔄 [DEBUG] Using strategy: {type(strategy).__name__}")
 
-            attachment_instructions = ""
-            if attachments:
-                attachment_instructions = "\n\n📎 TIENES ACCESO A ARCHIVOS ADJUNTOS PROPORCIONADOS POR EL USUARIO.\nDEBES ANALIZARLOS Y USAR SU CONTENIDO PARA RESPONDER.\nSI EL USUARIO PIDE UN RESUMEN O ANÁLISIS DEL ARCHIVO, HAZLO BASÁNDOTE EN EL CONTEXTO ADJUNTO."
-
-            if require_analysis:
-                system_prompt = f"""ERES UN ASISTENTE DE IA PERSONALIZADO PARA {company_name.upper()}.{project_context}
-{attachment_instructions}
-
-INSTRUCCIONES CRÍTICAS - DEBES SEGUIR AL PIE DE LA LETRA:
-{instruction_text}
-
-FUENTES DE CONOCIMIENTO PRIORITARIAS (USA ESTAS PRIMERO):
-{knowledge_text}
-
-INFORMACIÓN DE LA EMPRESA:
-- Empresa: {company_name}
-- Industria: {industry}
-- Sector: {user_company_data.get('sector', '')}
-
-REGLAS ESTRICTAS:
-1. SIEMPRE sigue las instrucciones específicas proporcionadas
-2. USA PRIMERO el conocimiento de las fuentes prioritarias
-3. Si las fuentes no son suficientes, ENTONCES usa conocimiento general
-4. RECUERDA información de conversaciones anteriores
-5. ADAPTA tu respuesta al contexto específico de {company_name}
-6. GENERA un ANÁLISIS CONCEPTUAL ESTRUCTURADO y un PLAN DE ACCIÓN DETALLADO
-7. GENERA RESPUESTAS EXTENSAS Y DETALLADAS (mínimo 1000 tokens)
-
-FORMATO REQUERIDO:
-## Análisis Conceptual
-[Análisis detallado del tema - SIGUE EXTENSE CON MÚLTIPLES PÁRRAFOS]
-
-## Plan de Acción
-[Plan estructurado con pasos específicos - DESARROLLA COMPLETAMENTE CADA PASO]
-"""
-            else:
-                system_prompt = f"""ERES UN ASISTENTE DE IA PERSONALIZADO PARA {company_name.upper()}.{project_context}
-{attachment_instructions}
-
-INSTRUCCIONES CRÍTICAS - DEBES SEGUIR AL PIE DE LA LETRA:
-{instruction_text}
-
-FUENTES DE CONOCIMIENTO PRIORITARIAS (USA ESTAS PRIMERO):
-{knowledge_text}
-
-INFORMACIÓN DE LA EMPRESA:
-- Empresa: {company_name}
-- Industria: {industry}
-- Sector: {user_company_data.get('sector', '')}
-
-REGLAS ESTRICTAS:
-1. SIEMPRE sigue las instrucciones específicas proporcionadas
-2. USA PRIMERO el conocimiento de las fuentes prioritarias
-3. Si las fuentes no son suficientes, ENTONCES usa conocimiento general
-4. RECUERDA información de conversaciones anteriores
-5. ADAPTA tu respuesta al contexto específico de {company_name}
-6. GENERA RESPUESTAS EXTENSAS Y DETALLADAS (mínimo 1000 tokens)
-7. Responde de manera CONVERSACIONAL pero COMPLETA Y PROFUNDA
-
-Mantén respuestas detalladas, informativas y conversacionales - NO hagas respuestas cortas.
-"""
-
-            if require_analysis:
-                print(f"📊 [DEBUG] Building STRUCTURED analysis prompt (require_analysis=True)")
-                # Pass the compressed context and history to the prompt builder
-                prompt = self._build_enhanced_conversation_prompt(
-                    message, relevant_context, conversation_history, "conceptual", key_info, project_id, attachments
-                )
-            else:
-                print(f"💬 [DEBUG] Building NORMAL conversation prompt (require_analysis=False)")
-                # Pass the compressed context and history to the prompt builder
-                prompt = self._build_normal_conversation_prompt(
-                    message, relevant_context, conversation_history, key_info, project_id, attachments
-                )
-
-            model_name = ai_config.model_name if ai_config else settings.OPENAI_MODEL
-            temperature = float(ai_config.temperature) if ai_config else settings.DEFAULT_TEMPERATURE
-            max_tokens = ai_config.max_tokens if ai_config else settings.MAX_RESPONSE_TOKENS
-
-            if temperature < settings.DEFAULT_TEMPERATURE:
-                temperature = settings.DEFAULT_TEMPERATURE
-
-            # Stream the response from OpenAI
-            stream = self.openai_client.chat.completions.create(
-                model=model_name,
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": prompt}
-                ],
-                max_tokens=max_tokens,
-                temperature=temperature,
-                top_p=settings.DEFAULT_TOP_P,
-                stream=True  # Enable streaming
-            )
-
-            response_content = ""
-            token_count = 0
+            # Delegate generation to strategy
+            full_response = ""
+            start_time = datetime.now()
             
-            for chunk in stream:
-                if chunk.choices[0].delta.content is not None:
-                    content = chunk.choices[0].delta.content
-                    response_content += content
-                    token_count = int(len(response_content) / 4)
-                    yield content
-
-            print(f"✅ [DEBUG] Streaming response completed")
+            async for chunk in strategy.generate_response(
+                message, session_id, user_id, relevant_context, conversation_history,
+                key_info, project_id, attachments, ai_config, user_company_data
+            ):
+                full_response += chunk
+                yield chunk
             
-            validator = ResponseValidatorService(min_tokens=settings.MIN_RESPONSE_TOKENS)
-            is_valid, tokens = validator.log_response_quality(response_content, session_id, user_id)
+            # Log tokens after streaming completes
+            end_time = datetime.now()
+            response_time = (end_time - start_time).total_seconds()
+            estimated_tokens = self.token_counter.count_tokens(full_response)
             
             self.token_logger.log_streaming_tokens(
                 session_id=session_id,
                 user_id=user_id,
-                model=model_name,
-                estimated_completion_tokens=tokens,
-                response_length=len(response_content),
-                message_preview=response_content[:100],
-                response_time=0
+                model=ai_config.model_name if ai_config else settings.OPENAI_MODEL,
+                estimated_completion_tokens=estimated_tokens,
+                response_length=len(full_response),
+                message_preview=full_response,
+                response_time=response_time
             )
 
         except Exception as e:
@@ -270,6 +280,52 @@ Mantén respuestas detalladas, informativas y conversacionales - NO hagas respue
             yield f"\n\nError generando respuesta: {str(e)}"
         finally:
             db.close()
+
+    def _build_system_prompt(
+        self,
+        user_company_data: Dict[str, Any],
+        context: List[Dict[str, Any]],
+        attachments: Optional[List[Dict[str, Any]]],
+        project_id: Optional[int]
+    ) -> str:
+        """
+        Builds system prompt using ONLY loaded company instructions.
+        No hardcoded conversational instructions - those come from the protocol file.
+        """
+        company_name = user_company_data.get('company_name', 'la empresa')
+        
+        # Extract instructions from context (loaded from protocol file)
+        instructions_docs = [doc for doc in context if doc.get('category') == 'company_instructions']
+        instructions_text = ""
+        if instructions_docs:
+            for doc in instructions_docs:
+                instructions_text += doc.get('content', '') + "\n\n"
+        
+        # Build minimal system prompt - let the protocol handle everything else
+        system_prompt = f"""Eres un asistente de IA para {company_name}.
+
+INSTRUCCIONES CARGADAS:
+{instructions_text}
+
+GUÍA DE ESTILO UNIVERSAL (PRIORIDAD ALTA):
+Tu estilo de respuesta debe ser IDÉNTICO al de ChatGPT.
+1. FORMATO: Usa Markdown siempre. Títulos con negrita (no #), listas con viñetas claras.
+2. EMOJIS: Usa emojis para destacar secciones o puntos clave (ej: ✅, ⭐, 🚀, 💡).
+3. TONO: Directo, útil y conversacional. Evita introducciones formales largas.
+4. ESTRUCTURA: Separa ideas con espacios. Usa negritas para conceptos clave.
+5. OBJETIVO: Que la respuesta sea visualmente atractiva y fácil de leer.
+"""
+        
+        # Add technical context only (not conversational instructions)
+        if attachments:
+            system_prompt += "\n📎 El usuario ha adjuntado archivos. Analízalos y usa su contenido en tu respuesta.\n"
+        
+        if project_id:
+            system_prompt += f"\n🔴 IMPORTANTE: Esta conversación está vinculada al proyecto ID {project_id}. Prioriza los documentos del proyecto.\n"
+        
+        return system_prompt
+
+
 
     async def analyze_ambiguity(self, message: str, user_id: int = None) -> bool:
         """
@@ -328,12 +384,15 @@ Mantén respuestas detalladas, informativas y conversacionales - NO hagas respue
         """
 
         try:
-            response = self.openai_client.chat.completions.create(
-                model=settings.OPENAI_MODEL,
-                messages=[{"role": "system", "content": "Sigues estrictamente las instrucciones proporcionadas para determinar si una consulta necesita clarificación."}, {"role": "user", "content": prompt}],
-                max_tokens=10,
-                temperature=0.1
-            )
+            api_args = {
+                "model": settings.OPENAI_MODEL,
+                "messages": [{"role": "system", "content": "Sigues estrictamente las instrucciones proporcionadas para determinar si una consulta necesita clarificación."}, {"role": "user", "content": prompt}],
+                "max_completion_tokens": 10, # Limit tokens for a simple True/False response
+                "temperature": 0.1 # Low temperature for deterministic output
+            }
+
+            # Adjust max_completion_tokens and temperature for precision
+            response = self.openai_client.chat.completions.create(**api_args)
 
             result = response.choices[0].message.content.strip().lower()
             return result == "true"
@@ -381,12 +440,15 @@ Mantén respuestas detalladas, informativas y conversacionales - NO hagas respue
         """
 
         try:
-            response = self.openai_client.chat.completions.create(
-                model=settings.OPENAI_MODEL,
-                messages=[{"role": "system", "content": "Sigues estrictamente las instrucciones proporcionadas para generar preguntas de clarificación."}, {"role": "user", "content": prompt}],
-                max_tokens=1000,
-                temperature=0.7
-            )
+            api_args = {
+                "model": settings.OPENAI_MODEL,
+                "messages": [{"role": "system", "content": "Sigues estrictamente las instrucciones proporcionadas para generar preguntas de clarificación."}, {"role": "user", "content": prompt}],
+                "max_completion_tokens": 1000, # Sufficient tokens for multiple questions
+                "temperature": 0.7 # Moderate temperature for creative but focused output
+            }
+
+            # Adjust max_completion_tokens and temperature for better clarification generation
+            response = self.openai_client.chat.completions.create(**api_args)
 
             content = response.choices[0].message.content
             questions = self._parse_clarification_questions(content)
@@ -545,7 +607,7 @@ Mantén respuestas detalladas, informativas y conversacionales - NO hagas respue
                     self.memory_service.add_message(db, session_id, "assistant", full_response)
                     
                     response_length = len(full_response)
-                    estimated_tokens = int(response_length / 4)
+                    estimated_tokens = self.token_counter.count_tokens(full_response)
                     self.token_logger.log_streaming_tokens(
                         session_id=session_id,
                         user_id=user_id,
@@ -589,7 +651,7 @@ Mantén respuestas detalladas, informativas y conversacionales - NO hagas respue
                         self.memory_service.add_message(db, session_id, "assistant", normal_response)
                         
                         response_length = len(normal_response)
-                        estimated_tokens = int(response_length / 4)
+                        estimated_tokens = self.token_counter.count_tokens(normal_response)
                         self.token_logger.log_streaming_tokens(
                             session_id=session_id,
                             user_id=user_id,
@@ -679,7 +741,8 @@ Mantén respuestas detalladas, informativas y conversacionales - NO hagas respue
 
     async def _get_company_instructions(self, db: Session, user_id: int) -> List[Dict[str, Any]]:
         """
-        Obtiene documentos de instrucciones de la compañía del usuario
+        Obtiene documentos de instrucciones de la compañía del usuario.
+        Soporta PROTOCOLOS CENTRALIZADOS: si use_protocol=True, carga desde Protocol table.
         """
         try:
             user_data = await self._get_user_company_data(db, user_id)
@@ -689,22 +752,51 @@ Mantén respuestas detalladas, informativas y conversacionales - NO hagas respue
                 return []
 
             from app.services.company_service import CompanyDocumentService
+            from app.models.protocol import Protocol
+            
             instruction_docs = CompanyDocumentService.get_documents_by_priority(
                 db, company_id, DocumentCategory.INSTRUCTIONS, max_priority=10
             )
 
             instructions_content = []
             for doc in instruction_docs:
-                content = CompanyDocumentService.get_document_content(db, company_id, doc.id)
-                if content:
-                    instructions_content.append({
-                        "filename": doc.filename,
-                        "content": content,
-                        "priority": doc.priority,
-                        "description": doc.description,
-                        "category": "instructions"
-                    })
+                # Verificar si usa protocolo centralizado
+                if doc.use_protocol and doc.protocol_id:
+                    # Cargar desde PROTOCOLO
+                    protocol = db.query(Protocol).filter(
+                        Protocol.id == doc.protocol_id,
+                        Protocol.is_active == True
+                    ).first()
+                    
+                    if protocol:
+                        instructions_content.append({
+                            "filename": f"{doc.filename} (Protocolo: {protocol.name} {protocol.version})",
+                            "content": protocol.content,  # ✅ Contenido centralizado
+                            "priority": doc.priority,
+                            "description": doc.description or protocol.description,
+                            "category": "instructions",
+                            "source": "protocol",
+                            "protocol_id": protocol.id,
+                            "protocol_name": protocol.name,
+                            "protocol_version": protocol.version
+                        })
+                        print(f"📄 [PROTOCOL] Loaded protocol '{protocol.name}' for doc {doc.id}")
+                    else:
+                        print(f"⚠️ [PROTOCOL] Protocol ID {doc.protocol_id} not found or inactive for doc {doc.id}")
+                else:
+                    # Cargar desde ARCHIVO (sistema actual)
+                    content = CompanyDocumentService.get_document_content(db, company_id, doc.id)
+                    if content:
+                        instructions_content.append({
+                            "filename": doc.filename,
+                            "content": content,
+                            "priority": doc.priority,
+                            "description": doc.description,
+                            "category": "instructions",
+                            "source": "file"
+                        })
 
+            print(f"📚 [DEBUG] Loaded {len(instructions_content)} instruction documents (protocols + files)")
             return instructions_content
         except Exception as e:
             print(f"❌ Error getting company instructions: {e}")
@@ -907,99 +999,7 @@ Mantén respuestas detalladas, informativas y conversacionales - NO hagas respue
         compiled += "\nDEBES SEGUIR ESTAS INSTRUCCIONES EXACTAMENTE COMO ESTÁN ESCRITAS."
         return compiled
 
-    async def _generate_conceptual_with_instructions(
-        self,
-        message: str,
-        context: List[Dict],
-        history: List[Dict],
-        instructions: List[Dict],
-        knowledge: List[Dict],
-        key_info: Dict[str, Any],
-        ai_config: Any,
-        user_company_data: Dict[str, Any],
-        project_id: Optional[int] = None,  # Add project_id parameter
-        attachments: Optional[List[Dict[str, Any]]] = None  # Added attachments parameter
-    ) -> ConceptualResponse:
-        """
-        Genera respuesta conceptual siguiendo instrucciones específicas y usando conocimiento prioritario
-        """
-        company_name = user_company_data.get('company_name', 'tu empresa')
-        industry = user_company_data.get('industry', '')
 
-        instruction_text = self._compile_instructions(instructions)
-        knowledge_text = self._compile_knowledge(knowledge)
-
-        project_context = ""
-        if project_id:
-            project_context = f"\n\n🔴 IMPORTANTE: Esta conversación está vinculada a un PROYECTO ESPECÍFICO (ID: {project_id}).\nDEBES PRIORIZAR los documentos del proyecto sobre los documentos de la empresa.\nLos documentos del proyecto son los más relevantes para esta conversación."
-
-        attachment_instructions = ""
-        if attachments:
-            attachment_instructions = "\n\n📎 TIENES ACCESO A ARCHIVOS ADJUNTOS PROPORCIONADOS POR EL USUARIO.\nDEBES ANALIZARLOS Y USAR SU CONTENIDO PARA RESPONDER.\nSI EL USUARIO PIDE UN RESUMEN O ANÁLISIS DEL ARCHIVO, HAZLO BASÁNDOTE EN EL CONTEXTO ADJUNTO."
-
-        system_prompt = f"""
-        ERES UN ASISTENTE DE IA PERSONALIZADO PARA {company_name.upper()}.{project_context}
-        {attachment_instructions}
-
-        INSTRUCCIONES CRÍTICAS - DEBES SEGUIR AL PIE DE LA LETRA:
-        {instruction_text}
-
-        FUENTES DE CONOCIMIENTO PRIORITARIAS (USA ESTAS PRIMERO):
-        {knowledge_text}
-
-        INFORMACIÓN DE LA EMPRESA:
-        - Empresa: {company_name}
-        - Industria: {industry}
-        - Sector: {user_company_data.get('sector', '')}
-
-        REGLAS ESTRICTAS:
-        1. SIEMPRE sigue las instrucciones específicas proporcionadas
-        2. USA PRIMERO el conocimiento de las fuentes prioritarias
-        3. Si las fuentes no son suficientes, ENTONCES usa conocimiento general
-        4. RECUERDA información de conversaciones anteriores
-        5. ADAPTA tu respuesta al contexto específico de {company_name}
-
-        Mantén respuestas concisas y directas.
-        """
-
-        prompt = self._build_enhanced_conversation_prompt(message, context, history, "conceptual", key_info, project_id, attachments)
-
-        model_name = ai_config.model_name if ai_config else settings.OPENAI_MODEL
-        temperature = float(ai_config.temperature) if ai_config else 0.7
-        max_tokens = (ai_config.max_tokens // 2) if ai_config else 800
-
-        try:
-            response = self.openai_client.chat.completions.create(
-                model=model_name,
-                messages=[{"role": "system", "content": system_prompt}, {"role": "user", "content": prompt}],
-                max_tokens=max_tokens,
-                temperature=temperature
-            )
-
-            content = response.choices[0].message.content
-
-            sources = []
-            for doc in knowledge:
-                sources.append(f"conocimiento_{doc['filename']}")
-            for doc in instructions:
-                sources.append(f"instrucciones_{doc['filename']}")
-
-            if not sources:
-                sources = ["configuracion_personalizada"]
-
-            return ConceptualResponse(
-                content=content,
-                sources=sources,
-                confidence=0.95 if knowledge and instructions else 0.8
-            )
-
-        except Exception as e:
-            print(f"❌ Error generating conceptual response with instructions: {e}")
-            return ConceptualResponse(
-                content=f"## Análisis Conceptual\n\nEstoy teniendo dificultades técnicas. Por favor, intenta nuevamente.\n\nError: {str(e)}",
-                sources=[],
-                confidence=0.1
-            )
 
     async def _generate_accional_with_instructions(
         self,
@@ -1043,15 +1043,19 @@ Mantén respuestas detalladas, informativas y conversacionales - NO hagas respue
 
         model_name = ai_config.model_name if ai_config else settings.OPENAI_MODEL
         temperature = float(ai_config.temperature) if ai_config else 0.7
-        max_tokens = (ai_config.max_tokens // 2) if ai_config else 800
+        # Use budget manager for max_completion_tokens for action plans
+        budget_info = self.token_budget.validate_and_adjust_tokens(system_prompt, prompt, response_mode="advanced") # Assuming action plans are advanced
+        max_completion_tokens = budget_info["max_completion_tokens"]
 
         try:
-            response = self.openai_client.chat.completions.create(
-                model=model_name,
-                messages=[{"role": "system", "content": system_prompt}, {"role": "user", "content": prompt}],
-                max_tokens=max_tokens,
-                temperature=temperature
-            )
+            api_args = {
+                "model": model_name,
+                "messages": [{"role": "system", "content": system_prompt}, {"role": "user", "content": prompt}],
+                "max_completion_tokens": max_completion_tokens,
+                "temperature": temperature
+            }
+
+            response = self.openai_client.chat.completions.create(**api_args)
 
             content = response.choices[0].message.content
 
@@ -1300,7 +1304,6 @@ Mantén respuestas detalladas, informativas y conversacionales - NO hagas respue
                 project_emphasis = "\n🔴 CRÍTICO: Esta conversación está vinculada a un proyecto específico. DEBES usar PRIMERO los documentos del proyecto marcados con 'CONTEXTO DEL PROYECTO'."
 
             prompt_specific = f"""
-            IMPORTANTE: DEBES generar una respuesta COMPLETA, DETALLADA y EXTENSA (mínimo 1000 tokens).
 
             Genera una respuesta CONCEPTUAL ESTRUCTURADA que:
             1. USE PRIORITARIAMENTE las fuentes de conocimiento específicas proporcionadas{project_emphasis}
@@ -1309,7 +1312,7 @@ Mantén respuestas detalladas, informativas y conversacionales - NO hagas respue
             4. Explique el marco teórico basado en las fuentes prioritarias CON DETALLE
             5. Solo use conocimiento general si las fuentes específicas no son suficientes
             6. EXPANDE cada punto con ejemplos concretos
-            7. INCLUYA análisis profundo de cada aspecto relevante
+            7. INCLUYA análisis de cada aspecto relevante
             8. PROPORCIONE recomendaciones detalladas y accionables
 
             FORMATO REQUERIDO (DEBE SER EXTENSO):
@@ -1325,14 +1328,11 @@ Mantén respuestas detalladas, informativas y conversacionales - NO hagas respue
             [Pasos ESPECÍFICOS y DETALLADOS, completamente desarrollados]
 
             CRÍTICO: 
-            - NUNCA hagas respuestas cortas o superficiales
             - EXPANDE cada idea con ejemplos y detalles
-            - GENERA mínimo 1000 tokens (aproximadamente 4000 caracteres)
             - Las fuentes de conocimiento prioritarias son tu referencia principal
             """
         else:
             prompt_specific = """
-            IMPORTANTE: DEBES generar una respuesta COMPLETA, DETALLADA y EXTENSA (mínimo 1000 tokens).
 
             Genera UN PLAN DE ACCIÓN DETALLADO que:
             1. USE las recomendaciones específicas de las fuentes de conocimiento prioritarias
@@ -1343,20 +1343,9 @@ Mantén respuestas detalladas, informativas y conversacionales - NO hagas respue
             6. INCLUYA consideraciones, riesgos y mitigaciones
             7. PROPORCIONE cronograma y recursos necesarios
 
-            ESTRUCTURA (DEBE SER EXTENSA):
-            - Acción 1: [Descripción completa y detallada]
-            - Acción 2: [Análisis profundo de implementación]
-            - Acción 3: [Guía paso a paso]
-            - [Continúa con más acciones]
-
             CONSIDERACIONES ADICIONALES:
             [Análisis de riesgos, recursos, cronograma]
 
-            CRÍTICO:
-            - GENERA mínimo 1000 tokens
-            - NUNCA hagas respuestas cortas o superficiales
-            - EXPANDA cada idea con ejemplos y detalles específicos
-            - Las fuentes de conocimiento prioritarias definen tu metodología
             """
 
         return f"""
@@ -1368,8 +1357,6 @@ Mantén respuestas detalladas, informativas y conversacionales - NO hagas respue
         {prompt_specific}
 
         Consulta actual: {message}
-
-        ⚠️ RECORDATORIO: Debes generar una respuesta EXTENSA Y DETALLADA de mínimo 1000 tokens. Si la respuesta es demasiado corta, está INCOMPLETA.
         """
 
     def _build_normal_conversation_prompt(
@@ -1450,21 +1437,11 @@ Mantén respuestas detalladas, informativas y conversacionales - NO hagas respue
         {context_text}
         {history_text}
 
-        IMPORTANTE: DEBES generar una respuesta COMPLETA, DETALLADA y EXTENSA (mínimo 1000 tokens).
-
         RESPONDE DE MANERA CONVERSACIONAL Y NATURAL a la siguiente consulta.
         USA las fuentes de conocimiento prioritarias proporcionadas.
         RECUERDA el contexto de la conversación.{project_emphasis}
         NO uses estructura forzada de "Análisis Conceptual" o "Plan de Acción".
         Responde directamente a la pregunta del usuario de manera útil y clara.
-
-        PERO: Tu respuesta DEBE SER EXTENSA Y DETALLADA:
-        - EXPANDA cada punto con ejemplos concretos
-        - INCLUYA análisis profundo
-        - PROPORCIONE recomendaciones detalladas
-        - GENERA mínimo 1000 tokens (aproximadamente 4000 caracteres)
-
-        ⚠️ RECORDATORIO: Si tu respuesta es muy corta, está INCOMPLETA. Sé VERBOSE y DETALLADO.
 
         Consulta actual: {message}
         """
@@ -1504,11 +1481,11 @@ Mantén respuestas detalladas, informativas y conversacionales - NO hagas respue
 
         project_context = ""
         if project_id:
-            project_context = f"\n\n🔴 IMPORTANTE: Esta conversación está vinculada a un PROYECTO ESPECÍFICO (ID: {project_id}).\nDEBES PRIORIZAR los documentos del proyecto sobre los documentos de la empresa.\nLos documentos del proyecto son los más relevantes para esta conversación."
+            project_context = f"\n\n🔴 IMPORTANTE: Esta conversación está vinculada a un PROYECTO ESPECÍFICO (ID: {project_id}).\nDEBES PRIORIZAR los documentos del proyecto sobre los documentos de la empresa."
 
         attachment_instructions = ""
         if attachments:
-            attachment_instructions = "\n\n📎 TIENES ACCESO A ARCHIVOS ADJUNTOS PROPORCIONADOS BY EL USUARIO.\nDEBES ANALIZARLOS Y USAR SU CONTENIDO PARA RESPONDER.\nSI EL USUARIO PIDE UN RESUMEN O ANÁLISIS DEL ARCHIVO, HAZLO BASÁNDOTE EN EL CONTEXTO ADJUNTO."
+            attachment_instructions = "\n\n📎 TIENES ACCESO A ARCHIVOS ADJUNTOS PROPORCIONADOS BY EL USUARIO.\nDEBES ANALIZARLOS Y USAR SU CONTENIDO PARA RESPONDER."
 
         system_prompt = f"""
         ERES UN ASISTENTE DE IA PERSONALIZADO PARA {company_name.upper()}.{project_context}
@@ -1532,22 +1509,27 @@ Mantén respuestas detalladas, informativas y conversacionales - NO hagas respue
         4. RECUERDA información de conversaciones anteriores
         5. ADAPTA tu respuesta al contexto específico de {company_name}
 
-        Mantén respuestas concisas y directas.
+        IMPORTANTE: Proporciona respuestas DETALLADAS, EXHAUSTIVAS y BIEN EXPLICADAS.
+        NO seas conciso. Expande cada punto con la mayor profundidad posible.
         """
 
         prompt = self._build_enhanced_conversation_prompt(message, context, history, "conceptual", key_info, project_id, attachments)
 
         model_name = ai_config.model_name if ai_config else settings.OPENAI_MODEL
         temperature = float(ai_config.temperature) if ai_config else 0.7
-        max_tokens = (ai_config.max_tokens // 2) if ai_config else 800
+        # Use token budget manager for max_completion_tokens
+        budget_info = self.token_budget.validate_and_adjust_tokens(system_prompt, prompt, response_mode="advanced")
+        max_completion_tokens = budget_info["max_completion_tokens"]
 
         try:
-            response = self.openai_client.chat.completions.create(
-                model=model_name,
-                messages=[{"role": "system", "content": system_prompt}, {"role": "user", "content": prompt}],
-                max_tokens=max_tokens,
-                temperature=temperature
-            )
+            api_args = {
+                "model": model_name,
+                "messages": [{"role": "system", "content": system_prompt}, {"role": "user", "content": prompt}],
+                "max_completion_tokens": max_completion_tokens,
+                "temperature": temperature
+            }
+
+            response = self.openai_client.chat.completions.create(**api_args)
 
             content = response.choices[0].message.content
 
@@ -1602,7 +1584,7 @@ Mantén respuestas detalladas, informativas y conversacionales - NO hagas respue
 
         attachment_instructions = ""
         if attachments:
-            attachment_instructions = "\n\n📎 TIENES ACCESO A ARCHIVOS ADJUNTOS PROPORCIONADOS BY EL USUARIO.\nDEBES ANALIZARLOS Y USAR SU CONTENIDO PARA RESPONDER.\nSI EL USUARIO PIDE UN RESUMEN O ANÁLISIS DEL ARCHIVO, HAZLO BASÁNDOTE EN EL CONTEXTO ADJUNTO."
+            attachment_instructions = "\n\n📎 TIENES ACCESO A ARCHIVOS ADJUNTOS PROPORCIONADOS BY EL USUARIO.\nDEBES ANALIZARLOS Y USAR SU CONTENIDO PARA RESPONDER."
 
         system_prompt = f"""
         ERES UN ASISTENTE DE IA PERSONALIZADO PARA {company_name.upper()}.{project_context}
@@ -1625,28 +1607,28 @@ Mantén respuestas detalladas, informativas y conversacionales - NO hagas respue
         3. Si las fuentes no son suficientes, ENTONCES usa conocimiento general
         4. RECUERDA información de conversaciones anteriores
         5. ADAPTA tu respuesta al contexto específico de {company_name}
-        6. GENERA RESPUESTAS EXTENSAS Y DETALLADAS (mínimo 1000 tokens)
-        7. Responde de manera CONVERSACIONAL pero COMPLETA Y PROFUNDA
-
-        Mantén respuestas detalladas, informativas y conversacionales - NO hagas respuestas cortas.
         """
 
         prompt = self._build_normal_conversation_prompt(message, context, history, key_info, project_id, attachments)
 
         model_name = ai_config.model_name if ai_config else settings.OPENAI_MODEL
         temperature = float(ai_config.temperature) if ai_config else settings.DEFAULT_TEMPERATURE
-        max_tokens = ai_config.max_tokens if ai_config else settings.MAX_RESPONSE_TOKENS
+        # Use token budget manager for max_completion_tokens
+        budget_info = self.token_budget.validate_and_adjust_tokens(system_prompt, prompt, response_mode="medium")
+        max_completion_tokens = budget_info["max_completion_tokens"]
 
         if temperature < settings.DEFAULT_TEMPERATURE:
             temperature = settings.DEFAULT_TEMPERATURE
 
         try:
-            response = self.openai_client.chat.completions.create(
-                model=model_name,
-                messages=[{"role": "system", "content": system_prompt}, {"role": "user", "content": prompt}],
-                max_tokens=max_tokens,
-                temperature=temperature
-            )
+            api_args = {
+                "model": model_name,
+                "messages": [{"role": "system", "content": system_prompt}, {"role": "user", "content": prompt}],
+                "max_completion_tokens": max_completion_tokens,
+                "temperature": temperature
+            }
+
+            response = self.openai_client.chat.completions.create(**api_args)
 
             return response.choices[0].message.content
 

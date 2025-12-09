@@ -33,9 +33,9 @@ class Settings(BaseSettings):
     
     # Configuración de OpenAI
     OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", "")
-    OPENAI_MODEL: str = "gpt-4o-mini"  # gpt-4o-mini supports up to 16K output tokens
-    OPENAI_MODEL_MINI: str = "gpt-4o-mini"  # Fallback for quick analyses
-    OPENAI_MODEL_ADVANCED: str = "gpt-4o"  # Advanced model for complex tasks (16K output tokens)
+    OPENAI_MODEL: str = "gpt-5o-mini"  # gpt-4o-mini supports up to 16K output tokens
+    OPENAI_MODEL_MINI: str = "gpt-5o-mini"  # Fallback for quick analyses
+    OPENAI_MODEL_ADVANCED: str = "gpt-5o"  # Advanced model for complex tasks (16K output tokens)
     
     # Configuración de Vector Database
     VECTOR_DB_TYPE: str = "pinecone"

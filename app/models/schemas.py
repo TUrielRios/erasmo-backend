@@ -439,3 +439,37 @@ class ProjectFileUpdate(BaseModel):
     priority: Optional[int] = Field(default=None, ge=1, le=10)
     is_active: Optional[bool] = None
     category: Optional[FileCategory] = None
+
+# Schemas para Protocolos Centralizados
+class ProtocolCreate(BaseModel):
+    """Schema para crear protocolo"""
+    name: str = Field(min_length=1, max_length=255, description="Nombre del protocolo")
+    description: Optional[str] = Field(default=None, description="Descripción del protocolo")
+    content: str = Field(min_length=1, description="Contenido del protocolo")
+    version: str = Field(default="v1", max_length=50, description="Versión del protocolo")
+    category: Optional[str] = Field(default=None, max_length=100, description="Categoría (ventas, soporte, etc.)")
+
+class ProtocolUpdate(BaseModel):
+    """Schema para actualizar protocolo"""
+    name: Optional[str] = Field(default=None, min_length=1, max_length=255)
+    description: Optional[str] = None
+    content: Optional[str] = Field(default=None, min_length=1)
+    version: Optional[str] = Field(default=None, max_length=50)
+    category: Optional[str] = Field(default=None, max_length=100)
+    is_active: Optional[bool] = None
+
+class ProtocolResponse(BaseModel):
+    """Schema de respuesta de protocolo"""
+    id: int
+    name: str
+    description: Optional[str]
+    content: str
+    version: str
+    category: Optional[str]
+    is_active: bool
+    usage_count: Optional[int] = 0  # Cuántos documentos lo usan
+    created_at: datetime
+    updated_at: Optional[datetime]
+    
+    class Config:
+        from_attributes = True

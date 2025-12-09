@@ -118,17 +118,22 @@ class CompanyDocumentService:
         db: Session, 
         company_id: int, 
         filename: str, 
-        file_path: str,
+        file_path: Optional[str],
         category: DocumentCategory = DocumentCategory.KNOWLEDGE_BASE,
         description: Optional[str] = None,
         priority: int = 1
     ) -> CompanyDocument:
         """Crear registro de documento categorizado para una compañía"""
+        # Calculate file size only if file_path is provided
+        file_size = 0
+        if file_path and os.path.exists(file_path):
+            file_size = os.path.getsize(file_path)
+        
         db_document = CompanyDocument(
             company_id=company_id,
             filename=filename,
             file_path=file_path,
-            file_size=os.path.getsize(file_path) if os.path.exists(file_path) else 0,
+            file_size=file_size,
             category=category,
             description=description,
             priority=priority,
@@ -238,8 +243,8 @@ class CompanyDocumentService:
         if not document:
             return False
         
-        # Eliminar archivo físico
-        if os.path.exists(document.file_path):
+        # Eliminar archivo físico solo si existe un path
+        if document.file_path and os.path.exists(document.file_path):
             os.remove(document.file_path)
         
         # Marcar como inactivo en base de datos
@@ -256,7 +261,14 @@ class CompanyDocumentService:
             CompanyDocument.is_active == True
         ).first()
         
-        if not document or not os.path.exists(document.file_path):
+        if not document:
+            return None
+        
+        # Si no tiene file_path, es un protocolo vinculado
+        if not document.file_path:
+            return None
+            
+        if not os.path.exists(document.file_path):
             return None
         
         try:
