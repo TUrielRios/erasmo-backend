@@ -79,7 +79,10 @@ app.add_middleware(SessionMiddleware, secret_key=settings.SECRET_KEY)
 # Configurar CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.ALLOWED_ORIGINS,
+    allow_origins= [
+        "https://clara-ai-frontend.vercel.app",
+        "http://localhost:3000",
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
