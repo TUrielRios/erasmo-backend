@@ -1,3 +1,3 @@
 """
-Módulo de endpoints de la API
+Modulo de endpoints de la API
 """

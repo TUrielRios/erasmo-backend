@@ -1,5 +1,5 @@
 """
-Servicio optimizado para gestión de sesiones de chat con conciencia de contexto avanzada
+Servicio optimizado para gestion de sesiones de chat con conciencia de contexto avanzada
 """
 
 from typing import List, Optional, Dict, Any, Tuple
@@ -14,7 +14,7 @@ from app.models.schemas import ConversationCreate, ConversationResponse, Convers
 from app.services.memory_service import MemoryService
 
 class ChatService:
-    """Servicio optimizado para gestión de chats con conciencia de contexto avanzada"""
+    """Servicio optimizado para gestion de chats con conciencia de contexto avanzada"""
     
     def __init__(self):
         self.memory_service = MemoryService()
@@ -25,17 +25,17 @@ class ChatService:
         user: User, 
         conversation_data: ConversationCreate
     ) -> Conversation:
-        """Crear nueva conversación para un usuario"""
+        """Crear nueva conversacion para un usuario"""
         
-        # Generar session_id único
+        # Generar session_id unico
         session_id = str(uuid.uuid4())
         
-        # Crear título automático si no se proporciona
+        # Crear titulo automatico si no se proporciona
         title = conversation_data.title
         if not title:
             title = f"Chat {datetime.now().strftime('%d/%m/%Y %H:%M')}"
         
-        # Crear conversación con o sin proyecto
+        # Crear conversacion con o sin proyecto
         db_conversation = Conversation(
             session_id=session_id,
             user_id=user.id,
@@ -90,7 +90,7 @@ class ChatService:
         user: User, 
         session_id: str
     ) -> Optional[Conversation]:
-        """Obtener conversación por session_id verificando que pertenezca al usuario"""
+        """Obtener conversacion por session_id verificando que pertenezca al usuario"""
         
         return db.query(Conversation).filter(
             Conversation.session_id == session_id,
@@ -105,7 +105,7 @@ class ChatService:
         session_id: str,
         message_limit: int = 100
     ) -> Optional[ConversationWithMessages]:
-        """Obtener conversación completa con sus mensajes"""
+        """Obtener conversacion completa con sus mensajes"""
         
         # Instead of using get_conversation_by_session_id which enforces ownership, we query directly
         conversation = db.query(Conversation).filter(
@@ -116,7 +116,7 @@ class ChatService:
         if not conversation:
             return None
         
-        # Obtener mensajes de la conversación
+        # Obtener mensajes de la conversacion
         messages = db.query(Message).filter(
             Message.conversation_id == conversation.id
         ).order_by(Message.timestamp).limit(message_limit).all()
@@ -154,7 +154,7 @@ class ChatService:
         session_id: str, 
         new_title: str
     ) -> Optional[Conversation]:
-        """Actualizar título de conversación"""
+        """Actualizar titulo de conversacion"""
         
         conversation = self.get_conversation_by_session_id(db, user, session_id)
         if not conversation:
@@ -174,7 +174,7 @@ class ChatService:
         user: User, 
         session_id: str
     ) -> bool:
-        """Eliminar conversación (soft delete)"""
+        """Eliminar conversacion (soft delete)"""
         
         conversation = self.get_conversation_by_session_id(db, user, session_id)
         if not conversation:
@@ -195,7 +195,7 @@ class ChatService:
         content: str,
         metadata: Optional[Dict[str, Any]] = None
     ) -> Optional[Message]:
-        """Agregar mensaje a una conversación existente"""
+        """Agregar mensaje a una conversacion existente"""
         
         conversation = self.get_conversation_by_session_id(db, user, session_id)
         if not conversation:
@@ -205,11 +205,11 @@ class ChatService:
         try:
             self.memory_service.add_message(db, session_id, role, content, metadata)
             
-            # Actualizar timestamp de la conversación
+            # Actualizar timestamp de la conversacion
             conversation.updated_at = datetime.utcnow()
             db.commit()
             
-            # Obtener el mensaje recién creado
+            # Obtener el mensaje recien creado
             latest_message = db.query(Message).filter(
                 Message.conversation_id == conversation.id
             ).order_by(desc(Message.timestamp)).first()
@@ -226,15 +226,15 @@ class ChatService:
         user: User, 
         session_id: Optional[str] = None
     ) -> Conversation:
-        """Obtener conversación existente o crear una nueva"""
+        """Obtener conversacion existente o crear una nueva"""
         
         if session_id:
-            # Intentar obtener conversación existente
+            # Intentar obtener conversacion existente
             conversation = self.get_conversation_by_session_id(db, user, session_id)
             if conversation:
                 return conversation
         
-        # Crear nueva conversación
+        # Crear nueva conversacion
         conversation_data = ConversationCreate(title=None)
         return self.create_conversation(db, user, conversation_data)
     
@@ -244,9 +244,9 @@ class ChatService:
         session_id: str, 
         first_message: str
     ) -> str:
-        """Generar título automático basado en el primer mensaje"""
+        """Generar titulo automatico basado en el primer mensaje"""
         
-        # Título simple basado en las primeras palabras
+        # Titulo simple basado en las primeras palabras
         words = first_message.split()[:6]  # Primeras 6 palabras
         title = " ".join(words)
         
@@ -254,7 +254,7 @@ class ChatService:
         if len(title) > 50:
             title = title[:47] + "..."
         
-        # Si está vacío, usar timestamp
+        # Si esta vacio, usar timestamp
         if not title.strip():
             title = f"Chat {datetime.now().strftime('%d/%m/%Y %H:%M')}"
         
@@ -267,13 +267,13 @@ class ChatService:
         session_id: str, 
         first_message: str
     ):
-        """Actualizar título de conversación basado en el primer mensaje"""
+        """Actualizar titulo de conversacion basado en el primer mensaje"""
         
         conversation = self.get_conversation_by_session_id(db, user, session_id)
         if not conversation:
             return
         
-        # Solo actualizar si el título es genérico (contiene "Chat" y fecha)
+        # Solo actualizar si el titulo es generico (contiene "Chat" y fecha)
         if "Chat" in conversation.title and "/" in conversation.title:
             new_title = self.generate_conversation_title(db, session_id, first_message)
             conversation.title = new_title
@@ -286,11 +286,11 @@ class ChatService:
         user: User,
         days: int = 30
     ) -> Dict[str, Any]:
-        """Obtener análisis detallado de conversaciones del usuario"""
+        """Obtener analisis detallado de conversaciones del usuario"""
         
         cutoff_date = datetime.utcnow() - timedelta(days=days)
         
-        # Conversaciones en el período
+        # Conversaciones en el periodo
         conversations = db.query(Conversation).filter(
             Conversation.user_id == user.id,
             Conversation.is_active == True,
@@ -307,17 +307,17 @@ class ChatService:
                 "most_active_hours": []
             }
         
-        # Mensajes por día
+        # Mensajes por dia
         daily_activity = {}
         conversation_lengths = []
         hourly_activity = [0] * 24
         
         for conv in conversations:
-            # Contar mensajes por conversación
+            # Contar mensajes por conversacion
             message_count = db.query(Message).filter(Message.conversation_id == conv.id).count()
             conversation_lengths.append(message_count)
             
-            # Actividad por día
+            # Actividad por dia
             day_key = conv.created_at.date().isoformat()
             daily_activity[day_key] = daily_activity.get(day_key, 0) + 1
             
@@ -338,7 +338,7 @@ class ChatService:
             })
             current_date += timedelta(days=1)
         
-        # Horas más activas
+        # Horas mas activas
         most_active_hours = []
         for hour, count in enumerate(hourly_activity):
             if count > 0:
@@ -367,7 +367,7 @@ class ChatService:
         query: str,
         limit: int = 50
     ) -> List[Tuple[MessageResponse, ConversationResponse]]:
-        """Buscar mensajes específicos en todas las conversaciones del usuario"""
+        """Buscar mensajes especificos en todas las conversaciones del usuario"""
         
         # Buscar mensajes que contengan el query
         messages = db.query(Message).join(Conversation).filter(
@@ -376,7 +376,7 @@ class ChatService:
             Message.content.ilike(f"%{query}%")
         ).order_by(desc(Message.timestamp)).limit(limit).all()
         
-        # Crear respuestas con información de conversación
+        # Crear respuestas con informacion de conversacion
         results = []
         for message in messages:
             conversation = message.conversation
@@ -412,13 +412,13 @@ class ChatService:
         user: User, 
         session_id: str
     ) -> Dict[str, Any]:
-        """Obtener resumen contextual de una conversación para mejorar respuestas futuras"""
+        """Obtener resumen contextual de una conversacion para mejorar respuestas futuras"""
         
         conversation = self.get_conversation_by_session_id(db, user, session_id)
         if not conversation:
             return {}
         
-        # Obtener todos los mensajes de la conversación
+        # Obtener todos los mensajes de la conversacion
         messages = db.query(Message).filter(
             Message.conversation_id == conversation.id
         ).order_by(Message.timestamp).all()
@@ -426,7 +426,7 @@ class ChatService:
         if not messages:
             return {}
         
-        # Extraer información contextual clave
+        # Extraer informacion contextual clave
         context_summary = {
             "conversation_id": conversation.id,
             "session_id": session_id,
@@ -504,7 +504,7 @@ class ChatService:
             "action_items": []
         }
         
-        # Obtener contexto de la conversación actual
+        # Obtener contexto de la conversacion actual
         if session_id:
             current_context = self.get_contextual_conversation_summary(db, user, session_id)
             suggestions["current_context"] = current_context
@@ -512,7 +512,7 @@ class ChatService:
         # Obtener contexto de conversaciones anteriores
         cross_context = self.get_cross_conversation_context(db, user, session_id or "")
         
-        # Generar sugerencias basadas en patrones históricos
+        # Generar sugerencias basadas en patrones historicos
         suggestions["follow_up_questions"] = self._generate_contextual_follow_ups(
             current_message, cross_context
         )
@@ -525,7 +525,7 @@ class ChatService:
             current_message, cross_context["recent_conversations"]
         )
         
-        # Sugerencias específicas de la compañía
+        # Sugerencias especificas de la compania
         if user.company_id:
             suggestions["company_specific_insights"] = self._generate_company_insights(
                 db, user.company_id, current_message
@@ -539,7 +539,7 @@ class ChatService:
         session_id: str, 
         context_metadata: Dict[str, Any]
     ):
-        """Actualizar metadatos de contexto de una conversación"""
+        """Actualizar metadatos de contexto de una conversacion"""
         
         conversation = db.query(Conversation).filter(
             Conversation.session_id == session_id
@@ -555,7 +555,7 @@ class ChatService:
             db.commit()
     
     def _calculate_conversation_duration(self, messages: List[Message]) -> int:
-        """Calcular duración de la conversación en minutos"""
+        """Calcular duracion de la conversacion en minutos"""
         if len(messages) < 2:
             return 0
         
@@ -573,12 +573,12 @@ class ChatService:
             "estrategia": "Estrategia empresarial",
             "marketing": "Marketing y ventas",
             "producto": "Desarrollo de producto",
-            "equipo": "Gestión de equipos",
+            "equipo": "Gestion de equipos",
             "finanzas": "Finanzas y presupuesto",
-            "tecnología": "Tecnología e innovación",
+            "tecnologia": "Tecnologia e innovacion",
             "clientes": "Experiencia del cliente",
-            "competencia": "Análisis competitivo",
-            "crecimiento": "Crecimiento y expansión",
+            "competencia": "Analisis competitivo",
+            "crecimiento": "Crecimiento y expansion",
             "operaciones": "Operaciones y procesos"
         }
         
@@ -602,7 +602,7 @@ class ChatService:
         
         user_messages = [msg for msg in messages if msg.role == "user"]
         
-        # Analizar estilo de comunicación
+        # Analizar estilo de comunicacion
         total_words = sum(len(msg.content.split()) for msg in user_messages)
         avg_message_length = total_words / len(user_messages) if user_messages else 0
         
@@ -614,7 +614,7 @@ class ChatService:
         return preferences
     
     def _analyze_conversation_flow(self, messages: List[Message]) -> Dict[str, Any]:
-        """Analizar el flujo de la conversación"""
+        """Analizar el flujo de la conversacion"""
         flow_analysis = {
             "question_to_answer_ratio": 0,
             "clarification_requests": 0,
@@ -638,7 +638,7 @@ class ChatService:
         return flow_analysis
     
     def _extract_key_decisions(self, messages: List[Message]) -> List[str]:
-        """Extraer decisiones clave mencionadas en la conversación"""
+        """Extraer decisiones clave mencionadas en la conversacion"""
         decisions = []
         
         decision_indicators = [
@@ -650,7 +650,7 @@ class ChatService:
             content_lower = message.content.lower()
             for indicator in decision_indicators:
                 if indicator in content_lower:
-                    # Extraer la oración que contiene la decisión
+                    # Extraer la oracion que contiene la decision
                     sentences = message.content.split('.')
                     for sentence in sentences:
                         if indicator in sentence.lower():
@@ -660,7 +660,7 @@ class ChatService:
         return decisions[:3]  # Limitar a 3 decisiones principales
     
     def _find_unresolved_questions(self, messages: List[Message]) -> List[str]:
-        """Encontrar preguntas sin resolver en la conversación"""
+        """Encontrar preguntas sin resolver en la conversacion"""
         unresolved = []
         
         user_questions = []
@@ -668,14 +668,14 @@ class ChatService:
             if message.role == "user" and "?" in message.content:
                 user_questions.append(message.content)
         
-        # Simplificación: asumir que las últimas preguntas pueden estar sin resolver
+        # Simplificacion: asumir que las ultimas preguntas pueden estar sin resolver
         if len(user_questions) > 0:
-            unresolved = user_questions[-2:]  # Últimas 2 preguntas
+            unresolved = user_questions[-2:]  # Ultimas 2 preguntas
         
         return unresolved
     
     def _extract_company_context(self, db: Session, user: User, messages: List[Message]) -> Dict[str, Any]:
-        """Extraer contexto específico de la compañía"""
+        """Extraer contexto especifico de la compania"""
         company_context = {}
         
         if user.company_id:
@@ -703,12 +703,12 @@ class ChatService:
             for topic in conv.get("topics", []):
                 theme_count[topic] = theme_count.get(topic, 0) + 1
         
-        # Retornar temas que aparecen en más de una conversación
+        # Retornar temas que aparecen en mas de una conversacion
         recurring = [theme for theme, count in theme_count.items() if count > 1]
         return sorted(recurring, key=lambda x: theme_count[x], reverse=True)
     
     def _consolidate_user_preferences(self, conversations: List[Dict]) -> Dict[str, Any]:
-        """Consolidar preferencias del usuario de múltiples conversaciones"""
+        """Consolidar preferencias del usuario de multiples conversaciones"""
         consolidated = {
             "preferred_topics": [],
             "communication_patterns": {},
@@ -735,12 +735,12 @@ class ChatService:
         
         # Basado en temas recurrentes
         for theme in cross_context.get("recurring_themes", [])[:3]:
-            follow_ups.append(f"¿Cómo se relaciona esto con {theme.lower()}?")
+            follow_ups.append(f"Como se relaciona esto con {theme.lower()}?")
         
-        # Basado en el área de trabajo del usuario
+        # Basado en el area de trabajo del usuario
         work_area = cross_context.get("work_area")
         if work_area:
-            follow_ups.append(f"¿Cómo impacta esto en tu área de {work_area}?")
+            follow_ups.append(f"Como impacta esto en tu area de {work_area}?")
         
         return follow_ups[:3]
     
@@ -752,10 +752,10 @@ class ChatService:
         
         # Mapeo de temas relacionados
         topic_relations = {
-            "estrategia": ["Marketing y ventas", "Crecimiento y expansión"],
-            "marketing": ["Experiencia del cliente", "Análisis competitivo"],
-            "producto": ["Tecnología e innovación", "Experiencia del cliente"],
-            "equipo": ["Operaciones y procesos", "Crecimiento y expansión"]
+            "estrategia": ["Marketing y ventas", "Crecimiento y expansion"],
+            "marketing": ["Experiencia del cliente", "Analisis competitivo"],
+            "producto": ["Tecnologia e innovacion", "Experiencia del cliente"],
+            "equipo": ["Operaciones y procesos", "Crecimiento y expansion"]
         }
         
         for keyword, related_topics in topic_relations.items():
@@ -773,12 +773,12 @@ class ChatService:
         message_words = set(current_message.lower().split())
         
         for conv in recent_conversations:
-            # Calcular similitud básica basada en palabras comunes
+            # Calcular similitud basica basada en palabras comunes
             conv_topics = conv.get("topics", [])
             topic_words = set(" ".join(conv_topics).lower().split())
             
             common_words = message_words.intersection(topic_words)
-            if len(common_words) >= 2:  # Al menos 2 palabras en común
+            if len(common_words) >= 2:  # Al menos 2 palabras en comun
                 related_discussions.append({
                     "session_id": conv["session_id"],
                     "title": conv["title"],
@@ -791,7 +791,7 @@ class ChatService:
         return related_discussions[:2]
     
     def _generate_company_insights(self, db: Session, company_id: int, current_message: str) -> List[str]:
-        """Generar insights específicos de la compañía"""
+        """Generar insights especificos de la compania"""
         insights = []
         
         try:
@@ -801,16 +801,16 @@ class ChatService:
             if company:
                 # Insights basados en la industria
                 industry_insights = {
-                    "tecnología": [
-                        "Considera el impacto en la escalabilidad técnica",
-                        "Evalúa las implicaciones de seguridad y privacidad"
+                    "tecnologia": [
+                        "Considera el impacto en la escalabilidad tecnica",
+                        "Evalua las implicaciones de seguridad y privacidad"
                     ],
                     "marketing": [
                         "Analiza el impacto en la experiencia del cliente",
-                        "Considera las métricas de conversión y ROI"
+                        "Considera las metricas de conversion y ROI"
                     ],
                     "finanzas": [
-                        "Evalúa el impacto financiero y el flujo de caja",
+                        "Evalua el impacto financiero y el flujo de caja",
                         "Considera los riesgos regulatorios y de compliance"
                     ]
                 }
@@ -852,7 +852,7 @@ class ChatService:
         message.is_edited = True
         message.updated_at = datetime.utcnow()
         
-        # Actualizar timestamp de la conversación
+        # Actualizar timestamp de la conversacion
         conversation = message.conversation
         conversation.updated_at = datetime.utcnow()
         
@@ -883,7 +883,7 @@ class ChatService:
         if message.role != "user":
             return False
         
-        # Actualizar timestamp de la conversación antes de eliminar
+        # Actualizar timestamp de la conversacion antes de eliminar
         conversation = message.conversation
         conversation.updated_at = datetime.utcnow()
         
@@ -899,7 +899,7 @@ class ChatService:
         user: User, 
         message_id: int
     ) -> Optional[Message]:
-        """Obtener un mensaje específico verificando permisos del usuario"""
+        """Obtener un mensaje especifico verificando permisos del usuario"""
         
         message = db.query(Message).join(Conversation).filter(
             Message.id == message_id,

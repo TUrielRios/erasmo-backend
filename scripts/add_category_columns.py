@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Migración: Agregar columna category a la tabla company_documents
+Migracion: Agregar columna category a la tabla company_documents
 """
 
 import os
@@ -8,7 +8,7 @@ import sys
 import psycopg2
 from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
 
-# Agregar el directorio raíz al path
+# Agregar el directorio raiz al path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from app.core.config import settings
@@ -28,7 +28,7 @@ def add_category_column():
         conn.set_isolation_level(ISOLATION_LEVEL_AUTOCOMMIT)
         cursor = conn.cursor()
         
-        print("📋 Iniciando migración: Agregar columna category...")
+        print("[CLIPBOARD] Iniciando migracion: Agregar columna category...")
         
         # Verificar si la columna ya existe
         cursor.execute("""
@@ -39,10 +39,10 @@ def add_category_column():
         """)
         
         if cursor.fetchone():
-            print("✅ La columna 'category' ya existe en la tabla company_documents")
+            print("[OK] La columna 'category' ya existe en la tabla company_documents")
             return True
         
-        print("🔧 Agregando columna category a company_documents...")
+        print("[INIT] Agregando columna category a company_documents...")
         
         # Agregar columna category
         cursor.execute("""
@@ -50,34 +50,34 @@ def add_category_column():
             ADD COLUMN category VARCHAR(50) NOT NULL DEFAULT 'knowledge_base'
         """)
         
-        print("✅ Columna category agregada exitosamente")
+        print("[OK] Columna category agregada exitosamente")
         
         # Actualizar registros existentes (por si hay valores NULL)
-        print("🔄 Actualizando registros existentes...")
+        print("[REFRESH] Actualizando registros existentes...")
         cursor.execute("""
             UPDATE company_documents 
             SET category = 'knowledge_base' 
             WHERE category IS NULL
         """)
         
-        print("✅ Registros existentes actualizados")
+        print("[OK] Registros existentes actualizados")
         
         cursor.close()
         conn.close()
         
-        print("\n🎉 Migración completada exitosamente!")
+        print("\n Migracion completada exitosamente!")
         
     except Exception as e:
-        print(f"❌ Error ejecutando migración: {e}")
+        print(f"[ERR] Error ejecutando migracion: {e}")
         return False
     
     return True
 
 if __name__ == "__main__":
-    print("🚀 Iniciando migración: add_category_column...")
+    print("[LAUNCH] Iniciando migracion: add_category_column...")
     success = add_category_column()
     if success:
-        print("🎉 Migración add_category_column completada exitosamente!")
+        print(" Migracion add_category_column completada exitosamente!")
     else:
-        print("❌ Error en la migración add_category_column")
+        print("[ERR] Error en la migracion add_category_column")
         sys.exit(1)

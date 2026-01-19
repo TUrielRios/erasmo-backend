@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Migración: Agregar todas las columnas faltantes a la tabla company_documents
+Migracion: Agregar todas las columnas faltantes a la tabla company_documents
 Incluye: priority, processing_status, processed_chunks, total_chunks, error_message,
          processing_started_at, processing_completed_at
 """
@@ -11,7 +11,7 @@ import psycopg2
 from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
 from datetime import datetime
 
-# Agregar el directorio raíz al path
+# Agregar el directorio raiz al path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from app.core.config import settings
@@ -31,10 +31,10 @@ def add_missing_columns_company_documents():
         conn.set_isolation_level(ISOLATION_LEVEL_AUTOCOMMIT)
         cursor = conn.cursor()
         
-        print("📋 Iniciando migración: Agregar columnas faltantes a company_documents...")
+        print("[CLIPBOARD] Iniciando migracion: Agregar columnas faltantes a company_documents...")
         
         # 1. Crear tipo ENUM processingstatus si no existe
-        print("🔧 Verificando tipo ENUM processingstatus...")
+        print("[INIT] Verificando tipo ENUM processingstatus...")
         cursor.execute("""
             DO $$ 
             BEGIN
@@ -46,7 +46,7 @@ def add_missing_columns_company_documents():
                 END IF;
             END $$;
         """)
-        print("✅ Tipo ENUM processingstatus verificado/creado")
+        print("[OK] Tipo ENUM processingstatus verificado/creado")
         
         # Lista de columnas a agregar con sus definiciones
         columns_to_add = [
@@ -63,12 +63,12 @@ def add_missing_columns_company_documents():
             {
                 'name': 'processed_chunks',
                 'definition': 'INTEGER DEFAULT 0',
-                'description': 'Número de chunks procesados'
+                'description': 'Numero de chunks procesados'
             },
             {
                 'name': 'total_chunks',
                 'definition': 'INTEGER DEFAULT 0',
-                'description': 'Número total de chunks a procesar'
+                'description': 'Numero total de chunks a procesar'
             },
             {
                 'name': 'error_message',
@@ -83,13 +83,13 @@ def add_missing_columns_company_documents():
             {
                 'name': 'processing_completed_at',
                 'definition': 'TIMESTAMP WITH TIME ZONE',
-                'description': 'Fecha/hora de finalización del procesamiento'
+                'description': 'Fecha/hora de finalizacion del procesamiento'
             }
         ]
         
         # 2. Agregar cada columna si no existe
         for column in columns_to_add:
-            print(f"🔧 Verificando columna {column['name']}...")
+            print(f"[INIT] Verificando columna {column['name']}...")
             cursor.execute(f"""
                 DO $$ 
                 BEGIN
@@ -103,10 +103,10 @@ def add_missing_columns_company_documents():
                     END IF;
                 END $$;
             """)
-            print(f"✅ Columna {column['name']} verificada/agregada")
+            print(f"[OK] Columna {column['name']} verificada/agregada")
         
-        # 3. Crear índices para mejor performance
-        print("🔧 Creando índices...")
+        # 3. Crear indices para mejor performance
+        print("[INIT] Creando indices...")
         indexes_to_create = [
             ('idx_company_documents_priority', 'priority'),
             ('idx_company_documents_processing_status', 'processing_status'),
@@ -121,16 +121,16 @@ def add_missing_columns_company_documents():
                     IF NOT EXISTS (SELECT 1 FROM pg_indexes 
                                   WHERE tablename = 'company_documents' AND indexname = '{index_name}') THEN
                         CREATE INDEX {index_name} ON company_documents({column_name});
-                        RAISE NOTICE 'Índice {index_name} creado';
+                        RAISE NOTICE 'Indice {index_name} creado';
                     ELSE
-                        RAISE NOTICE 'Índice {index_name} ya existe';
+                        RAISE NOTICE 'Indice {index_name} ya existe';
                     END IF;
                 END $$;
             """)
-            print(f"✅ Índice {index_name} verificado/creado")
+            print(f"[OK] Indice {index_name} verificado/creado")
         
         # 4. Verificar que todas las columnas se crearon correctamente
-        print("🔍 Verificando columnas existentes...")
+        print("[SEARCH] Verificando columnas existentes...")
         cursor.execute("""
             SELECT column_name, data_type, column_default, is_nullable
             FROM information_schema.columns
@@ -139,21 +139,21 @@ def add_missing_columns_company_documents():
         """)
         
         all_columns = cursor.fetchall()
-        print("\n📊 Columnas actuales en company_documents:")
+        print("\n[STATS] Columnas actuales en company_documents:")
         for column in all_columns:
-            print(f"   • {column[0]} ({column[1]}) - Default: {column[2]} - Nullable: {column[3]}")
+            print(f"    {column[0]} ({column[1]}) - Default: {column[2]} - Nullable: {column[3]}")
         
         cursor.close()
         conn.close()
         
-        print("\n🎉 Migración completada exitosamente!")
-        print("📝 Columnas agregadas:")
+        print("\n Migracion completada exitosamente!")
+        print(" Columnas agregadas:")
         for column in columns_to_add:
-            print(f"   • {column['name']} - {column['description']}")
-        print("📊 Índices creados para optimizar consultas")
+            print(f"    {column['name']} - {column['description']}")
+        print("[STATS] Indices creados para optimizar consultas")
         
     except Exception as e:
-        print(f"❌ Error ejecutando migración: {e}")
+        print(f"[ERR] Error ejecutando migracion: {e}")
         import traceback
         traceback.print_exc()
         return False
@@ -161,10 +161,10 @@ def add_missing_columns_company_documents():
     return True
 
 if __name__ == "__main__":
-    print("🚀 Iniciando migración: add_missing_columns_company_documents...")
+    print("[LAUNCH] Iniciando migracion: add_missing_columns_company_documents...")
     success = add_missing_columns_company_documents()
     if success:
-        print("🎉 Migración completada exitosamente!")
+        print(" Migracion completada exitosamente!")
     else:
-        print("❌ Error en la migración")
+        print("[ERR] Error en la migracion")
         sys.exit(1)

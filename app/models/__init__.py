@@ -1,3 +1,3 @@
 """
-Modelos Pydantic para la aplicación
+Modelos Pydantic para la aplicacion
 """

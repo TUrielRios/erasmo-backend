@@ -1,5 +1,5 @@
 """
-Endpoints de administración mejorados para personalización de IA
+Endpoints de administracion mejorados para personalizacion de IA
 """
 
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form
@@ -11,6 +11,7 @@ from app.services.company_service import CompanyService, CompanyDocumentService
 from app.services.ai_configuration_service import AIConfigurationService
 from app.services.ingestion_service import IngestionService
 from app.models.schemas import (
+    CompanyCreate,
     CompanyResponse, 
     DocumentCategory, 
     AdminCompanyDocumentUpload,
@@ -31,27 +32,38 @@ router = APIRouter(prefix="/admin", tags=["administration"])
 async def get_admin_dashboard(
     db: Session = Depends(get_db)
 ):
-    """Obtener estadísticas del dashboard administrativo"""
+    """Obtener estadisticas del dashboard administrativo"""
     return AdminService.get_dashboard_stats(db)
 
 @router.get("/companies", response_model=List[Dict[str, Any]])
 async def get_all_companies(
     db: Session = Depends(get_db)
 ):
-    """Obtener todas las compañías con resumen"""
+    """Obtener todas las companias con resumen"""
     return AdminService.get_all_companies_summary(db)
+
+@router.post("/companies", response_model=CompanyResponse)
+async def create_company(
+    company_data: CompanyCreate,
+    db: Session = Depends(get_db)
+):
+    """Crear un nuevo sub-agente (compania)"""
+    company = CompanyService.create_company(db, company_data)
+    # Add dummy user_count for response compatibility
+    company.user_count = 0
+    return company
 
 @router.get("/companies/{company_id}")
 async def get_company_details(
     company_id: int,
     db: Session = Depends(get_db)
 ):
-    """Obtener detalles completos de una compañía"""
+    """Obtener detalles completos de una compania"""
     company_details = AdminService.get_company_details(db, company_id)
     if not company_details:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Compañía no encontrada"
+            detail="Compania no encontrada"
         )
     return company_details
 
@@ -68,16 +80,16 @@ async def upload_company_documents(
     filename: Optional[str] = Form(None),
     db: Session = Depends(get_db)
 ):
-    """Cargar documentos categorizados o vincular protocolos para personalizar la IA de una compañía"""
-    # Verificar que la compañía existe
+    """Cargar documentos categorizados o vincular protocolos para personalizar la IA de una compania"""
+    # Verificar que la compania existe
     company = CompanyService.get_company_by_id(db, company_id)
     if not company:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Compañía no encontrada"
+            detail="Compania no encontrada"
         )
     
-    # Si se está vinculando un protocolo
+    # Si se esta vinculando un protocolo
     if use_protocol:
         if not protocol_id:
             raise HTTPException(
@@ -147,7 +159,7 @@ async def upload_company_documents(
             continue
         
         try:
-            # Crear directorio para la compañía si no existe
+            # Crear directorio para la compania si no existe
             company_dir = f"documents/company_{company_id}/{category.value}"
             os.makedirs(company_dir, exist_ok=True)
             
@@ -159,7 +171,7 @@ async def upload_company_documents(
             with open(file_path, "wb") as buffer:
                 buffer.write(content)
             
-            # Registrar en base de datos con categoría
+            # Registrar en base de datos con categoria
             document = CompanyDocumentService.create_document(
                 db, 
                 company_id, 
@@ -193,10 +205,10 @@ async def upload_company_documents(
                         vectorization_metadata
                     )
                     
-                    print(f"✅ Vectorized {file.filename} with {len(chunk_ids)} chunks for company {company_id}")
+                    print(f"[OK] Vectorized {file.filename} with {len(chunk_ids)} chunks for company {company_id}")
                     
                 except Exception as e:
-                    print(f"⚠️ Error vectorizing {file.filename}: {str(e)}")
+                    print(f"[WARN] Error vectorizing {file.filename}: {str(e)}")
                     # Continue without failing the upload
             
             uploaded_files.append({
@@ -229,17 +241,17 @@ async def get_company_documents(
     category: Optional[DocumentCategory] = None,
     db: Session = Depends(get_db)
 ):
-    """Obtener lista de documentos de una compañía, opcionalmente filtrados por categoría"""
+    """Obtener lista de documentos de una compania, opcionalmente filtrados por categoria"""
     company = CompanyService.get_company_by_id(db, company_id)
     if not company:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Compañía no encontrada"
+            detail="Compania no encontrada"
         )
     
     documents = CompanyDocumentService.get_company_documents(db, company_id, category)
     
-    # Agrupar documentos por categoría
+    # Agrupar documentos por categoria
     documents_by_category = {}
     for doc in documents:
         cat = doc.category
@@ -280,7 +292,7 @@ async def delete_company_document(
     document_id: int,
     db: Session = Depends(get_db)
 ):
-    """Eliminar un documento de una compañía"""
+    """Eliminar un documento de una compania"""
     success = CompanyDocumentService.delete_document(db, company_id, document_id)
     if not success:
         raise HTTPException(
@@ -296,12 +308,12 @@ async def create_ai_configuration(
     config_data: AIConfigurationCreate,
     db: Session = Depends(get_db)
 ):
-    """Crear configuración de IA para una compañía"""
+    """Crear configuracion de IA para una compania"""
     company = CompanyService.get_company_by_id(db, company_id)
     if not company:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Compañía no encontrada"
+            detail="Compania no encontrada"
         )
     
     config_data.company_id = company_id
@@ -314,12 +326,12 @@ async def get_ai_configuration(
     company_id: int,
     db: Session = Depends(get_db)
 ):
-    """Obtener configuración de IA de una compañía"""
+    """Obtener configuracion de IA de una compania"""
     ai_config = AIConfigurationService.get_by_company_id(db, company_id)
     if not ai_config:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Configuración de IA no encontrada"
+            detail="Configuracion de IA no encontrada"
         )
     
     return AIConfigurationResponse.from_orm(ai_config)
@@ -330,12 +342,12 @@ async def update_ai_configuration(
     config_update: AIConfigurationUpdate,
     db: Session = Depends(get_db)
 ):
-    """Actualizar configuración de IA de una compañía"""
+    """Actualizar configuracion de IA de una compania"""
     ai_config = AIConfigurationService.update_configuration(db, company_id, config_update)
     if not ai_config:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Configuración de IA no encontrada"
+            detail="Configuracion de IA no encontrada"
         )
     
     return AIConfigurationResponse.from_orm(ai_config)
@@ -346,20 +358,20 @@ async def test_ai_configuration(
     test_message: str = Form(...),
     db: Session = Depends(get_db)
 ):
-    """Probar la configuración de IA con un mensaje de prueba"""
+    """Probar la configuracion de IA con un mensaje de prueba"""
     ai_config = AIConfigurationService.get_by_company_id(db, company_id)
     if not ai_config:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Configuración de IA no encontrada"
+            detail="Configuracion de IA no encontrada"
         )
     
-    # Aquí implementarías la lógica de prueba
+    # Aqui implementarias la logica de prueba
     # Por ahora retornamos un placeholder
     return {
-        "message": "Prueba de configuración de IA",
+        "message": "Prueba de configuracion de IA",
         "test_input": test_message,
-        "ai_response": "Esta sería la respuesta de la IA configurada",
+        "ai_response": "Esta seria la respuesta de la IA configurada",
         "configuration_used": {
             "model": ai_config.model_name,
             "temperature": ai_config.temperature,
@@ -373,7 +385,7 @@ async def update_company_status(
     status_data: Dict[str, bool],
     db: Session = Depends(get_db)
 ):
-    """Activar/desactivar compañía"""
+    """Activar/desactivar compania"""
     is_active = status_data.get("is_active", True)
     
     if is_active:
@@ -383,14 +395,29 @@ async def update_company_status(
         if not success:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="Compañía no encontrada"
+                detail="Compania no encontrada"
             )
         company = CompanyService.get_company_by_id(db, company_id)
     
     return {
-        "message": f"Compañía {'activada' if is_active else 'desactivada'} exitosamente",
+        "message": f"Compania {'activada' if is_active else 'desactivada'} exitosamente",
         "company": CompanyResponse.from_orm(company)
     }
+
+@router.delete("/companies/{company_id}")
+async def delete_company(
+    company_id: int,
+    db: Session = Depends(get_db)
+):
+    """Eliminar permanentemente una compania y sus datos asociados"""
+    # Usamos deactivacion por ahora o implementamos borrado fisico
+    success = CompanyService.delete_company_complete(db, company_id)
+    if not success:
+        raise HTTPException(
+            status_code=404,
+            detail="Compania no encontrada"
+        )
+    return {"message": "Compania eliminada exitosamente"}
 
 @router.post("/companies/{company_id}/documents/bulk-update")
 async def bulk_update_documents(
@@ -398,12 +425,12 @@ async def bulk_update_documents(
     updates: List[Dict[str, Any]],
     db: Session = Depends(get_db)
 ):
-    """Actualizar múltiples documentos en lote"""
+    """Actualizar multiples documentos en lote"""
     company = CompanyService.get_company_by_id(db, company_id)
     if not company:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Compañía no encontrada"
+            detail="Compania no encontrada"
         )
     
     updated_documents = []
@@ -433,12 +460,12 @@ async def get_company_analytics(
     company_id: int,
     db: Session = Depends(get_db)
 ):
-    """Obtener analíticas de uso de la compañía"""
+    """Obtener analiticas de uso de la compania"""
     company = CompanyService.get_company_by_id(db, company_id)
     if not company:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Compañía no encontrada"
+            detail="Compania no encontrada"
         )
     
     analytics = AdminService.get_company_analytics(db, company_id)

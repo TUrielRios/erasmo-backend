@@ -1,5 +1,5 @@
 """
-Servicio de autenticación simplificado - solo verificación de contraseñas
+Servicio de autenticacion simplificado - solo verificacion de contrasenas
 """
 
 from typing import Optional
@@ -14,37 +14,37 @@ from app.models.schemas import UserCreate
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 class AuthService:
-    """Servicio para manejo de autenticación simplificado"""
+    """Servicio para manejo de autenticacion simplificado"""
     
     @staticmethod
     def verify_password(plain_password: str, hashed_password: str) -> bool:
-        """Verificar contraseña"""
+        """Verificar contrasena"""
         return pwd_context.verify(plain_password, hashed_password)
     
     @staticmethod
     def get_password_hash(password: str) -> str:
-        """Generar hash de contraseña"""
+        """Generar hash de contrasena"""
         return pwd_context.hash(password)
     
     @staticmethod
     def create_user(db: Session, user_data: UserCreate) -> User:
-        """Crear nuevo usuario con compañía"""
+        """Crear nuevo usuario con compania"""
         try:
             company = db.query(Company).filter(
                 Company.name == user_data.company_name
             ).first()
             
             if not company:
-                # Crear nueva compañía
+                # Crear nueva compania
                 company = Company(
                     name=user_data.company_name,
                     industry=user_data.industry,
                     sector=user_data.sector,
-                    description=f"Compañía en el sector {user_data.sector} de la industria {user_data.industry}",
+                    description=f"Compania en el sector {user_data.sector} de la industria {user_data.industry}",
                     is_active=True
                 )
                 db.add(company)
-                db.flush()  # Para obtener el ID de la compañía
+                db.flush()  # Para obtener el ID de la compania
             
             # Verificar si el usuario ya existe
             existing_user = db.query(User).filter(
@@ -53,9 +53,9 @@ class AuthService:
             
             if existing_user:
                 if existing_user.email == user_data.email:
-                    raise ValueError("El email ya está registrado")
+                    raise ValueError("El email ya esta registrado")
                 else:
-                    raise ValueError("El nombre de usuario ya está en uso")
+                    raise ValueError("El nombre de usuario ya esta en uso")
             
             hashed_password = AuthService.get_password_hash(user_data.password)
             
@@ -74,7 +74,7 @@ class AuthService:
             db.commit()
             db.refresh(db_user)
             
-            # Cargar la relación con la compañía
+            # Cargar la relacion con la compania
             db.refresh(db_user)
             
             return db_user
@@ -82,9 +82,9 @@ class AuthService:
         except IntegrityError as e:
             db.rollback()
             if "users_email_key" in str(e):
-                raise ValueError("El email ya está registrado")
+                raise ValueError("El email ya esta registrado")
             elif "users_username_key" in str(e):
-                raise ValueError("El nombre de usuario ya está en uso")
+                raise ValueError("El nombre de usuario ya esta en uso")
             else:
                 raise ValueError(f"Error de integridad en la base de datos: {str(e)}")
         except Exception as e:
@@ -93,7 +93,7 @@ class AuthService:
     
     @staticmethod
     def authenticate_user(db: Session, email: str, password: str) -> Optional[User]:
-        """Autenticar usuario por email y contraseña"""
+        """Autenticar usuario por email y contrasena"""
         user = db.query(User).filter(User.email == email).first()
         if not user:
             return None
@@ -118,7 +118,7 @@ class AuthService:
     
     @staticmethod
     def get_user_with_company(db: Session, user_id: int) -> Optional[User]:
-        """Obtener usuario con información de compañía cargada"""
+        """Obtener usuario con informacion de compania cargada"""
         from sqlalchemy.orm import joinedload
         return db.query(User).options(joinedload(User.company)).filter(User.id == user_id).first()
     

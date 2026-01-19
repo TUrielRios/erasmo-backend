@@ -48,7 +48,7 @@ class Project(Base):
 
 class ProjectShare(Base):
     """
-    Modelo para compartir proyectos con otros usuarios de la misma compañía
+    Modelo para compartir proyectos con otros usuarios de la misma compania
     """
     __tablename__ = "project_shares"
     
@@ -73,7 +73,7 @@ class ProjectShare(Base):
 
 class ConversationShare(Base):
     """
-    Modelo para compartir conversaciones individuales con otros usuarios de la misma compañía
+    Modelo para compartir conversaciones individuales con otros usuarios de la misma compania
     """
     __tablename__ = "conversation_shares"
     

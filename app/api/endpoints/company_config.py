@@ -1,5 +1,5 @@
 """
-Endpoints para configuración avanzada de compañías
+Endpoints para configuracion avanzada de companias
 """
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -17,12 +17,12 @@ async def get_full_company_configuration(
     company_id: int,
     db: Session = Depends(get_db)
 ):
-    """Obtener configuración completa de una compañía"""
+    """Obtener configuracion completa de una compania"""
     config = CompanyConfigurationService.get_full_configuration(db, company_id)
     if not config:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Configuración de compañía no encontrada"
+            detail="Configuracion de compania no encontrada"
         )
     return config
 
@@ -31,7 +31,7 @@ async def initialize_company_ai(
     company_id: int,
     db: Session = Depends(get_db)
 ):
-    """Inicializar configuración de IA para una compañía"""
+    """Inicializar configuracion de IA para una compania"""
     result = await CompanyConfigurationService.initialize_ai_configuration(db, company_id)
     return result
 
@@ -40,7 +40,7 @@ async def process_company_documents(
     company_id: int,
     db: Session = Depends(get_db)
 ):
-    """Procesar todos los documentos pendientes de una compañía"""
+    """Procesar todos los documentos pendientes de una compania"""
     result = await DocumentProcessingService.process_company_documents(db, company_id)
     return result
 
@@ -49,7 +49,7 @@ async def get_knowledge_summary(
     company_id: int,
     db: Session = Depends(get_db)
 ):
-    """Obtener resumen del conocimiento procesado de una compañía"""
+    """Obtener resumen del conocimiento procesado de una compania"""
     summary = DocumentProcessingService.get_company_knowledge_summary(db, company_id)
     return summary
 
@@ -58,7 +58,7 @@ async def get_ai_effectiveness_metrics(
     company_id: int,
     db: Session = Depends(get_db)
 ):
-    """Obtener métricas de efectividad de la IA"""
+    """Obtener metricas de efectividad de la IA"""
     metrics = CompanyConfigurationService.get_ai_effectiveness_metrics(db, company_id)
     return metrics
 
@@ -68,7 +68,7 @@ async def optimize_ai_configuration(
     optimization_data: Dict[str, Any],
     db: Session = Depends(get_db)
 ):
-    """Optimizar configuración de IA basada en métricas de uso"""
+    """Optimizar configuracion de IA basada en metricas de uso"""
     result = await CompanyConfigurationService.optimize_configuration(
         db, company_id, optimization_data
     )
@@ -79,7 +79,7 @@ async def get_document_categories_status(
     company_id: int,
     db: Session = Depends(get_db)
 ):
-    """Obtener estado de documentos por categoría"""
+    """Obtener estado de documentos por categoria"""
     status = CompanyConfigurationService.get_document_categories_status(db, company_id)
     return status
 
@@ -88,7 +88,7 @@ async def validate_company_setup(
     company_id: int,
     db: Session = Depends(get_db)
 ):
-    """Validar que la configuración de la compañía esté completa"""
+    """Validar que la configuracion de la compania este completa"""
     validation = CompanyConfigurationService.validate_company_setup(db, company_id)
     return validation
 
@@ -97,7 +97,7 @@ async def get_my_company_configuration(
     company_id: int,  # Now requires company_id as parameter instead of getting from user
     db: Session = Depends(get_db)
 ):
-    """Obtener configuración de la compañía (requiere company_id)"""
+    """Obtener configuracion de la compania (requiere company_id)"""
     config = CompanyConfigurationService.get_client_view_configuration(db, company_id)
     return config
 
@@ -106,6 +106,6 @@ async def get_my_company_ai_status(
     company_id: int,  # Now requires company_id as parameter instead of getting from user
     db: Session = Depends(get_db)
 ):
-    """Obtener estado de la IA de la compañía (requiere company_id)"""
+    """Obtener estado de la IA de la compania (requiere company_id)"""
     status = CompanyConfigurationService.get_ai_status_for_client(db, company_id)
     return status

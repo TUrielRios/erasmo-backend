@@ -1,122 +1,141 @@
 """
-Configuración central de la aplicación usando Pydantic Settings
+Configuracion central de la aplicacion
+Compatible con .env sin parseos JSON raros
 """
 
-from pydantic_settings import BaseSettings
-from typing import List, Optional
 import os
+import json
 from dotenv import load_dotenv
 
-# Cargar variables de entorno desde .env
+# Cargar variables de entorno
 load_dotenv()
 
-class Settings(BaseSettings):
-    """Configuración de la aplicación"""
-    
-    # Configuración del servidor
-    HOST: str = "0.0.0.0"
-    PORT: int = 8000
-    DEBUG: bool = False  # Por defecto False por seguridad
-    
-    # Configuración de CORS
-    # Leer desde variable de entorno o usar valores por defecto
-    _allowed_origins_str = os.getenv("ALLOWED_ORIGINS", "")
-    ALLOWED_ORIGINS: List[str] = (
-        _allowed_origins_str.split(",") if _allowed_origins_str 
-        else [
-            "http://localhost:3000", 
-            "http://localhost:8080",
-            "http://localhost:5173",
-            "https://clara-ai-frontend.vercel.app"
-        ]
+
+class Settings:
+    # =========================
+    # Servidor
+    # =========================
+    HOST: str = os.getenv("HOST", "0.0.0.0")
+    PORT: int = int(os.getenv("PORT", "8000"))
+    DEBUG: bool = os.getenv("DEBUG", "false").lower() == "true"
+
+    # =========================
+    # Seguridad / Sesiones
+    # =========================
+    SECRET_KEY: str = os.getenv(
+        "SECRET_KEY",
+        "dev-secret-key-change-in-production"
+    )
+
+    # =========================
+    # CORS
+    # =========================
+    @property
+    def ALLOWED_ORIGINS(self) -> list[str]:
+        raw_origins = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000")
+        try:
+            # Intentar parsear como lista JSON
+            if raw_origins.startswith("[") and raw_origins.endswith("]"):
+                return json.loads(raw_origins)
+            # Fallback a split por coma
+            return [o.strip() for o in raw_origins.split(",") if o.strip()]
+        except Exception:
+            return ["http://localhost:3000"]
+
+    # Mantener como atributo de clase para compatibilidad si es necesario, 
+    # pero mejor usar una propiedad o cargarlo en __init__
+    def __init__(self):
+        # Cargar otros valores normales
+        pass
+
+    # =========================
+    # OpenAI
+    # =========================
+    OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", "")
+    OPENAI_MODEL: str = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
+
+    # =========================
+    # Vector DB (Pinecone)
+    # =========================
+    VECTOR_DB_TYPE: str = os.getenv("VECTOR_DB_TYPE", "pinecone")
+    PINECONE_API_KEY: str = os.getenv("PINECONE_API_KEY", "")
+    PINECONE_INDEX_NAME: str = os.getenv(
+        "PINECONE_INDEX_NAME",
+        "erasmo-knowledge"
+    )
+
+    # =========================
+    # Base de datos
+    # =========================
+    DATABASE_URL: str = os.getenv("DATABASE_URL", "")
+
+    # =========================
+    # Embeddings
+    # =========================
+    EMBEDDING_MODEL: str = os.getenv(
+        "EMBEDDING_MODEL",
+        "text-embedding-ada-002"
+    )
+    EMBEDDING_DIMENSION: int = int(
+        os.getenv("EMBEDDING_DIMENSION", "1536")
+    )
+
+    # =========================
+    # Archivos
+    # =========================
+    MAX_FILE_SIZE: int = int(
+        os.getenv("MAX_FILE_SIZE", str(10 * 1024 * 1024))
+    )
+
+    ALLOWED_FILE_TYPES: list[str] = os.getenv(
+        "ALLOWED_FILE_TYPES",
+        ".txt,.md"
+    ).split(",")
+
+    # =========================
+    # Conversacion
+    # =========================
+    MAX_CONTEXT_LENGTH: int = int(
+        os.getenv("MAX_CONTEXT_LENGTH", "8000")
+    )
+    CONVERSATION_MEMORY_SIZE: int = int(
+        os.getenv("CONVERSATION_MEMORY_SIZE", "10")
     )
     
-    # Configuración de autenticación JWT
-    SECRET_KEY: str = os.getenv("SECRET_KEY", "fallback-secret-key-change-in-production")
-    ALGORITHM: str = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 30 * 24 * 60  # 30 días
-    REFRESH_TOKEN_EXPIRE_DAYS: int = 7  # 7 días para refresh tokens
-    
-    # Configuración de OpenAI
-    OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", "")
-    OPENAI_MODEL: str = "gpt-5-mini"  # gpt-4o-mini supports up to 16K output tokens
-    OPENAI_MODEL_MINI: str = "gpt-5-mini"  # Fallback for quick analyses
-    OPENAI_MODEL_ADVANCED: str = "gpt-5"  # Advanced model for complex tasks (16K output tokens)
-    
-    # Configuración de Vector Database
-    VECTOR_DB_TYPE: str = "pinecone"
-    PINECONE_API_KEY: str = os.getenv("PINECONE_API_KEY", "")
-    PINECONE_ENVIRONMENT: str = os.getenv("PINECONE_ENVIRONMENT", "")
-    PINECONE_INDEX_NAME: str = "erasmo-knowledge"
-    
-    # Configuración de PostgreSQL
-    DATABASE_URL: str = os.getenv("DATABASE_URL", "postgresql://postgres:admin@localhost:5432/erasmo")
-    DATABASE_HOST: str = os.getenv("DATABASE_HOST", "localhost")
-    DATABASE_PORT: int = int(os.getenv("DATABASE_PORT", "5432"))
-    DATABASE_USER: str = os.getenv("DATABASE_USER", "postgres")
-    DATABASE_PASSWORD: str = os.getenv("DATABASE_PASSWORD", "admin")
-    DATABASE_NAME: str = os.getenv("DATABASE_NAME", "erasmo")
-    
-    # Configuración de embeddings
-    EMBEDDING_MODEL: str = "text-embedding-ada-002"
-    EMBEDDING_DIMENSION: int = 1536
-    
-    # Configuración de archivos
-    MAX_FILE_SIZE: int = 10 * 1024 * 1024  # 10MB
-    ALLOWED_FILE_TYPES: List[str] = [
-        ".txt", ".md",           # Text files
-        ".pdf",                  # PDF documents
-        ".docx", ".doc",         # Word documents
-        ".xlsx", ".xls",         # Excel spreadsheets
-        ".pptx", ".ppt",         # PowerPoint presentations
-        ".png", ".jpg", ".jpeg"  # Images/Screenshots
-    ]
-    
-    # Configuración de conversación
-    MAX_CONTEXT_LENGTH: int = 128000  # Maximum context tokens the model can process
-    CONVERSATION_MEMORY_SIZE: int = 300  # Number of messages to keep in memory
-    
-    # Nuevas configuraciones para optimización de tokens
-    MAX_RESPONSE_TOKENS: int = 15000  # Safe limit under 16,384 max
-    MIN_RESPONSE_TOKENS: int = 1000   # Minimum for detailed responses
-    TOKEN_BUDGET_BUFFER: int = 2000   # Safety buffer for token calculations
-    
-    ENABLE_ADVANCED_CACHING: bool = True
-    ENABLE_STREAMING_OPTIMIZATION: bool = True
-    ENABLE_RAAG: bool = True  # Retrieval Augmented Analysis Generation
-    MAX_PARALLEL_SEARCHES: int = 10  # Aumentado de 5 a 10
-    CACHE_TTL_SECONDS: int = 7200  # Aumentado de 3600 a 7200 (2 horas)
-    ENABLE_RESPONSE_REFINEMENT: bool = True  # Refinar respuestas con análisis secundario
-    ENABLE_CONTEXT_RERANKING: bool = True  # Re-rankear contexto por relevancia
-    
-    ENABLE_TOKEN_OPTIMIZATION: bool = True
-    ENABLE_CONTEXT_CACHING: bool = True
-    MAX_SEARCH_RESULTS: int = 100  # Aumentado de 50 a 100 (2x)
-    
-    # Nuevas configuraciones para temperatura y creatividad
-    DEFAULT_TEMPERATURE: float = 0.95  # Increased for more verbose responses
-    DEFAULT_TOP_P: float = 0.98  # Increased for maximum diversity
-    
-    # Nuevas configuraciones para presupuesto de tokens adaptable
-    ENABLE_ADAPTIVE_TOKEN_BUDGET: bool = True
-    MAX_ADAPTIVE_MULTIPLIER: float = 2.5  # Respuestas complejas pueden usar 2.5x más tokens
-    
-    class Config:
-        env_file = ".env"
-        case_sensitive = True
-        extra = "ignore"  # Ignorar variables extra no definidas
+    # =========================
+    # OpenAI Response Settings
+    # =========================
+    DEFAULT_TEMPERATURE: float = float(
+        os.getenv("DEFAULT_TEMPERATURE", "0.7")
+    )
+    DEFAULT_TOP_P: float = float(
+        os.getenv("DEFAULT_TOP_P", "0.9")
+    )
+    MAX_RESPONSE_TOKENS: int = int(
+        os.getenv("MAX_RESPONSE_TOKENS", "4000")
+    )
+    TOKEN_BUDGET_BUFFER: int = int(
+        os.getenv("TOKEN_BUDGET_BUFFER", "1000")
+    )
 
-# Instancia global de configuración
+
+# Instancia global
 settings = Settings()
 
-# Validación de configuraciones requeridas
+
+# Logs de validacion (no rompe)
 def validate_settings():
+    print("[OK] Config cargada correctamente")
+    print(f"   -> DEBUG: {settings.DEBUG}")
+    print(f"   -> HOST: {settings.HOST}:{settings.PORT}")
+    print(f"   -> CORS: {settings.ALLOWED_ORIGINS}")
+
     if not settings.OPENAI_API_KEY:
-        print("⚠️  ADVERTENCIA: OPENAI_API_KEY no está configurada")
+        print("[WARN] OPENAI_API_KEY no configurada")
     if not settings.PINECONE_API_KEY:
-        print("⚠️  ADVERTENCIA: PINECONE_API_KEY no está configurada")
-    if settings.DEBUG:
-        print("⚠️  MODO DEBUG ACTIVADO - No usar en producción")
-    print(f"✅ Configuración cargada: Modelo={settings.OPENAI_MODEL}, MaxContextTokens={settings.MAX_CONTEXT_LENGTH}")
+        print("[WARN] PINECONE_API_KEY no configurada")
+    if not settings.DATABASE_URL:
+        print("[WARN] DATABASE_URL no configurada")
+
 
 validate_settings()

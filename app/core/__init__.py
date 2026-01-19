@@ -1,3 +1,3 @@
 """
-Configuración central de la aplicación
+Configuracion central de la aplicacion
 """

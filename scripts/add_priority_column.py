@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Migración: Agregar columna priority a la tabla company_documents
+Migracion: Agregar columna priority a la tabla company_documents
 """
 
 import os
@@ -8,7 +8,7 @@ import sys
 import psycopg2
 from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
 
-# Agregar el directorio raíz al path
+# Agregar el directorio raiz al path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from app.core.config import settings
@@ -28,10 +28,10 @@ def add_priority_column():
         conn.set_isolation_level(ISOLATION_LEVEL_AUTOCOMMIT)
         cursor = conn.cursor()
         
-        print("📋 Iniciando migración: Agregar columna priority...")
+        print("[CLIPBOARD] Iniciando migracion: Agregar columna priority...")
         
         # 1. Agregar columna priority si no existe
-        print("🔧 Verificando columna priority...")
+        print("[INIT] Verificando columna priority...")
         cursor.execute("""
             DO $$ 
             BEGIN
@@ -45,25 +45,25 @@ def add_priority_column():
                 END IF;
             END $$;
         """)
-        print("✅ Columna priority verificada/agregada")
+        print("[OK] Columna priority verificada/agregada")
         
-        # 2. Crear índice para mejor performance (opcional pero recomendado)
-        print("🔧 Creando índice en columna priority...")
+        # 2. Crear indice para mejor performance (opcional pero recomendado)
+        print("[INIT] Creando indice en columna priority...")
         cursor.execute("""
             DO $$ 
             BEGIN
                 IF NOT EXISTS (SELECT 1 FROM pg_indexes 
                               WHERE tablename = 'company_documents' AND indexname = 'idx_company_documents_priority') THEN
                     CREATE INDEX idx_company_documents_priority ON company_documents(priority);
-                    RAISE NOTICE 'Índice en priority creado';
+                    RAISE NOTICE 'Indice en priority creado';
                 ELSE
-                    RAISE NOTICE 'Índice en priority ya existe';
+                    RAISE NOTICE 'Indice en priority ya existe';
                 END IF;
             END $$;
         """)
-        print("✅ Índice en priority verificado/creado")
+        print("[OK] Indice en priority verificado/creado")
         
-        # 3. Verificar que la columna se creó correctamente
+        # 3. Verificar que la columna se creo correctamente
         cursor.execute("""
             SELECT column_name, data_type, column_default, is_nullable
             FROM information_schema.columns
@@ -72,22 +72,22 @@ def add_priority_column():
         
         column_info = cursor.fetchone()
         if column_info:
-            print(f"📊 Información de la columna priority:")
-            print(f"   • Nombre: {column_info[0]}")
-            print(f"   • Tipo: {column_info[1]}")
-            print(f"   • Valor por defecto: {column_info[2]}")
-            print(f"   • ¿Puede ser nulo?: {column_info[3]}")
+            print(f"[STATS] Informacion de la columna priority:")
+            print(f"    Nombre: {column_info[0]}")
+            print(f"    Tipo: {column_info[1]}")
+            print(f"    Valor por defecto: {column_info[2]}")
+            print(f"    Puede ser nulo?: {column_info[3]}")
         
         cursor.close()
         conn.close()
         
-        print("\n🎉 Migración completada exitosamente!")
-        print("📝 Columna agregada:")
-        print("   • priority (INTEGER) - Valor por defecto: 0")
-        print("   • Índice creado para optimizar consultas")
+        print("\n Migracion completada exitosamente!")
+        print(" Columna agregada:")
+        print("    priority (INTEGER) - Valor por defecto: 0")
+        print("    Indice creado para optimizar consultas")
         
     except Exception as e:
-        print(f"❌ Error ejecutando migración: {e}")
+        print(f"[ERR] Error ejecutando migracion: {e}")
         import traceback
         traceback.print_exc()
         return False
@@ -95,10 +95,10 @@ def add_priority_column():
     return True
 
 if __name__ == "__main__":
-    print("🚀 Iniciando migración: add_priority_column...")
+    print("[LAUNCH] Iniciando migracion: add_priority_column...")
     success = add_priority_column()
     if success:
-        print("🎉 Migración add_priority_column completada exitosamente!")
+        print(" Migracion add_priority_column completada exitosamente!")
     else:
-        print("❌ Error en la migración add_priority_column")
+        print("[ERR] Error en la migracion add_priority_column")
         sys.exit(1)

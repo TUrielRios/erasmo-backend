@@ -8,7 +8,7 @@ import sys
 import psycopg2
 from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
 
-# Agregar el directorio raíz al path
+# Agregar el directorio raiz al path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from app.core.config import settings
@@ -28,7 +28,7 @@ def fix_database_types():
         conn.set_isolation_level(ISOLATION_LEVEL_AUTOCOMMIT)
         cursor = conn.cursor()
         
-        print("🔧 Arreglando tipos de datos en la base de datos...")
+        print("[INIT] Arreglando tipos de datos en la base de datos...")
         
         # Verificar si las tablas existen
         cursor.execute("""
@@ -38,11 +38,11 @@ def fix_database_types():
             AND table_name IN ('users', 'conversations', 'messages')
         """)
         existing_tables = [row[0] for row in cursor.fetchall()]
-        print(f"📋 Tablas existentes: {existing_tables}")
+        print(f"[CLIPBOARD] Tablas existentes: {existing_tables}")
         
         # Si no existen las tablas, crearlas primero
         if not existing_tables:
-            print("❌ No se encontraron tablas. Creando tablas primero...")
+            print("[ERR] No se encontraron tablas. Creando tablas primero...")
             create_tables(cursor)
         
         # Verificar el tipo actual de user_id en conversations
@@ -56,12 +56,12 @@ def fix_database_types():
         
         if result:
             current_type = result[0]
-            print(f"📊 Tipo actual de user_id en conversations: {current_type}")
+            print(f"[STATS] Tipo actual de user_id en conversations: {current_type}")
             
             if current_type != 'integer':
-                print("🔄 Convirtiendo user_id a integer...")
+                print("[REFRESH] Convirtiendo user_id a integer...")
                 
-                # Primero, eliminar datos existentes si los hay (para evitar problemas de conversión)
+                # Primero, eliminar datos existentes si los hay (para evitar problemas de conversion)
                 cursor.execute("DELETE FROM messages")
                 cursor.execute("DELETE FROM conversations")
                 cursor.execute("DELETE FROM users WHERE id != 1")  # Mantener solo el admin
@@ -72,12 +72,12 @@ def fix_database_types():
                     ALTER COLUMN user_id TYPE INTEGER 
                     USING user_id::INTEGER
                 """)
-                print("✅ user_id convertido a integer exitosamente")
+                print("[OK] user_id convertido a integer exitosamente")
             else:
-                print("✅ user_id ya es de tipo integer")
+                print("[OK] user_id ya es de tipo integer")
         
         # Verificar otros tipos importantes
-        print("🔍 Verificando otros tipos de datos...")
+        print("[SEARCH] Verificando otros tipos de datos...")
         
         # Verificar que session_id sea string
         cursor.execute("""
@@ -88,15 +88,15 @@ def fix_database_types():
         """)
         result = cursor.fetchone()
         if result:
-            print(f"📊 Tipo de session_id: {result[0]}")
+            print(f"[STATS] Tipo de session_id: {result[0]}")
         
-        print("✅ Tipos de datos verificados y corregidos")
+        print("[OK] Tipos de datos verificados y corregidos")
         
         cursor.close()
         conn.close()
         
     except Exception as e:
-        print(f"❌ Error arreglando tipos de datos: {e}")
+        print(f"[ERR] Error arreglando tipos de datos: {e}")
         return False
     
     return True
@@ -143,7 +143,7 @@ def create_tables(cursor):
         )
     """)
     
-    # Crear índices
+    # Crear indices
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_users_username ON users(username)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_users_email ON users(email)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_conversations_session_id ON conversations(session_id)")
@@ -157,13 +157,13 @@ def create_tables(cursor):
         ON CONFLICT (username) DO NOTHING
     """)
     
-    print("✅ Tablas creadas exitosamente")
+    print("[OK] Tablas creadas exitosamente")
 
 if __name__ == "__main__":
-    print("🚀 Iniciando corrección de tipos de base de datos...")
+    print("[LAUNCH] Iniciando correccion de tipos de base de datos...")
     success = fix_database_types()
     if success:
-        print("🎉 Corrección completada exitosamente!")
+        print(" Correccion completada exitosamente!")
     else:
-        print("❌ Error en la corrección")
+        print("[ERR] Error en la correccion")
         sys.exit(1)

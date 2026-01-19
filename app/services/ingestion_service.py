@@ -15,7 +15,7 @@ from app.utils.file_extractor import FileExtractor
 
 class IngestionService:
     """
-    Servicio encargado de la ingesta de documentos y su indexación semántica
+    Servicio encargado de la ingesta de documentos y su indexacion semantica
     """
     
     PERSONALITY_STORAGE_PATH = "data/personality_config.json"
@@ -38,7 +38,7 @@ class IngestionService:
                     return json.load(f)
             return {}
         except Exception as e:
-            print(f"❌ Error loading personality store: {e}")
+            print(f"[ERR] Error loading personality store: {e}")
             return {}
     
     def _save_personality_store(self, personality_store: Dict[str, Any]):
@@ -46,9 +46,9 @@ class IngestionService:
         try:
             with open(self.PERSONALITY_STORAGE_PATH, 'w', encoding='utf-8') as f:
                 json.dump(personality_store, f, ensure_ascii=False, indent=2)
-            print(f"💾 Personality configuration saved to {self.PERSONALITY_STORAGE_PATH}")
+            print(f"[SAVE] Personality configuration saved to {self.PERSONALITY_STORAGE_PATH}")
         except Exception as e:
-            print(f"❌ Error saving personality store: {e}")
+            print(f"[ERR] Error saving personality store: {e}")
 
     async def process_knowledge_file(self, content: bytes, filename: str, metadata: Dict[str, Any] = None) -> List[str]:
         """
@@ -58,7 +58,7 @@ class IngestionService:
     
     async def process_personality_file(self, content: bytes, filename: str, metadata: Dict[str, Any] = None) -> List[str]:
         """
-        Procesa un archivo como configuración de personalidad del agente
+        Procesa un archivo como configuracion de personalidad del agente
         
         Args:
             content: Contenido del archivo en bytes
@@ -66,24 +66,24 @@ class IngestionService:
             metadata: Metadatos adicionales
         
         Returns:
-            Lista con un ID único para el archivo de personalidad
+            Lista con un ID unico para el archivo de personalidad
         """
         
-        print(f"🎭 Procesando archivo de personalidad: {filename}")
+        print(f" Procesando archivo de personalidad: {filename}")
         
         # 1. Decodificar contenido
         try:
             text_content = content.decode('utf-8')
         except UnicodeDecodeError:
-            print(f"❌ Error decodificando {filename}")
+            print(f"[ERR] Error decodificando {filename}")
             return []
         
-        # El protocolo debe mantenerse íntegro sin modificaciones de formato
+        # El protocolo debe mantenerse integro sin modificaciones de formato
         cleaned_text = text_content.strip()  # Solo eliminar espacios al inicio/final
         
-        print(f"📏 Contenido de personalidad: {len(cleaned_text)} caracteres")
+        print(f"[TOKEN] Contenido de personalidad: {len(cleaned_text)} caracteres")
         
-        # 3. Crear ID único para este archivo de personalidad
+        # 3. Crear ID unico para este archivo de personalidad
         personality_id = f"personality_{hashlib.md5(filename.encode()).hexdigest()}"
         
         personality_store = self._load_personality_store()
@@ -99,34 +99,34 @@ class IngestionService:
         
         self._save_personality_store(personality_store)
         
-        print(f"✅ Personalidad {filename} configurada exitosamente con {len(cleaned_text)} caracteres")
+        print(f"[OK] Personalidad {filename} configurada exitosamente con {len(cleaned_text)} caracteres")
         return [personality_id]
     
     async def _process_file_for_vectordb(self, content: bytes, filename: str, metadata: Dict[str, Any] = None) -> List[str]:
         """
-        Procesa un archivo y lo indexa en la base vectorial (método original)
+        Procesa un archivo y lo indexa en la base vectorial (metodo original)
         """
         
-        print(f"📄 Procesando archivo de conocimiento: {filename}")
+        print(f"[DOC] Procesando archivo de conocimiento: {filename}")
         
         # 1. Extract text based on file type
         try:
             text_content = self.file_extractor.extract_text(content, filename)
             
             if not text_content or not text_content.strip():
-                print(f"⚠️ No se pudo extraer texto de {filename}")
+                print(f"[WARN] No se pudo extraer texto de {filename}")
                 return []
                 
         except Exception as e:
-            print(f"❌ Error extrayendo texto de {filename}: {e}")
+            print(f"[ERR] Error extrayendo texto de {filename}: {e}")
             return []
         
         # 2. Limpiar y procesar texto
         cleaned_text = self.text_processor.clean_text(text_content)
         
-        # 3. Dividir en chunks semánticamente coherentes
+        # 3. Dividir en chunks semanticamente coherentes
         chunks = self.text_processor.create_chunks(cleaned_text)
-        print(f"📝 Creados {len(chunks)} chunks para {filename}")
+        print(f" Creados {len(chunks)} chunks para {filename}")
         
         # 4. Generar embeddings para cada chunk
         embeddings = await self.text_processor.generate_embeddings(chunks)
@@ -150,15 +150,15 @@ class IngestionService:
         # 7. Almacenar en vector database
         chunk_ids = await self.vector_store.store_chunks(chunks, embeddings, chunk_metadata)
         
-        print(f"✅ Archivo {filename} procesado exitosamente con {len(chunk_ids)} chunks")
+        print(f"[OK] Archivo {filename} procesado exitosamente con {len(chunk_ids)} chunks")
         return chunk_ids
     
     def get_personality_config(self) -> Dict[str, Any]:
         """
-        Obtiene la configuración actual de personalidad del agente
+        Obtiene la configuracion actual de personalidad del agente
         
         Returns:
-            Diccionario con toda la configuración de personalidad
+            Diccionario con toda la configuracion de personalidad
         """
         
         personality_store = self._load_personality_store()
@@ -187,22 +187,22 @@ class IngestionService:
     
     async def clear_personality(self) -> bool:
         """
-        Elimina toda la configuración de personalidad
+        Elimina toda la configuracion de personalidad
         """
         
         try:
             if os.path.exists(self.PERSONALITY_STORAGE_PATH):
                 os.remove(self.PERSONALITY_STORAGE_PATH)
-            print("🧹 Configuración de personalidad eliminada")
+            print(" Configuracion de personalidad eliminada")
             return True
         except Exception as e:
-            print(f"❌ Error eliminando personalidad: {e}")
+            print(f"[ERR] Error eliminando personalidad: {e}")
             return False
     
-    # Método de compatibilidad - procesa como conocimiento por defecto
+    # Metodo de compatibilidad - procesa como conocimiento por defecto
     async def process_file(self, content: bytes, filename: str, metadata: Dict[str, Any] = None) -> List[str]:
         """
-        Método de compatibilidad - procesa como conocimiento por defecto
+        Metodo de compatibilidad - procesa como conocimiento por defecto
         """
         return await self.process_knowledge_file(content, filename, metadata)
     
@@ -223,13 +223,13 @@ class IngestionService:
         
         if metadata and 'company_id' in metadata:
             base_metadata['company_id'] = metadata['company_id']
-            print(f"📋 Including company_id {metadata['company_id']} in chunk metadata for {filename}")
+            print(f"[CLIPBOARD] Including company_id {metadata['company_id']} in chunk metadata for {filename}")
         
         return base_metadata
     
     async def get_document_stats(self) -> Dict[str, Any]:
         """
-        Obtiene estadísticas de documentos indexados
+        Obtiene estadisticas de documentos indexados
         """
         
         try:
@@ -265,14 +265,14 @@ class IngestionService:
                         "last_update": datetime.now().isoformat()
                     }
                 except Exception as e:
-                    print(f"⚠️ Error getting Pinecone stats: {e}")
+                    print(f"[WARN] Error getting Pinecone stats: {e}")
                     return self._get_default_stats()
             
             else:
                 return self._get_default_stats()
                 
         except Exception as e:
-            print(f"❌ Error getting document stats: {e}")
+            print(f"[ERR] Error getting document stats: {e}")
             return self._get_default_stats()
     
     def _get_default_stats(self) -> Dict[str, Any]:

@@ -1,6 +1,6 @@
 """
 Servicio de Inteligencia RAG Avanzada (Retrieval Augmented Analysis Generation)
-Maximiza el potencial de la IA combinando recuperación inteligente con generación superior
+Maximiza el potencial de la IA combinando recuperacion inteligente con generacion superior
 """
 
 from typing import Dict, List, Any, Optional, Tuple
@@ -10,9 +10,9 @@ import json
 class RAGIntelligenceService:
     """
     Sistema RAG avanzado que combina:
-    - Recuperación inteligente de contexto
-    - Análisis profundo de relevancia
-    - Generación aumentada con conocimiento contextual
+    - Recuperacion inteligente de contexto
+    - Analisis profundo de relevancia
+    - Generacion aumentada con conocimiento contextual
     """
     
     def __init__(self):
@@ -29,7 +29,7 @@ class RAGIntelligenceService:
         top_k: int = 20
     ) -> List[Dict[str, Any]]:
         """
-        Recuperación híbrida: combina búsqueda vectorial + keyword + conocimiento base
+        Recuperacion hibrida: combina busqueda vectorial + keyword + conocimiento base
         """
         combined_results = []
         seen_ids = set()
@@ -52,7 +52,7 @@ class RAGIntelligenceService:
                 combined_results.append(result)
                 seen_ids.add(result_id)
             else:
-                # Aumentar score si aparece en ambas búsquedas
+                # Aumentar score si aparece en ambas busquedas
                 for item in combined_results:
                     if item.get('id') == result_id:
                         item['retrieval_score'] += 0.15
@@ -107,7 +107,7 @@ class RAGIntelligenceService:
         for item in context[:rerank_depth]:
             content = item.get('content', '')
             
-            # Calcular múltiples dimensiones de relevancia
+            # Calcular multiples dimensiones de relevancia
             relevance_scores = {
                 'keyword_overlap': self._calculate_keyword_overlap(query, content),
                 'semantic_similarity': item.get('relevance_score', 0.5),
@@ -163,7 +163,7 @@ class RAGIntelligenceService:
         max_tokens: int = 1000
     ) -> str:
         """
-        Genera resumen de contexto para inyección en prompt
+        Genera resumen de contexto para inyeccion en prompt
         """
         summary = "CONTEXTO DISPONIBLE:\n\n"
         
@@ -190,7 +190,7 @@ class RAGIntelligenceService:
         analysis_type: str = "standard"
     ) -> Dict[str, Any]:
         """
-        Aplica mejoras RAG al mensaje para máximo potencial de respuesta
+        Aplica mejoras RAG al mensaje para maximo potencial de respuesta
         """
         reranked_context = self.rerank_context_by_relevance(user_message, context)
         context_summary = self.generate_context_summary(reranked_context)
@@ -199,12 +199,12 @@ class RAGIntelligenceService:
 
 PREGUNTA/TAREA: {user_message}
 
-INSTRUCCIONES DE ANÁLISIS:
+INSTRUCCIONES DE ANALISIS:
 1. Usa PRIMERO el contexto disponible para informar tu respuesta
 2. Si el contexto no cubre todo, combina con conocimiento general
 3. Cita tus fuentes cuando corresponda
-4. Señala si hay lagunas en el contexto
-5. Proporciona análisis completo y bien fundamentado
+4. Senala si hay lagunas en el contexto
+5. Proporciona analisis completo y bien fundamentado
 """
         
         return {
@@ -247,13 +247,13 @@ INSTRUCCIONES DE ANÁLISIS:
     
     def _gap_recommendation(self, coverage: float) -> str:
         """
-        Proporciona recomendación basada en cobertura
+        Proporciona recomendacion basada en cobertura
         """
         if coverage >= 90:
             return "Contexto excelente. Procede con respuesta de alta confianza."
         elif coverage >= 70:
-            return "Contexto adecuado. Combina conocimiento contextual con análisis general."
+            return "Contexto adecuado. Combina conocimiento contextual con analisis general."
         elif coverage >= 50:
-            return "Contexto parcial. Señala asunciones basadas en general knowledge."
+            return "Contexto parcial. Senala asunciones basadas en general knowledge."
         else:
-            return "Contexto limitado. Busca información adicional o señala claramente incertidumbres."
+            return "Contexto limitado. Busca informacion adicional o senala claramente incertidumbres."

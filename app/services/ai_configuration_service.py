@@ -1,5 +1,5 @@
 """
-Servicio para gestión de configuraciones de IA
+Servicio para gestion de configuraciones de IA
 """
 
 from sqlalchemy.orm import Session
@@ -9,7 +9,7 @@ from app.models.schemas import AIConfigurationCreate, AIConfigurationUpdate
 import json
 
 class AIConfigurationService:
-    """Servicio para gestionar configuraciones de IA por compañía"""
+    """Servicio para gestionar configuraciones de IA por compania"""
     
     DEFAULT_max_tokens = 15000  # Safe limit under 16,384 max for gpt-4o-mini
     DEFAULT_TEMPERATURE = 0.85  # Increased for more creative responses
@@ -17,7 +17,7 @@ class AIConfigurationService:
     
     @staticmethod
     def create_configuration(db: Session, config_data: AIConfigurationCreate) -> AIConfiguration:
-        """Crear nueva configuración de IA"""
+        """Crear nueva configuracion de IA"""
         # Convertir diccionarios a JSON strings
         knowledge_base_json = json.dumps(config_data.knowledge_base) if config_data.knowledge_base else None
         personality_traits_json = json.dumps(config_data.personality_traits) if config_data.personality_traits else None
@@ -43,7 +43,7 @@ class AIConfigurationService:
     
     @staticmethod
     def get_by_company_id(db: Session, company_id: int) -> Optional[AIConfiguration]:
-        """Obtener configuración de IA por ID de compañía"""
+        """Obtener configuracion de IA por ID de compania"""
         return db.query(AIConfiguration).filter(
             AIConfiguration.company_id == company_id,
             AIConfiguration.is_active == True
@@ -51,14 +51,14 @@ class AIConfigurationService:
     
     @staticmethod
     def update_configuration(db: Session, company_id: int, config_update: AIConfigurationUpdate) -> Optional[AIConfiguration]:
-        """Actualizar configuración de IA"""
+        """Actualizar configuracion de IA"""
         ai_config = AIConfigurationService.get_by_company_id(db, company_id)
         if not ai_config:
             return None
         
         update_data = config_update.dict(exclude_unset=True)
         
-        # Convertir diccionarios a JSON strings si están presentes
+        # Convertir diccionarios a JSON strings si estan presentes
         if "knowledge_base" in update_data and update_data["knowledge_base"]:
             update_data["knowledge_base"] = json.dumps(update_data["knowledge_base"])
         if "personality_traits" in update_data and update_data["personality_traits"]:
@@ -73,7 +73,7 @@ class AIConfigurationService:
     
     @staticmethod
     def get_configuration_for_chat(db: Session, company_id: int) -> Optional[Dict[str, Any]]:
-        """Obtener configuración de IA formateada para el chat"""
+        """Obtener configuracion de IA formateada para el chat"""
         ai_config = AIConfigurationService.get_by_company_id(db, company_id)
         if not ai_config:
             return None

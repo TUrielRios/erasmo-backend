@@ -1,6 +1,6 @@
 """
-Servicio mejorado de búsqueda vectorial con múltiples estrategias
-Combina búsqueda semántica, relevancia y recency para mejor recuperación de contexto
+Servicio mejorado de busqueda vectorial con multiples estrategias
+Combina busqueda semantica, relevancia y recency para mejor recuperacion de contexto
 """
 
 from typing import List, Dict, Any, Optional, Tuple
@@ -10,11 +10,11 @@ import asyncio
 
 class EnhancedVectorSearchService:
     """
-    Servicio avanzado de búsqueda vectorial con:
-    - Búsqueda semántica con Pinecone
+    Servicio avanzado de busqueda vectorial con:
+    - Busqueda semantica con Pinecone
     - Reranking de resultados
     - Filtrado por recency
-    - Deduplicación inteligente
+    - Deduplicacion inteligente
     """
     
     def __init__(self, vector_store=None):
@@ -32,21 +32,21 @@ class EnhancedVectorSearchService:
         recency_days: int = 30
     ) -> List[Dict[str, Any]]:
         """
-        Realiza búsqueda avanzada con múltiples criterios
+        Realiza busqueda avanzada con multiples criterios
         """
         if not self.vector_store:
             return []
         
         try:
-            # Búsqueda semántica base
+            # Busqueda semantica base
             semantic_results = await self.vector_store.similarity_search(
                 query,
-                top_k=top_k * 2,  # Obtener más para reranking
+                top_k=top_k * 2,  # Obtener mas para reranking
                 company_id=company_id,
                 project_id=project_id
             )
             
-            # Filtrar por puntuación mínima
+            # Filtrar por puntuacion minima
             filtered_results = [
                 r for r in semantic_results 
                 if r.get('score', 0.0) >= min_score
@@ -60,7 +60,7 @@ class EnhancedVectorSearchService:
                     if self._check_recency(r, cutoff_date)
                 ]
             
-            # Reranking y deduplicación
+            # Reranking y deduplicacion
             reranked = self._rerank_results(filtered_results, query)
             deduplicated = self._deduplicate_results(reranked)
             
@@ -68,7 +68,7 @@ class EnhancedVectorSearchService:
             return deduplicated[:top_k]
             
         except Exception as e:
-            print(f"❌ Error en búsqueda avanzada: {e}")
+            print(f"[ERR] Error en busqueda avanzada: {e}")
             return []
     
     def _rerank_results(
@@ -77,12 +77,12 @@ class EnhancedVectorSearchService:
         query: str
     ) -> List[Dict[str, Any]]:
         """
-        Reranking de resultados usando múltiples señales
+        Reranking de resultados usando multiples senales
         """
         query_terms = set(query.lower().split())
         
         for result in results:
-            # Puntuación base (de búsqueda semántica)
+            # Puntuacion base (de busqueda semantica)
             base_score = result.get('score', 0.5)
             
             # Bonus por relevancia de palabras clave
@@ -90,7 +90,7 @@ class EnhancedVectorSearchService:
             term_matches = len([t for t in query_terms if t in content])
             relevance_bonus = (term_matches / len(query_terms)) * 0.2 if query_terms else 0
             
-            # Bonus por categoría (proyecto > empresa > general)
+            # Bonus por categoria (proyecto > empresa > general)
             category = result.get('category', '')
             category_bonus = {
                 'project_vector_search': 0.15,
@@ -100,14 +100,14 @@ class EnhancedVectorSearchService:
                 'general': 0.0
             }.get(category, 0.0)
             
-            # Bonus por recency (documentos recientes más importantes)
+            # Bonus por recency (documentos recientes mas importantes)
             recency_bonus = self._calculate_recency_bonus(result)
             
-            # Puntuación final
+            # Puntuacion final
             final_score = min(base_score + relevance_bonus + category_bonus + recency_bonus, 1.0)
             result['final_score'] = final_score
         
-        # Ordenar por puntuación final
+        # Ordenar por puntuacion final
         results.sort(key=lambda x: x.get('final_score', 0.0), reverse=True)
         return results
     
@@ -141,7 +141,7 @@ class EnhancedVectorSearchService:
     
     def _calculate_text_similarity(self, text1: str, text2: str) -> float:
         """
-        Calcula similitud básica entre dos textos
+        Calcula similitud basica entre dos textos
         Usa Jaccard similarity sobre palabras
         """
         words1 = set(text1.lower().split()[:100])  # Limitar a primeras 100 palabras
@@ -205,11 +205,11 @@ class EnhancedVectorSearchService:
         min_score: float = 0.3  # Added min_score parameter
     ) -> List[Dict[str, Any]]:
         """
-        Búsqueda híbrida: combina semántica + término exacto
-        Más robusto que solo semántica
+        Busqueda hibrida: combina semantica + termino exacto
+        Mas robusto que solo semantica
         """
         try:
-            # Búsqueda semántica avanzada con todos los parámetros
+            # Busqueda semantica avanzada con todos los parametros
             semantic_results = await self.advanced_similarity_search(
                 query,
                 company_id=company_id,
@@ -218,21 +218,21 @@ class EnhancedVectorSearchService:
                 min_score=min_score  # Pass min_score to advanced_similarity_search
             )
             
-            # Búsqueda por términos exactos (bonus)
+            # Busqueda por terminos exactos (bonus)
             query_terms = query.lower().split()
             for result in semantic_results:
                 content = result.get('content', '').lower()
                 term_count = sum(1 for term in query_terms if term in content)
                 
-                # Si contiene muchos términos exactos, aumentar score
+                # Si contiene muchos terminos exactos, aumentar score
                 if term_count >= len(query_terms) * 0.7:
                     result['final_score'] = min(result.get('final_score', 0.5) + 0.2, 1.0)
             
-            # Re-ordenar después de ajustes
+            # Re-ordenar despues de ajustes
             semantic_results.sort(key=lambda x: x.get('final_score', 0.0), reverse=True)
             
             return semantic_results[:top_k]
         
         except Exception as e:
-            print(f"❌ Error en hybrid_search: {e}")
+            print(f"[ERR] Error en hybrid_search: {e}")
             return []

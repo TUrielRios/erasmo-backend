@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Script de migración para crear tabla company_documents
+Script de migracion para crear tabla company_documents
 """
 
 import os
@@ -9,7 +9,7 @@ import psycopg2
 from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
 from datetime import datetime
 
-# Agregar el directorio raíz al path
+# Agregar el directorio raiz al path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from app.core.config import settings
@@ -20,7 +20,7 @@ def create_company_documents_table():
     """
     
     try:
-        # Conectar a la base de datos usando la configuración de la app
+        # Conectar a la base de datos usando la configuracion de la app
         conn = psycopg2.connect(
             host=settings.DATABASE_HOST,
             port=settings.DATABASE_PORT,
@@ -31,10 +31,10 @@ def create_company_documents_table():
         conn.set_isolation_level(ISOLATION_LEVEL_AUTOCOMMIT)
         cursor = conn.cursor()
         
-        print("🗃️ Iniciando migración de company_documents...")
+        print(" Iniciando migracion de company_documents...")
         
         # Create table for company documents instead of AI configurations
-        print("📄 Creando tabla company_documents...")
+        print("[DOC] Creando tabla company_documents...")
         create_table_query = """
         CREATE TABLE IF NOT EXISTS company_documents (
             id SERIAL PRIMARY KEY,
@@ -49,10 +49,10 @@ def create_company_documents_table():
         """
         
         cursor.execute(create_table_query)
-        print("✅ Tabla 'company_documents' creada exitosamente")
+        print("[OK] Tabla 'company_documents' creada exitosamente")
         
         # Create indexes for better performance
-        print("🔍 Creando índices para mejor rendimiento...")
+        print("[SEARCH] Creando indices para mejor rendimiento...")
         index_queries = [
             "CREATE INDEX IF NOT EXISTS idx_company_documents_company_id ON company_documents(company_id);",
             "CREATE INDEX IF NOT EXISTS idx_company_documents_active ON company_documents(is_active);"
@@ -61,33 +61,33 @@ def create_company_documents_table():
         for index_query in index_queries:
             cursor.execute(index_query)
         
-        print("✅ Índices creados exitosamente")
+        print("[OK] Indices creados exitosamente")
         
         # Drop AI configurations table if it exists (since we're simplifying)
-        print("🗑️ Eliminando tabla ai_configurations si existe...")
+        print("[DELETE] Eliminando tabla ai_configurations si existe...")
         drop_table_query = "DROP TABLE IF EXISTS ai_configurations CASCADE;"
         cursor.execute(drop_table_query)
-        print("✅ Tabla 'ai_configurations' eliminada exitosamente")
+        print("[OK] Tabla 'ai_configurations' eliminada exitosamente")
         
-        print("\n🎉 Migración completada exitosamente!")
-        print("📊 Tabla company_documents lista para usar")
-        print("🔗 Relación establecida con tabla companies")
+        print("\n Migracion completada exitosamente!")
+        print("[STATS] Tabla company_documents lista para usar")
+        print(" Relacion establecida con tabla companies")
         
         cursor.close()
         conn.close()
         
     except psycopg2.Error as e:
-        print(f"❌ Error de base de datos durante la migración: {e}")
+        print(f"[ERR] Error de base de datos durante la migracion: {e}")
         return False
     except Exception as e:
-        print(f"❌ Error general durante la migración: {e}")
+        print(f"[ERR] Error general durante la migracion: {e}")
         return False
     
     return True
 
 def verify_migration():
     """
-    Verificar que la migración se ejecutó correctamente
+    Verificar que la migracion se ejecuto correctamente
     """
     try:
         conn = psycopg2.connect(
@@ -99,7 +99,7 @@ def verify_migration():
         )
         cursor = conn.cursor()
         
-        print("\n🔍 Verificando migración...")
+        print("\n[SEARCH] Verificando migracion...")
         
         # Verificar que la tabla existe
         cursor.execute("""
@@ -112,9 +112,9 @@ def verify_migration():
         table_exists = cursor.fetchone()[0]
         
         if table_exists:
-            print("✅ Tabla company_documents existe")
+            print("[OK] Tabla company_documents existe")
             
-            # Verificar índices
+            # Verificar indices
             cursor.execute("""
                 SELECT indexname FROM pg_indexes 
                 WHERE tablename = 'company_documents'
@@ -122,11 +122,11 @@ def verify_migration():
             """)
             
             indexes = cursor.fetchall()
-            print(f"✅ Índices encontrados: {len(indexes)}")
+            print(f"[OK] Indices encontrados: {len(indexes)}")
             for index in indexes:
                 print(f"   - {index[0]}")
         else:
-            print("❌ Tabla company_documents no encontrada")
+            print("[ERR] Tabla company_documents no encontrada")
             return False
         
         # Verificar que ai_configurations no existe
@@ -140,9 +140,9 @@ def verify_migration():
         old_table_exists = cursor.fetchone()[0]
         
         if not old_table_exists:
-            print("✅ Tabla ai_configurations eliminada correctamente")
+            print("[OK] Tabla ai_configurations eliminada correctamente")
         else:
-            print("⚠️ Tabla ai_configurations aún existe")
+            print("[WARN] Tabla ai_configurations aun existe")
         
         cursor.close()
         conn.close()
@@ -150,33 +150,33 @@ def verify_migration():
         return True
         
     except Exception as e:
-        print(f"❌ Error verificando migración: {e}")
+        print(f"[ERR] Error verificando migracion: {e}")
         return False
 
 if __name__ == "__main__":
     print("=" * 60)
-    print("🚀 MIGRACIÓN: Company Documents Table")
+    print("[LAUNCH] MIGRACION: Company Documents Table")
     print("=" * 60)
-    print(f"⏰ Iniciado: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    print(f" Iniciado: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     print()
     
-    # Ejecutar migración
+    # Ejecutar migracion
     success = create_company_documents_table()
     
     if success:
-        # Verificar migración
+        # Verificar migracion
         verify_success = verify_migration()
         
         if verify_success:
-            print("\n🎉 ¡Migración completada y verificada exitosamente!")
-            print("💡 La tabla company_documents está lista para usar")
+            print("\n Migracion completada y verificada exitosamente!")
+            print("[IDEA] La tabla company_documents esta lista para usar")
         else:
-            print("\n⚠️ Migración ejecutada pero la verificación falló")
+            print("\n[WARN] Migracion ejecutada pero la verificacion fallo")
             sys.exit(1)
     else:
-        print("\n❌ Error en la migración")
+        print("\n[ERR] Error en la migracion")
         sys.exit(1)
     
     print()
-    print(f"⏰ Finalizado: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    print(f" Finalizado: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     print("=" * 60)

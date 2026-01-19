@@ -1,5 +1,5 @@
 """
-Endpoints para gestión de chats y conversaciones - sin autenticación JWT
+Endpoints para gestion de chats y conversaciones - sin autenticacion JWT
 """
 
 from fastapi import APIRouter, Depends, HTTPException, status, Query
@@ -32,7 +32,7 @@ async def create_conversation(
     user_id: int,  # Now requires user_id as parameter
     db: Session = Depends(get_db)
 ):
-    """Crear nueva conversación - requiere user_id"""
+    """Crear nueva conversacion - requiere user_id"""
     try:
         # Get user from database
         current_user = AuthService.get_user_by_id(db, user_id)
@@ -59,7 +59,7 @@ async def create_conversation(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error creando conversación: {str(e)}"
+            detail=f"Error creando conversacion: {str(e)}"
         )
 
 @router.get("/conversations", response_model=List[ConversationResponse])
@@ -95,7 +95,7 @@ async def get_conversation_with_messages(
     message_limit: int = Query(100, ge=1, le=500),
     db: Session = Depends(get_db)
 ):
-    """Obtener conversación completa con mensajes"""
+    """Obtener conversacion completa con mensajes"""
     try:
         # Get user from database
         current_user = AuthService.get_user_by_id(db, user_id)
@@ -112,7 +112,7 @@ async def get_conversation_with_messages(
         if not conversation:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="Conversación no encontrada"
+                detail="Conversacion no encontrada"
             )
         
         return conversation
@@ -122,7 +122,7 @@ async def get_conversation_with_messages(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error obteniendo conversación: {str(e)}"
+            detail=f"Error obteniendo conversacion: {str(e)}"
         )
 
 @router.put("/conversations/{session_id}/title")
@@ -132,7 +132,7 @@ async def update_conversation_title(
     user_id: int,  # Now requires user_id as parameter
     db: Session = Depends(get_db)
 ):
-    """Actualizar título de conversación"""
+    """Actualizar titulo de conversacion"""
     try:
         # Get user from database
         current_user = AuthService.get_user_by_id(db, user_id)
@@ -149,17 +149,17 @@ async def update_conversation_title(
         if not conversation:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="Conversación no encontrada"
+                detail="Conversacion no encontrada"
             )
         
-        return {"message": "Título actualizado exitosamente"}
+        return {"message": "Titulo actualizado exitosamente"}
         
     except HTTPException:
         raise
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error actualizando título: {str(e)}"
+            detail=f"Error actualizando titulo: {str(e)}"
         )
 
 @router.delete("/conversations/{session_id}")
@@ -168,7 +168,7 @@ async def delete_conversation(
     user_id: int,  # Now requires user_id as parameter
     db: Session = Depends(get_db)
 ):
-    """Eliminar conversación"""
+    """Eliminar conversacion"""
     try:
         # Get user from database
         current_user = AuthService.get_user_by_id(db, user_id)
@@ -183,28 +183,28 @@ async def delete_conversation(
         if not success:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="Conversación no encontrada"
+                detail="Conversacion no encontrada"
             )
         
-        return {"message": "Conversación eliminada exitosamente"}
+        return {"message": "Conversacion eliminada exitosamente"}
         
     except HTTPException:
         raise
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error eliminando conversación: {str(e)}"
+            detail=f"Error eliminando conversacion: {str(e)}"
         )
 
 @router.get("/search", response_model=List[ConversationResponse])
 async def search_conversations(
     user_id: int,  # Now requires user_id as parameter
-    q: str = Query(..., min_length=1, description="Término de búsqueda"),
+    q: str = Query(..., min_length=1, description="Termino de busqueda"),
     skip: int = Query(0, ge=0),
     limit: int = Query(20, ge=1, le=100),
     db: Session = Depends(get_db)
 ):
-    """Buscar conversaciones por contenido o título"""
+    """Buscar conversaciones por contenido o titulo"""
     try:
         # Get user from database
         current_user = AuthService.get_user_by_id(db, user_id)
@@ -214,7 +214,7 @@ async def search_conversations(
                 detail="Usuario no encontrado"
             )
         
-        # Buscar en títulos de conversaciones
+        # Buscar en titulos de conversaciones
         title_matches = db.query(Conversation).filter(
             Conversation.user_id == current_user.id,
             Conversation.is_active == True,
@@ -249,7 +249,7 @@ async def search_conversations(
             )
             result.append(conv_response)
         
-        # Ordenar por fecha de actualización
+        # Ordenar por fecha de actualizacion
         result.sort(key=lambda x: x.updated_at or x.created_at, reverse=True)
         
         return result
@@ -263,7 +263,7 @@ async def search_conversations(
 @router.get("/recent", response_model=List[ConversationResponse])
 async def get_recent_conversations(
     user_id: int,  # Now requires user_id as parameter
-    days: int = Query(7, ge=1, le=365, description="Días hacia atrás"),
+    days: int = Query(7, ge=1, le=365, description="Dias hacia atras"),
     limit: int = Query(10, ge=1, le=50),
     db: Session = Depends(get_db)
 ):
@@ -316,7 +316,7 @@ async def get_user_chat_stats(
     user_id: int,  # Now requires user_id as parameter
     db: Session = Depends(get_db)
 ):
-    """Obtener estadísticas de chat del usuario"""
+    """Obtener estadisticas de chat del usuario"""
     try:
         # Get user from database
         current_user = AuthService.get_user_by_id(db, user_id)
@@ -326,7 +326,7 @@ async def get_user_chat_stats(
                 detail="Usuario no encontrado"
             )
         
-        # Estadísticas básicas
+        # Estadisticas basicas
         total_conversations = db.query(Conversation).filter(
             Conversation.user_id == current_user.id,
             Conversation.is_active == True
@@ -337,7 +337,7 @@ async def get_user_chat_stats(
             Conversation.is_active == True
         ).count()
         
-        # Conversaciones por mes (últimos 6 meses)
+        # Conversaciones por mes (ultimos 6 meses)
         six_months_ago = datetime.utcnow() - timedelta(days=180)
         recent_conversations = db.query(Conversation).filter(
             Conversation.user_id == current_user.id,
@@ -358,7 +358,7 @@ async def get_user_chat_stats(
             Message.role == "assistant"
         ).count()
         
-        # Conversación más activa
+        # Conversacion mas activa
         most_active_conv = db.query(Conversation).join(Message).filter(
             Conversation.user_id == current_user.id,
             Conversation.is_active == True
@@ -390,7 +390,7 @@ async def get_user_chat_stats(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error obteniendo estadísticas: {str(e)}"
+            detail=f"Error obteniendo estadisticas: {str(e)}"
         )
 
 @router.get("/export/{session_id}")
@@ -400,7 +400,7 @@ async def export_conversation(
     format: str = Query("json", regex="^(json|txt|md)$"),
     db: Session = Depends(get_db)
 ):
-    """Exportar conversación en diferentes formatos"""
+    """Exportar conversacion en diferentes formatos"""
     try:
         # Get user from database
         current_user = AuthService.get_user_by_id(db, user_id)
@@ -417,7 +417,7 @@ async def export_conversation(
         if not conversation_with_messages:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="Conversación no encontrada"
+                detail="Conversacion no encontrada"
             )
         
         if format == "json":
@@ -428,7 +428,7 @@ async def export_conversation(
             }
         
         elif format == "txt":
-            content = f"Conversación: {conversation_with_messages.title}\n"
+            content = f"Conversacion: {conversation_with_messages.title}\n"
             content += f"Creada: {conversation_with_messages.created_at}\n"
             content += f"Mensajes: {len(conversation_with_messages.messages)}\n"
             content += "=" * 50 + "\n\n"
@@ -446,7 +446,7 @@ async def export_conversation(
             content += "---\n\n"
             
             for msg in conversation_with_messages.messages:
-                role_label = "👤 Usuario" if msg.role == "user" else "🤖 Asistente"
+                role_label = "[USER] Usuario" if msg.role == "user" else "[AI] Asistente"
                 content += f"## {role_label}\n"
                 content += f"*{msg.timestamp}*\n\n"
                 content += f"{msg.content}\n\n"
@@ -458,7 +458,7 @@ async def export_conversation(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error exportando conversación: {str(e)}"
+            detail=f"Error exportando conversacion: {str(e)}"
         )
 
 @router.put("/messages/{message_id}", response_model=MessageResponse)
@@ -551,7 +551,7 @@ async def get_message(
     user_id: int,
     db: Session = Depends(get_db)
 ):
-    """Obtener un mensaje específico"""
+    """Obtener un mensaje especifico"""
     try:
         # Get user from database
         current_user = AuthService.get_user_by_id(db, user_id)

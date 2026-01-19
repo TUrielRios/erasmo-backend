@@ -1,5 +1,5 @@
 """
-Monitor avanzado de rendimiento y optimización de tokens
+Monitor avanzado de rendimiento y optimizacion de tokens
 Proporciona insights en tiempo real sobre uso y eficiencia
 """
 
@@ -25,7 +25,7 @@ class TokenPerformanceMonitor:
         }
     
     def start_session_tracking(self, session_id: str, user_id: int, company_id: int):
-        """Inicia tracking de tokens para una sesión"""
+        """Inicia tracking de tokens para una sesion"""
         self.session_metrics[session_id] = {
             'user_id': user_id,
             'company_id': company_id,
@@ -49,7 +49,7 @@ class TokenPerformanceMonitor:
         latency: float,
         cached: bool = False
     ):
-        """Registra métricas de un mensaje"""
+        """Registra metricas de un mensaje"""
         if session_id not in self.session_metrics:
             return
         
@@ -60,7 +60,7 @@ class TokenPerformanceMonitor:
         else:
             session['total_output_tokens'] += tokens
         
-        # Actualizar estadísticas globales
+        # Actualizar estadisticas globales
         self.global_stats['total_tokens_processed'] += tokens
         self.global_stats['peak_tokens_used'] = max(
             self.global_stats['peak_tokens_used'],
@@ -74,7 +74,7 @@ class TokenPerformanceMonitor:
             msg_count = len(session['messages'])
             session['avg_latency'] = (session['avg_latency'] * msg_count + latency) / (msg_count + 1)
         
-        # Rastrear caché
+        # Rastrear cache
         if cached:
             session['cache_hits'] += 1
         else:
@@ -89,14 +89,14 @@ class TokenPerformanceMonitor:
         })
     
     def get_session_summary(self, session_id: str) -> Dict[str, Any]:
-        """Obtiene resumen de sesión con recomendaciones"""
+        """Obtiene resumen de sesion con recomendaciones"""
         if session_id not in self.session_metrics:
             return {}
         
         session = self.session_metrics[session_id]
         total_tokens = session['total_input_tokens'] + session['total_output_tokens']
         
-        # Calcular puntuación de eficiencia
+        # Calcular puntuacion de eficiencia
         efficiency_score = self._calculate_efficiency(session)
         
         # Determinar recomendaciones
@@ -119,7 +119,7 @@ class TokenPerformanceMonitor:
         }
     
     def _calculate_efficiency(self, session: Dict[str, Any]) -> float:
-        """Calcula puntuación de eficiencia (0-1)"""
+        """Calcula puntuacion de eficiencia (0-1)"""
         total_tokens = session['total_input_tokens'] + session['total_output_tokens']
         messages = len(session['messages'])
         
@@ -135,7 +135,7 @@ class TokenPerformanceMonitor:
         # Latencia: queremos latencia baja
         latency_efficiency = max(0.0, 1.0 - (session['avg_latency'] / 5.0))
         
-        # Caché: queremos hit rate alto
+        # Cache: queremos hit rate alto
         total_cache_ops = session['cache_hits'] + session['cache_misses']
         if total_cache_ops > 0:
             cache_efficiency = session['cache_hits'] / total_cache_ops
@@ -152,7 +152,7 @@ class TokenPerformanceMonitor:
         return round(min(efficiency, 1.0), 2)
     
     def _calculate_cache_rate(self, session: Dict[str, Any]) -> float:
-        """Calcula tasa de caché hit"""
+        """Calcula tasa de cache hit"""
         total = session['cache_hits'] + session['cache_misses']
         if total == 0:
             return 0.0
@@ -166,13 +166,13 @@ class TokenPerformanceMonitor:
         return round(input_cost + output_cost, 6)
     
     def _generate_recommendations(self, session: Dict[str, Any], efficiency: float) -> List[str]:
-        """Genera recomendaciones de optimización"""
+        """Genera recomendaciones de optimizacion"""
         recommendations = []
         
-        # Basado en caché
+        # Basado en cache
         cache_rate = self._calculate_cache_rate(session)
         if cache_rate < 30:
-            recommendations.append("Aumentar reutilización de caché para reducir tokens")
+            recommendations.append("Aumentar reutilizacion de cache para reducir tokens")
         
         # Basado en latencia
         if session['avg_latency'] > 3.0:
@@ -188,12 +188,12 @@ class TokenPerformanceMonitor:
             recommendations.append("Alto uso de tokens - considere comprimir contexto")
         
         if not recommendations:
-            recommendations.append("Rendimiento óptimo")
+            recommendations.append("Rendimiento optimo")
         
         return recommendations
     
     def get_global_stats(self) -> Dict[str, Any]:
-        """Obtiene estadísticas globales del sistema"""
+        """Obtiene estadisticas globales del sistema"""
         total_tokens = self.global_stats['total_tokens_processed']
         
         if self.global_stats['total_sessions'] > 0:
@@ -223,7 +223,7 @@ class TokenPerformanceMonitor:
             return "needs_improvement"
     
     def export_metrics(self, session_id: Optional[str] = None) -> Dict[str, Any]:
-        """Exporta métricas para análisis"""
+        """Exporta metricas para analisis"""
         if session_id:
             return self.get_session_summary(session_id)
         else:

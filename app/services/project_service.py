@@ -1,5 +1,5 @@
 """
-Servicio para gestión de proyectos/folders
+Servicio para gestion de proyectos/folders
 """
 
 from typing import List, Optional
@@ -21,14 +21,14 @@ from app.models.schemas import (
 )
 
 class ProjectService:
-    """Servicio para gestión de proyectos/folders"""
+    """Servicio para gestion de proyectos/folders"""
     
     @staticmethod
     def create_project(db: Session, user: User, project_data: ProjectCreate) -> Project:
         """Crear un nuevo proyecto"""
         
         if not user.company_id:
-            raise ValueError("El usuario debe pertenecer a una compañía para crear proyectos")
+            raise ValueError("El usuario debe pertenecer a una compania para crear proyectos")
         
         db_project = Project(
             name=project_data.name,
@@ -109,7 +109,7 @@ class ProjectService:
     def get_project_by_id(db: Session, project_id: int, user_id: int) -> Optional[Project]:
         """Obtener proyecto por ID verificando permisos"""
         
-        # Verificar si es el dueño
+        # Verificar si es el dueno
         project = db.query(Project).filter(
             Project.id == project_id,
             Project.user_id == user_id,
@@ -119,7 +119,7 @@ class ProjectService:
         if project:
             return project
         
-        # Verificar si está compartido con el usuario
+        # Verificar si esta compartido con el usuario
         shared = db.query(ProjectShare).filter(
             ProjectShare.project_id == project_id,
             ProjectShare.shared_with_user_id == user_id
@@ -146,9 +146,9 @@ class ProjectService:
         if not project:
             return None
         
-        # Verificar si tiene permisos de edición
+        # Verificar si tiene permisos de edicion
         if project.user_id != user.id:
-            # Verificar si tiene permisos de edición compartidos
+            # Verificar si tiene permisos de edicion compartidos
             share = db.query(ProjectShare).filter(
                 ProjectShare.project_id == project_id,
                 ProjectShare.shared_with_user_id == user.id,
@@ -201,7 +201,7 @@ class ProjectService:
         project_id: int, 
         share_data: ProjectShareCreate
     ) -> ProjectShare:
-        """Compartir proyecto con otro usuario de la misma compañía"""
+        """Compartir proyecto con otro usuario de la misma compania"""
         
         # Verificar que el proyecto existe y pertenece al usuario
         project = db.query(Project).filter(
@@ -213,7 +213,7 @@ class ProjectService:
         if not project:
             raise ValueError("Proyecto no encontrado o no tienes permisos")
         
-        # Verificar que el usuario con quien se comparte existe y es de la misma compañía
+        # Verificar que el usuario con quien se comparte existe y es de la misma compania
         target_user = db.query(User).filter(
             User.id == share_data.shared_with_user_id,
             User.company_id == user.company_id,
@@ -221,9 +221,9 @@ class ProjectService:
         ).first()
         
         if not target_user:
-            raise ValueError("Usuario no encontrado o no pertenece a la misma compañía")
+            raise ValueError("Usuario no encontrado o no pertenece a la misma compania")
         
-        # Verificar si ya está compartido
+        # Verificar si ya esta compartido
         existing_share = db.query(ProjectShare).filter(
             ProjectShare.project_id == project_id,
             ProjectShare.shared_with_user_id == share_data.shared_with_user_id
@@ -319,9 +319,9 @@ class ProjectService:
         conversation_id: int, 
         share_data: ConversationShareCreate
     ) -> ConversationShare:
-        """Compartir conversación con otro usuario de la misma compañía"""
+        """Compartir conversacion con otro usuario de la misma compania"""
         
-        # Verificar que la conversación existe y pertenece al usuario
+        # Verificar que la conversacion existe y pertenece al usuario
         conversation = db.query(Conversation).filter(
             Conversation.id == conversation_id,
             Conversation.user_id == user.id,
@@ -329,9 +329,9 @@ class ProjectService:
         ).first()
         
         if not conversation:
-            raise ValueError("Conversación no encontrada o no tienes permisos")
+            raise ValueError("Conversacion no encontrada o no tienes permisos")
         
-        # Verificar que el usuario con quien se comparte existe y es de la misma compañía
+        # Verificar que el usuario con quien se comparte existe y es de la misma compania
         target_user = db.query(User).filter(
             User.id == share_data.shared_with_user_id,
             User.company_id == user.company_id,
@@ -339,9 +339,9 @@ class ProjectService:
         ).first()
         
         if not target_user:
-            raise ValueError("Usuario no encontrado o no pertenece a la misma compañía")
+            raise ValueError("Usuario no encontrado o no pertenece a la misma compania")
         
-        # Verificar si ya está compartido
+        # Verificar si ya esta compartido
         existing_share = db.query(ConversationShare).filter(
             ConversationShare.conversation_id == conversation_id,
             ConversationShare.shared_with_user_id == share_data.shared_with_user_id
@@ -372,9 +372,9 @@ class ProjectService:
     
     @staticmethod
     def unshare_conversation(db: Session, user: User, conversation_id: int, user_id_to_unshare: int) -> bool:
-        """Dejar de compartir conversación con un usuario"""
+        """Dejar de compartir conversacion con un usuario"""
         
-        # Verificar que la conversación pertenece al usuario
+        # Verificar que la conversacion pertenece al usuario
         conversation = db.query(Conversation).filter(
             Conversation.id == conversation_id,
             Conversation.user_id == user.id,
@@ -399,9 +399,9 @@ class ProjectService:
     
     @staticmethod
     def get_conversation_shares(db: Session, user: User, conversation_id: int) -> List[ConversationShareResponse]:
-        """Obtener lista de usuarios con quienes se ha compartido la conversación"""
+        """Obtener lista de usuarios con quienes se ha compartido la conversacion"""
         
-        # Verificar que la conversación pertenece al usuario
+        # Verificar que la conversacion pertenece al usuario
         conversation = db.query(Conversation).filter(
             Conversation.id == conversation_id,
             Conversation.user_id == user.id,

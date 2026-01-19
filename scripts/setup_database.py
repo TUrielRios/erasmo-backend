@@ -20,8 +20,8 @@ def setup_database():
     """Configurar la base de datos completamente desde cero"""
     
     try:
-        logger.info("🔧 Configurando base de datos PostgreSQL...")
-        logger.info(f"📍 Conectando a: {settings.DATABASE_URL}")
+        logger.info("[INIT] Configurando base de datos PostgreSQL...")
+        logger.info(f" Conectando a: {settings.DATABASE_URL}")
         
         # Crear engine
         engine = create_engine(settings.DATABASE_URL)
@@ -29,7 +29,7 @@ def setup_database():
         # Crear todas las tablas
         Base.metadata.create_all(bind=engine)
         
-        logger.info("✅ Tablas creadas exitosamente:")
+        logger.info("[OK] Tablas creadas exitosamente:")
         logger.info("   - users (usuarios)")
         logger.info("   - conversations (conversaciones)")
         logger.info("   - messages (mensajes)")
@@ -41,24 +41,24 @@ def setup_database():
             admin_user = result.fetchone()
             
             if not admin_user:
-                logger.info("👤 Creando usuario administrador por defecto...")
+                logger.info("[USER] Creando usuario administrador por defecto...")
                 conn.execute(text("""INSERT INTO users (username, email, hashed_password, full_name, is_active) VALUES ('admin', 'admin@erasmo.ai', '$2b$12$dummy_hash', 'Administrador', true)"""))
                 conn.commit()
-                logger.info("✅ Usuario administrador creado")
+                logger.info("[OK] Usuario administrador creado")
             else:
-                logger.info("👤 Usuario administrador ya existe")
+                logger.info("[USER] Usuario administrador ya existe")
         
-        # Verificar conexión
+        # Verificar conexion
         with engine.connect() as connection:
             result = connection.execute(text("SELECT 1"))
-            logger.info("✅ Conexión a PostgreSQL verificada")
+            logger.info("[OK] Conexion a PostgreSQL verificada")
         
-        logger.info("🎉 Base de datos configurada correctamente")
-        logger.info("💡 Ahora puedes ejecutar el servidor: python main.py")
+        logger.info(" Base de datos configurada correctamente")
+        logger.info("[IDEA] Ahora puedes ejecutar el servidor: python main.py")
         
     except Exception as e:
-        logger.error(f"❌ Error configurando base de datos: {e}")
-        logger.error("💡 Asegúrate de que PostgreSQL esté ejecutándose:")
+        logger.error(f"[ERR] Error configurando base de datos: {e}")
+        logger.error("[IDEA] Asegurate de que PostgreSQL este ejecutandose:")
         logger.error("   docker-compose up postgres")
         raise
 

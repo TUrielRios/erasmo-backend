@@ -24,7 +24,7 @@ class TokenLoggerService:
         require_analysis: bool = False
     ):
         """
-        Registra información detallada de tokens usado en una respuesta
+        Registra informacion detallada de tokens usado en una respuesta
         """
         timestamp = datetime.now().isoformat()
         
@@ -57,7 +57,7 @@ class TokenLoggerService:
         response_time: float
     ):
         """
-        Registra información de tokens para respuestas streaming
+        Registra informacion de tokens para respuestas streaming
         """
         timestamp = datetime.now().isoformat()
         
@@ -81,24 +81,24 @@ class TokenLoggerService:
         Imprime un resumen visual de tokens en la terminal
         """
         print(f"""
-╔════════════════════════════════════════════════════════════════╗
-║                  📊 TOKEN USAGE SUMMARY                         ║
-╠════════════════════════════════════════════════════════════════╣
-║ Session:              {log_entry['session_id'][:20]}...
-║ User:                 {log_entry['user_id']}
-║ Model:                {log_entry['model']}
-║ ─────────────────────────────────────────────────────────────
-║ Prompt Tokens:        {log_entry['prompt_tokens']:,} tokens
-║ Completion Tokens:    {log_entry['completion_tokens']:,} tokens ✓
-║ Total Tokens:         {log_entry['total_tokens']:,} tokens
-║ ─────────────────────────────────────────────────────────────
-║ Response Length:      {log_entry['response_length']:,} characters
-║ Avg Tokens/Char:      {log_entry['avg_tokens_per_char']} tokens
-║ Efficiency:           {log_entry['efficiency']}%
-║ ─────────────────────────────────────────────────────────────
-║ Response Preview:     {log_entry['response_preview'][:50]}...
-║ Analysis Required:    {'Yes' if log_entry['require_analysis'] else 'No'}
-╚════════════════════════════════════════════════════════════════╝
++----------------------------------------------------------------+
+|                  [STATS] TOKEN USAGE SUMMARY                         |
++----------------------------------------------------------------+
+| Session:              {log_entry['session_id'][:20]}...
+| User:                 {log_entry['user_id']}
+| Model:                {log_entry['model']}
+| -------------------------------------------------------------
+| Prompt Tokens:        {log_entry['prompt_tokens']:,} tokens
+| Completion Tokens:    {log_entry['completion_tokens']:,} tokens [Done]
+| Total Tokens:         {log_entry['total_tokens']:,} tokens
+| -------------------------------------------------------------
+| Response Length:      {log_entry['response_length']:,} characters
+| Avg Tokens/Char:      {log_entry['avg_tokens_per_char']} tokens
+| Efficiency:           {log_entry['efficiency']}%
+| -------------------------------------------------------------
+| Response Preview:     {log_entry['response_preview'][:50]}...
+| Analysis Required:    {'Yes' if log_entry['require_analysis'] else 'No'}
++----------------------------------------------------------------+
         """)
     
     def _print_streaming_summary(self, log_entry: Dict[str, Any]):
@@ -106,25 +106,25 @@ class TokenLoggerService:
         Imprime un resumen visual de tokens para streaming
         """
         print(f"""
-╔════════════════════════════════════════════════════════════════╗
-║               🔄 STREAMING TOKEN SUMMARY                        ║
-╠════════════════════════════════════════════════════════════════╣
-║ Session:              {log_entry['session_id'][:20]}...
-║ User:                 {log_entry['user_id']}
-║ Model:                {log_entry['model']}
-║ ─────────────────────────────────────────────────────────────
-║ Estimated Completion: {log_entry['estimated_completion_tokens']:,} tokens
-║ Response Length:      {log_entry['response_length']:,} characters
-║ Response Time:        {log_entry['response_time_seconds']}s ⏱️
-║ ─────────────────────────────────────────────────────────────
-║ Throughput:           {log_entry['throughput']} chars/sec
-║ Response Preview:     {log_entry['response_preview'][:50]}...
-╚════════════════════════════════════════════════════════════════╝
++----------------------------------------------------------------+
+|               [REFRESH] STREAMING TOKEN SUMMARY                        |
++----------------------------------------------------------------+
+| Session:              {log_entry['session_id'][:20]}...
+| User:                 {log_entry['user_id']}
+| Model:                {log_entry['model']}
+| -------------------------------------------------------------
+| Estimated Completion: {log_entry['estimated_completion_tokens']:,} tokens
+| Response Length:      {log_entry['response_length']:,} characters
+| Response Time:        {log_entry['response_time_seconds']}s [TIME]
+| -------------------------------------------------------------
+| Throughput:           {log_entry['throughput']} chars/sec
+| Response Preview:     {log_entry['response_preview'][:50]}...
++----------------------------------------------------------------+
         """)
     
     def get_session_stats(self, session_id: str) -> Dict[str, Any]:
         """
-        Obtiene estadísticas agregadas de tokens para una sesión
+        Obtiene estadisticas agregadas de tokens para una sesion
         """
         session_logs = [log for log in self.logs if log.get('session_id') == session_id]
         

@@ -1,5 +1,5 @@
 """
-Servicio para optimización de streaming de respuestas
+Servicio para optimizacion de streaming de respuestas
 Maximiza la velocidad y calidad de respuestas en tiempo real
 """
 
@@ -9,23 +9,23 @@ from datetime import datetime
 
 class StreamingOptimizerService:
     """
-    Optimiza el streaming de respuestas para máxima eficiencia
-    Implementa chunking inteligente y priorización de contenido
+    Optimiza el streaming de respuestas para maxima eficiencia
+    Implementa chunking inteligente y priorizacion de contenido
     """
     
     def __init__(self):
         self.chunk_size = 50  # Caracteres por chunk optimizado
         self.priority_words = [
-            'importante', 'crítico', 'esencial', 'primero', 'obligatorio',
-            'debe', 'recomendación', 'conclusión', 'acción', 'resultado'
+            'importante', 'critico', 'esencial', 'primero', 'obligatorio',
+            'debe', 'recomendacion', 'conclusion', 'accion', 'resultado'
         ]
     
     def _calculate_chunk_size(self, total_length: int, response_tokens: int) -> int:
         """
-        Calcula tamaño de chunk dinámico basado en longitud y complejidad
+        Calcula tamano de chunk dinamico basado en longitud y complejidad
         """
         if response_tokens > 10000:
-            return 100  # Chunks más grandes para respuestas largas
+            return 100  # Chunks mas grandes para respuestas largas
         elif response_tokens > 5000:
             return 75
         else:
@@ -40,7 +40,7 @@ class StreamingOptimizerService:
         
         for line in lines:
             priority = 0
-            # Detectar líneas importantes
+            # Detectar lineas importantes
             if any(word in line.lower() for word in self.priority_words):
                 priority = 2
             elif line.strip().startswith('##'):  # Headers

@@ -1,5 +1,5 @@
 """
-Servicio para gestión de archivos de proyectos
+Servicio para gestion de archivos de proyectos
 """
 
 from sqlalchemy.orm import Session
@@ -47,11 +47,11 @@ class ProjectFileService:
         content = await file.read()
         file_size = len(content)
         
-        # Validar tamaño
+        # Validar tamano
         if file_size > settings.MAX_FILE_SIZE:
-            raise ValueError(f"Archivo demasiado grande. Máximo: {settings.MAX_FILE_SIZE} bytes")
+            raise ValueError(f"Archivo demasiado grande. Maximo: {settings.MAX_FILE_SIZE} bytes")
         
-        # Generar nombre único
+        # Generar nombre unico
         file_hash = hashlib.md5(f"{file.filename}{datetime.utcnow()}".encode()).hexdigest()[:8]
         unique_filename = f"{file_hash}_{file.filename}"
         
@@ -112,7 +112,7 @@ class ProjectFileService:
             "source": "project_file"
         }
         
-        # Procesar según categoría
+        # Procesar segun categoria
         if db_file.category == FileCategory.INSTRUCTIONS:
             chunk_ids = await ingestion_service.process_personality_file(
                 content, db_file.original_filename, metadata
@@ -129,7 +129,7 @@ class ProjectFileService:
         db_file.processed_at = datetime.utcnow()
         db.commit()
         
-        print(f"✅ Archivo {db_file.original_filename} procesado: {len(chunk_ids)} chunks")
+        print(f"[OK] Archivo {db_file.original_filename} procesado: {len(chunk_ids)} chunks")
     
     @staticmethod
     def get_project_files(
@@ -202,12 +202,12 @@ class ProjectFileService:
         if not db_file:
             return False
         
-        # Eliminar archivo físico
+        # Eliminar archivo fisico
         try:
             if os.path.exists(db_file.file_path):
                 os.remove(db_file.file_path)
         except Exception as e:
-            print(f"Error eliminando archivo físico: {e}")
+            print(f"Error eliminando archivo fisico: {e}")
         
         # Eliminar de BD
         db.delete(db_file)
@@ -251,7 +251,7 @@ class ProjectFileService:
     @staticmethod
     def get_project_file_stats(db: Session, project_id: int) -> Dict[str, Any]:
         """
-        Obtiene estadísticas de archivos de un proyecto
+        Obtiene estadisticas de archivos de un proyecto
         """
         files = db.query(ProjectFile).filter(
             ProjectFile.project_id == project_id,
@@ -267,7 +267,7 @@ class ProjectFileService:
         }
         
         for file in files:
-            # Por categoría
+            # Por categoria
             category = file.category.value
             if category not in stats["by_category"]:
                 stats["by_category"][category] = 0

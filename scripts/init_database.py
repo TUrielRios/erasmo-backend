@@ -19,27 +19,27 @@ def init_database():
     """Inicializa la base de datos creando todas las tablas"""
     
     try:
-        logger.info("🔧 Inicializando base de datos PostgreSQL...")
-        logger.info(f"📍 Conectando a: {settings.DATABASE_URL}")
+        logger.info("[INIT] Inicializando base de datos PostgreSQL...")
+        logger.info(f" Conectando a: {settings.DATABASE_URL}")
         
         # Crear todas las tablas
         Base.metadata.create_all(bind=engine)
         
-        logger.info("✅ Tablas creadas exitosamente:")
+        logger.info("[OK] Tablas creadas exitosamente:")
         logger.info("   - conversations (conversaciones)")
         logger.info("   - messages (mensajes)")
         
-        # Verificar conexión
+        # Verificar conexion
         from sqlalchemy import text
         with engine.connect() as connection:
             result = connection.execute(text("SELECT 1"))
-            logger.info("✅ Conexión a PostgreSQL verificada")
+            logger.info("[OK] Conexion a PostgreSQL verificada")
         
-        logger.info("🎉 Base de datos inicializada correctamente")
+        logger.info(" Base de datos inicializada correctamente")
         
     except Exception as e:
-        logger.error(f"❌ Error inicializando base de datos: {e}")
-        logger.error("💡 Asegúrate de que PostgreSQL esté ejecutándose:")
+        logger.error(f"[ERR] Error inicializando base de datos: {e}")
+        logger.error("[IDEA] Asegurate de que PostgreSQL este ejecutandose:")
         logger.error("   docker-compose up postgres")
         raise
 

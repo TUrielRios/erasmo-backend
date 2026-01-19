@@ -1,7 +1,7 @@
 """
 Servicio de presupuesto adaptativo de tokens
-Ajusta dinámicamente la asignación de tokens según la complejidad de la consulta
-y el historial de la conversación
+Ajusta dinamicamente la asignacion de tokens segun la complejidad de la consulta
+y el historial de la conversacion
 """
 
 from typing import Dict, List, Tuple, Any, Optional
@@ -10,8 +10,8 @@ from app.core.config import settings
 
 class AdaptiveBudgetService:
     """
-    Servicio que adapta dinámicamente el presupuesto de tokens
-    basado en complejidad de consulta, historial y configuración del usuario
+    Servicio que adapta dinamicamente el presupuesto de tokens
+    basado en complejidad de consulta, historial y configuracion del usuario
     """
     
     def __init__(self):
@@ -20,7 +20,7 @@ class AdaptiveBudgetService:
     
     def analyze_query_complexity(self, message: str) -> Tuple[str, float]:
         """
-        Analiza la complejidad de la consulta del usuario con métricas avanzadas
+        Analiza la complejidad de la consulta del usuario con metricas avanzadas
         Retorna (nivel, factor_multiplicador)
         
         Niveles: "trivial", "simple", "medium", "complex", "very_complex"
@@ -29,16 +29,16 @@ class AdaptiveBudgetService:
         words = message.split()
         word_count = len(words)
         
-        # Características de complejidad expandidas
+        # Caracteristicas de complejidad expandidas
         complexity_keywords = {
             "analizar": 1.8, "comparar": 1.6, "estrategia": 1.9, "problema": 1.5,
-            "solución": 1.4, "optimizar": 1.7, "implementar": 1.6, "evaluar": 1.5,
-            "predecir": 1.6, "impacto": 1.5, "consecuencia": 1.5, "metodología": 1.8,
-            "framework": 1.6, "estructura": 1.5, "proceso": 1.4, "diseñar": 1.7,
-            "arquitectura": 1.7, "integración": 1.6, "escalabilidad": 1.7, "rendimiento": 1.6,
-            "seguridad": 1.6, "riesgo": 1.5, "oportunidad": 1.5, "validación": 1.5,
-            "experiencia": 1.5, "innovación": 1.6, "transformación": 1.7, "múltiple": 1.4,
-            "variante": 1.4, "alternativa": 1.4, "simulación": 1.6, "escenario": 1.5
+            "solucion": 1.4, "optimizar": 1.7, "implementar": 1.6, "evaluar": 1.5,
+            "predecir": 1.6, "impacto": 1.5, "consecuencia": 1.5, "metodologia": 1.8,
+            "framework": 1.6, "estructura": 1.5, "proceso": 1.4, "disenar": 1.7,
+            "arquitectura": 1.7, "integracion": 1.6, "escalabilidad": 1.7, "rendimiento": 1.6,
+            "seguridad": 1.6, "riesgo": 1.5, "oportunidad": 1.5, "validacion": 1.5,
+            "experiencia": 1.5, "innovacion": 1.6, "transformacion": 1.7, "multiple": 1.4,
+            "variante": 1.4, "alternativa": 1.4, "simulacion": 1.6, "escenario": 1.5
         }
         
         # Contar palabras de complejidad
@@ -51,7 +51,7 @@ class AdaptiveBudgetService:
                 complexity_score += (score - 1.0) * 0.25
                 keyword_matches += 1
         
-        # Detectar estructuras complejas (múltiples oraciones, preguntas anidadas)
+        # Detectar estructuras complejas (multiples oraciones, preguntas anidadas)
         question_marks = message.count('?')
         periods = message.count('.')
         colons = message.count(':')
@@ -87,7 +87,7 @@ class AdaptiveBudgetService:
         elif keyword_matches >= 2:
             factor += 0.15
         
-        # Limitar factor (ahora con máximo más alto)
+        # Limitar factor (ahora con maximo mas alto)
         factor = min(factor, 2.5)  # Aumentado de 2.0 a 2.5
         factor = max(factor, 0.6)   # Aumentado de 0.5 a 0.6
         
@@ -101,7 +101,7 @@ class AdaptiveBudgetService:
         require_analysis: bool = False
     ) -> Dict[str, int]:
         """
-        Calcula presupuesto adaptativo MEJORADO con máximo potencial de IA
+        Calcula presupuesto adaptativo MEJORADO con maximo potencial de IA
         Asignaciones significativamente aumentadas para respuestas de calidad superior
         """
         complexity_level, complexity_factor = self.analyze_query_complexity(message)
@@ -115,12 +115,12 @@ class AdaptiveBudgetService:
             base_context = 60000       # Substantial context
             base_history = 25000       # Reasonable history
         
-        # Ajustar por complejidad (ahora más agresivo)
+        # Ajustar por complejidad (ahora mas agresivo)
         response_tokens = int(base_response * complexity_factor * 1.2)
         context_tokens = int(base_context * complexity_factor * 1.15)
         history_tokens = int(base_history * complexity_factor)
         
-        # Ajustar por historial con lógica mejorada
+        # Ajustar por historial con logica mejorada
         if history_length > 50:
             history_tokens = int(history_tokens * 0.9)
         elif history_length > 20:
@@ -132,10 +132,10 @@ class AdaptiveBudgetService:
         response_tokens = max(response_tokens, 4000)   # Minimum for quality
         
         context_tokens = min(context_tokens, available_context)
-        context_tokens = max(context_tokens, 20000)  # Mínimo aumentado
+        context_tokens = max(context_tokens, 20000)  # Minimo aumentado
         
         history_tokens = min(history_tokens, available_context // 2)
-        history_tokens = max(history_tokens, 10000)  # Mínimo aumentado
+        history_tokens = max(history_tokens, 10000)  # Minimo aumentado
         
         return {
             "complexity_level": complexity_level,
@@ -155,13 +155,13 @@ class AdaptiveBudgetService:
         complexity_level: Optional[str] = None
     ) -> bool:
         """
-        Determina si se debe usar streaming con lógica mejorada
+        Determina si se debe usar streaming con logica mejorada
         """
         if user_preference is not None:
             return user_preference
         
         # Usar streaming para respuestas complejas o largas
-        use_for_length = expected_tokens > 2000  # Reducido de 3000 para más streaming
+        use_for_length = expected_tokens > 2000  # Reducido de 3000 para mas streaming
         use_for_complexity = complexity_level in ["complex", "very_complex"]
         
         return use_for_length or use_for_complexity
@@ -174,7 +174,7 @@ class AdaptiveBudgetService:
         has_custom_instructions: bool = False
     ) -> Dict[str, Any]:
         """
-        Estima la calidad esperada con métricas mejoradas
+        Estima la calidad esperada con metricas mejoradas
         """
         quality_score = 0.5
         
@@ -239,7 +239,7 @@ class AdaptiveBudgetService:
             recommendations.append("Esta es una consulta muy compleja - considere dividirla")
         
         if allocated_tokens < 6000:
-            recommendations.append("Puede que necesite más tokens para una respuesta detallada")
+            recommendations.append("Puede que necesite mas tokens para una respuesta detallada")
         
         if quality_score >= 0.8:
             recommendations.append("Excelente presupuesto para esta consulta")

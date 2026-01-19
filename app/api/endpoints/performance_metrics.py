@@ -1,5 +1,5 @@
 """
-Endpoint para monitoreo de rendimiento y optimización de tokens
+Endpoint para monitoreo de rendimiento y optimizacion de tokens
 """
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -16,7 +16,7 @@ monitor = TokenPerformanceMonitor()
 @router.get("/system-health")
 async def get_system_health():
     """
-    Obtiene salud del sistema y estadísticas globales de tokens
+    Obtiene salud del sistema y estadisticas globales de tokens
     """
     stats = monitor.get_global_stats()
     return {
@@ -28,7 +28,7 @@ async def get_system_health():
 @router.get("/session/{session_id}")
 async def get_session_metrics(session_id: str):
     """
-    Obtiene métricas detalladas de una sesión específica
+    Obtiene metricas detalladas de una sesion especifica
     """
     summary = monitor.get_session_summary(session_id)
     if not summary:
@@ -42,7 +42,7 @@ async def get_session_metrics(session_id: str):
 @router.get("/recommendations/{session_id}")
 async def get_optimization_recommendations(session_id: str):
     """
-    Obtiene recomendaciones de optimización para una sesión
+    Obtiene recomendaciones de optimizacion para una sesion
     """
     summary = monitor.get_session_summary(session_id)
     if not summary:
@@ -66,18 +66,18 @@ async def get_optimization_recommendations(session_id: str):
 async def record_message_metrics(
     session_id: str,
     role: str = Query(..., description="user o assistant"),
-    tokens: int = Query(..., description="Número de tokens"),
+    tokens: int = Query(..., description="Numero de tokens"),
     latency: float = Query(..., description="Latencia en segundos"),
-    cached: bool = Query(False, description="¿Fue cacheado?")
+    cached: bool = Query(False, description="Fue cacheado?")
 ):
     """
-    Registra métricas de un mensaje en una sesión
+    Registra metricas de un mensaje en una sesion
     """
     try:
         monitor.record_message(session_id, role, tokens, latency, cached)
         return {
             "status": "success",
-            "message": "Métricas registradas correctamente"
+            "message": "Metricas registradas correctamente"
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -85,7 +85,7 @@ async def record_message_metrics(
 @router.get("/statistics")
 async def get_system_statistics():
     """
-    Obtiene estadísticas completas del sistema
+    Obtiene estadisticas completas del sistema
     """
     return {
         "status": "success",

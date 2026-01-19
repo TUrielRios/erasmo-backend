@@ -31,15 +31,15 @@ def run_migration():
             if statement:
                 try:
                     conn.execute(text(statement))
-                    print(f"✓ Executed: {statement[:50]}...")
+                    print(f"[Done] Executed: {statement[:50]}...")
                 except Exception as e:
-                    print(f"✗ Error executing statement: {statement[:50]}...")
+                    print(f" Error executing statement: {statement[:50]}...")
                     print(f"  Error: {e}")
                     raise
         
         conn.commit()
     
-    print("\n✓ Migration completed successfully!")
+    print("\n[Done] Migration completed successfully!")
 
 if __name__ == "__main__":
     print("Running database migration...")

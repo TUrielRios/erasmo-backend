@@ -1,3 +1,3 @@
 """
-Servicios de lógica de negocio
+Servicios de logica de negocio
 """

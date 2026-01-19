@@ -1,5 +1,5 @@
 """
-Abstracción para manejo de base de datos vectorial
+Abstraccion para manejo de base de datos vectorial
 """
 
 from typing import List, Dict, Any, Optional
@@ -20,7 +20,7 @@ class VectorStoreInterface(ABC):
     
     @abstractmethod
     async def initialize(self):
-        """Inicializa la conexión con la base de datos"""
+        """Inicializa la conexion con la base de datos"""
         pass
     
     @abstractmethod
@@ -39,7 +39,7 @@ class VectorStoreInterface(ABC):
         pass
 
 class PineconeVectorStore(VectorStoreInterface):
-    """Implementación con Pinecone"""
+    """Implementacion con Pinecone"""
     
     def __init__(self):
         self.index = None
@@ -47,8 +47,8 @@ class PineconeVectorStore(VectorStoreInterface):
         self.text_processor = None
     
     async def initialize(self):
-        """Inicializa conexión con Pinecone"""
-        print("🔧 Inicializando Pinecone Vector Store...")
+        """Inicializa conexion con Pinecone"""
+        print("[INFO] Inicializando Pinecone Vector Store...")
         
         try:
             from pinecone import Pinecone
@@ -72,13 +72,13 @@ class PineconeVectorStore(VectorStoreInterface):
                         }
                     }
                 )
-                print(f"✅ Creado nuevo índice Pinecone: {settings.PINECONE_INDEX_NAME}")
+                print(f"[OK] Creado nuevo indice Pinecone: {settings.PINECONE_INDEX_NAME}")
             
             self.index = self.pc.Index(settings.PINECONE_INDEX_NAME)
-            print(f"✅ Conectado a índice Pinecone: {settings.PINECONE_INDEX_NAME}")
+            print(f"[OK] Conectado a indice Pinecone: {settings.PINECONE_INDEX_NAME}")
             
         except Exception as e:
-            print(f"❌ Error inicializando Pinecone: {e}")
+            print(f"[ERR] Error inicializando Pinecone: {e}")
             raise
     
     async def store_chunks(self, chunks: List[str], embeddings: List[List[float]], metadata: List[Dict]) -> List[str]:
@@ -118,11 +118,11 @@ class PineconeVectorStore(VectorStoreInterface):
             batch = vectors_to_upsert[i:i + batch_size]
             self.index.upsert(vectors=batch)
         
-        print(f"✅ Almacenados {len(chunks)} chunks en Pinecone")
+        print(f"[OK] Almacenados {len(chunks)} chunks en Pinecone")
         return chunk_ids
     
     async def similarity_search(self, query: str, top_k: int = 5, company_id: int = None, project_id: int = None) -> List[Dict[str, Any]]:
-        """Búsqueda de similitud en Pinecone"""
+        """Busqueda de similitud en Pinecone"""
         if not self.index:
             await self.initialize()
         
@@ -138,10 +138,10 @@ class PineconeVectorStore(VectorStoreInterface):
             filter_dict = {}
             if project_id is not None:
                 filter_dict["project_id"] = {"$eq": project_id}
-                print(f"🔍 [PINECONE] Filtering by project_id: {project_id}")
+                print(f"[SEARCH] [PINECONE] Filtering by project_id: {project_id}")
             elif company_id is not None:
                 filter_dict["company_id"] = {"$eq": company_id}
-                print(f"🔍 [PINECONE] Filtering by company_id: {company_id}")
+                print(f"[SEARCH] [PINECONE] Filtering by company_id: {company_id}")
             
             # Search in Pinecone with filtering
             search_results = self.index.query(
@@ -162,15 +162,15 @@ class PineconeVectorStore(VectorStoreInterface):
                     })
             
             if project_id:
-                print(f"🔍 Encontrados {len(results)} documentos relevantes para proyecto {project_id}: '{query[:50]}...'")
+                print(f"[SEARCH] Encontrados {len(results)} documentos relevantes para proyecto {project_id}: '{query[:50]}...'")
             elif company_id:
-                print(f"🔍 Encontrados {len(results)} documentos relevantes para empresa {company_id}: '{query[:50]}...'")
+                print(f"[SEARCH] Encontrados {len(results)} documentos relevantes para empresa {company_id}: '{query[:50]}...'")
             else:
-                print(f"🔍 Encontrados {len(results)} documentos relevantes para: '{query[:50]}...'")
+                print(f"[SEARCH] Encontrados {len(results)} documentos relevantes para: '{query[:50]}...'")
             return results
             
         except Exception as e:
-            print(f"❌ Error en búsqueda Pinecone: {e}")
+            print(f"[ERR] Error en busqueda Pinecone: {e}")
             return []
     
     async def remove_by_metadata(self, metadata_filter: Dict[str, Any]) -> bool:
@@ -186,23 +186,23 @@ class PineconeVectorStore(VectorStoreInterface):
             # For now, delete all vectors (you might want to implement more sophisticated filtering)
             if 'filename' in metadata_filter:
                 # Delete by namespace or implement custom logic
-                print(f"🗑️ Eliminación por metadatos en Pinecone: {metadata_filter}")
+                print(f"[DELETE] Eliminacion por metadatos en Pinecone: {metadata_filter}")
                 # self.index.delete(delete_all=True)  # Use with caution
                 return True
             
             return False
             
         except Exception as e:
-            print(f"❌ Error eliminando de Pinecone: {e}")
+            print(f"[ERR] Error eliminando de Pinecone: {e}")
             return False
     
     async def close(self):
-        """Cierra conexión"""
-        print("💾 Pinecone Vector Store cerrado")
+        """Cierra conexion"""
+        print("[SAVE] Pinecone Vector Store cerrado")
         pass
 
 class FAISSVectorStore(VectorStoreInterface):
-    """Implementación con FAISS (local)"""
+    """Implementacion con FAISS (local)"""
     
     def __init__(self):
         self.index = None
@@ -216,7 +216,7 @@ class FAISSVectorStore(VectorStoreInterface):
     
     async def initialize(self):
         """Inicializa FAISS"""
-        print("🔧 Inicializando FAISS Vector Store...")
+        print("[INIT] Inicializando FAISS Vector Store...")
         
         if not self.text_processor:
             from app.utils.text_processor import TextProcessor
@@ -226,10 +226,10 @@ class FAISSVectorStore(VectorStoreInterface):
         
         if os.path.exists(self.index_path):
             self.index = faiss.read_index(self.index_path)
-            print(f"✅ Cargado índice FAISS existente con {self.index.ntotal} vectores")
+            print(f"[OK] Cargado indice FAISS existente con {self.index.ntotal} vectores")
         else:
             self.index = faiss.IndexFlatIP(settings.EMBEDDING_DIMENSION)  # Inner product for cosine similarity
-            print("✅ Creado nuevo índice FAISS")
+            print("[OK] Creado nuevo indice FAISS")
         
         if os.path.exists(self.metadata_path):
             with open(self.metadata_path, 'r', encoding='utf-8') as f:
@@ -269,13 +269,13 @@ class FAISSVectorStore(VectorStoreInterface):
         
         await self._save_to_disk()
         
-        print(f"✅ Almacenados {len(chunks)} chunks en FAISS")
+        print(f"[OK] Almacenados {len(chunks)} chunks en FAISS")
         return chunk_ids
     
     async def similarity_search(self, query: str, top_k: int = 5, company_id: int = None, project_id: int = None) -> List[Dict[str, Any]]:
-        """Búsqueda en FAISS"""
+        """Busqueda en FAISS"""
         if not self.index or self.index.ntotal == 0:
-            print("⚠️ No hay documentos indexados para buscar")
+            print("[WARN] No hay documentos indexados para buscar")
             return []
         
         if not self.text_processor:
@@ -313,11 +313,11 @@ class FAISSVectorStore(VectorStoreInterface):
                     })
         
         if project_id:
-            print(f"🔍 Encontrados {len(results)} documentos relevantes para proyecto {project_id}: '{query[:50]}...'")
+            print(f"[SEARCH] Encontrados {len(results)} documentos relevantes para proyecto {project_id}: '{query[:50]}...'")
         elif company_id:
-            print(f"🔍 Encontrados {len(results)} documentos relevantes para empresa {company_id}: '{query[:50]}...'")
+            print(f"[SEARCH] Encontrados {len(results)} documentos relevantes para empresa {company_id}: '{query[:50]}...'")
         else:
-            print(f"🔍 Encontrados {len(results)} documentos relevantes para: '{query[:50]}...'")
+            print(f"[SEARCH] Encontrados {len(results)} documentos relevantes para: '{query[:50]}...'")
         return results
     
     async def remove_by_metadata(self, metadata_filter: Dict[str, Any]) -> bool:
@@ -341,7 +341,7 @@ class FAISSVectorStore(VectorStoreInterface):
         if to_remove:
             await self._rebuild_index()
         
-        print(f"🗑️ Eliminados {len(to_remove)} chunks")
+        print(f"[DELETE] Eliminados {len(to_remove)} chunks")
         return True
     
     async def _rebuild_index(self):
@@ -352,7 +352,7 @@ class FAISSVectorStore(VectorStoreInterface):
             self.index = faiss.IndexFlatIP(settings.EMBEDDING_DIMENSION)
             self.next_id = 0
         else:
-            print("⚠️ Reconstrucción de índice requerida después de eliminación")
+            print("[WARN] Reconstruccion de indice requerida despues de eliminacion")
             # For now, just reset - in production you'd regenerate embeddings
             self.index = faiss.IndexFlatIP(settings.EMBEDDING_DIMENSION)
         
@@ -371,7 +371,7 @@ class FAISSVectorStore(VectorStoreInterface):
     async def close(self):
         """Cierra FAISS"""
         await self._save_to_disk()
-        print("💾 FAISS Vector Store guardado y cerrado")
+        print("[SAVE] FAISS Vector Store guardado y cerrado")
 
 class VectorStore:
     """Factory para crear el vector store apropiado"""
@@ -393,7 +393,7 @@ class VectorStore:
         return await self.store.store_chunks(chunks, embeddings, metadata)
     
     async def similarity_search(self, query: str, top_k: int = 5, company_id: int = None, project_id: int = None) -> List[Dict[str, Any]]:
-        """Búsqueda de similitud"""
+        """Busqueda de similitud"""
         return await self.store.similarity_search(query, top_k, company_id, project_id)
     
     async def remove_by_metadata(self, metadata_filter: Dict[str, Any]) -> bool:
@@ -401,5 +401,5 @@ class VectorStore:
         return await self.store.remove_by_metadata(metadata_filter)
     
     async def close(self):
-        """Cierra conexión"""
+        """Cierra conexion"""
         await self.store.close()

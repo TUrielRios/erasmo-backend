@@ -1,5 +1,5 @@
 """
-Endpoints para cargar archivos (imágenes, documentos) al chat
+Endpoints para cargar archivos (imagenes, documentos) al chat
 """
 
 from fastapi import APIRouter, UploadFile, File, HTTPException, Depends, status
@@ -28,7 +28,7 @@ async def upload_file(
     Cargar un archivo (imagen o documento) para analizar en el chat
     
     Soporta:
-    - Imágenes: PNG, JPG, JPEG, GIF, WEBP
+    - Imagenes: PNG, JPG, JPEG, GIF, WEBP
     - Documentos: PDF, DOCX, XLSX, TXT
     """
     try:
@@ -87,7 +87,7 @@ async def analyze_file_and_send_message(
 ):
     """
     Cargar archivo y enviar mensaje con contexto del archivo al chat
-    Combina el análisis del archivo con la consulta del usuario
+    Combina el analisis del archivo con la consulta del usuario
     """
     try:
         # Procesar archivo
@@ -96,19 +96,19 @@ async def analyze_file_and_send_message(
             file.filename
         )
         
-        # Preparar contexto adicional con la información del archivo
+        # Preparar contexto adicional con la informacion del archivo
         file_context = ""
         if file_result.get("type") == "image":
-            file_context = f"\n\n📷 **Análisis de imagen ({file.filename}):**\n{file_result.get('analysis', '')}"
+            file_context = f"\n\n **Analisis de imagen ({file.filename}):**\n{file_result.get('analysis', '')}"
         elif file_result.get("type") == "document":
             content = file_result.get("content", "")
             summary = file_result.get("summary", "")
-            file_context = f"\n\n📄 **Documento ({file.filename}):**\n"
+            file_context = f"\n\n[DOC] **Documento ({file.filename}):**\n"
             if summary:
                 file_context += f"**Resumen:** {summary}\n"
             file_context += f"**Contenido:** {content}"
         
-        # Retornar análisis del archivo + instrucción para enviar con mensaje
+        # Retornar analisis del archivo + instruccion para enviar con mensaje
         return {
             "success": True,
             "filename": file.filename,
@@ -133,10 +133,10 @@ async def get_supported_formats():
         "documents": [".pdf", ".docx", ".doc", ".xlsx", ".xls", ".txt"],
         "max_file_size_mb": 20,
         "capabilities": {
-            "images": "Análisis visual con Vision API",
-            "pdf": "Extracción de texto con OCR",
-            "docx": "Extracción de texto y tablas",
-            "xlsx": "Extracción de datos de hojas",
+            "images": "Analisis visual con Vision API",
+            "pdf": "Extraccion de texto con OCR",
+            "docx": "Extraccion de texto y tablas",
+            "xlsx": "Extraccion de datos de hojas",
             "txt": "Procesamiento directo"
         }
     }

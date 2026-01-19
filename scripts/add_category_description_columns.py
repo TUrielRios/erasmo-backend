@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-Migración: Agregar columnas category y description a la tabla company_documents
-Incluye creación de tipo ENUM documentcategory
+Migracion: Agregar columnas category y description a la tabla company_documents
+Incluye creacion de tipo ENUM documentcategory
 """
 
 import os
@@ -9,7 +9,7 @@ import sys
 import psycopg2
 from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
 
-# Agregar el directorio raíz al path
+# Agregar el directorio raiz al path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from app.core.config import settings
@@ -29,10 +29,10 @@ def add_category_description_columns():
         conn.set_isolation_level(ISOLATION_LEVEL_AUTOCOMMIT)
         cursor = conn.cursor()
         
-        print("📋 Iniciando migración: Agregar columnas category y description...")
+        print("[CLIPBOARD] Iniciando migracion: Agregar columnas category y description...")
         
         # 1. Crear tipo ENUM documentcategory si no existe
-        print("🔧 Verificando tipo ENUM documentcategory...")
+        print("[INIT] Verificando tipo ENUM documentcategory...")
         cursor.execute("""
             DO $$ 
             BEGIN
@@ -44,10 +44,10 @@ def add_category_description_columns():
                 END IF;
             END $$;
         """)
-        print("✅ Tipo ENUM documentcategory verificado/creado")
+        print("[OK] Tipo ENUM documentcategory verificado/creado")
         
         # 2. Agregar columna category si no existe
-        print("🔧 Verificando columna category...")
+        print("[INIT] Verificando columna category...")
         cursor.execute("""
             DO $$ 
             BEGIN
@@ -59,10 +59,10 @@ def add_category_description_columns():
                 END IF;
             END $$;
         """)
-        print("✅ Columna category verificada/agregada")
+        print("[OK] Columna category verificada/agregada")
         
         # 3. Agregar columna description si no existe
-        print("🔧 Verificando columna description...")
+        print("[INIT] Verificando columna description...")
         cursor.execute("""
             DO $$ 
             BEGIN
@@ -74,38 +74,38 @@ def add_category_description_columns():
                 END IF;
             END $$;
         """)
-        print("✅ Columna description verificada/agregada")
+        print("[OK] Columna description verificada/agregada")
         
         # 4. Actualizar registros existentes
-        print("🔄 Actualizando registros existentes...")
+        print("[REFRESH] Actualizando registros existentes...")
         cursor.execute("""
             UPDATE company_documents 
             SET category = 'knowledge_base' 
             WHERE category IS NULL
         """)
         affected_rows = cursor.rowcount
-        print(f"✅ {affected_rows} registros actualizados")
+        print(f"[OK] {affected_rows} registros actualizados")
         
         cursor.close()
         conn.close()
         
-        print("\n🎉 Migración completada exitosamente!")
-        print("📝 Columnas agregadas:")
-        print("   • category (documentcategory ENUM)")
-        print("   • description (TEXT)")
-        print("📊 Valores ENUM disponibles: 'knowledge_base', 'policy', 'procedure', 'manual', 'other'")
+        print("\n Migracion completada exitosamente!")
+        print(" Columnas agregadas:")
+        print("    category (documentcategory ENUM)")
+        print("    description (TEXT)")
+        print("[STATS] Valores ENUM disponibles: 'knowledge_base', 'policy', 'procedure', 'manual', 'other'")
         
     except Exception as e:
-        print(f"❌ Error ejecutando migración: {e}")
+        print(f"[ERR] Error ejecutando migracion: {e}")
         return False
     
     return True
 
 if __name__ == "__main__":
-    print("🚀 Iniciando migración: add_category_description_columns...")
+    print("[LAUNCH] Iniciando migracion: add_category_description_columns...")
     success = add_category_description_columns()
     if success:
-        print("🎉 Migración add_category_description_columns completada exitosamente!")
+        print(" Migracion add_category_description_columns completada exitosamente!")
     else:
-        print("❌ Error en la migración add_category_description_columns")
+        print("[ERR] Error en la migracion add_category_description_columns")
         sys.exit(1)

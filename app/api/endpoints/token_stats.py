@@ -15,14 +15,14 @@ def get_session_token_stats(
     db: Session = Depends(get_db)
 ) -> Dict[str, Any]:
     """
-    Obtiene estadísticas de tokens usado en una sesión
+    Obtiene estadisticas de tokens usado en una sesion
     """
     return token_logger.get_session_stats(session_id)
 
 @router.get("/health")
 def token_stats_health() -> Dict[str, str]:
     """
-    Verifica que el servicio de estadísticas de tokens está activo
+    Verifica que el servicio de estadisticas de tokens esta activo
     """
     return {
         "status": "active",

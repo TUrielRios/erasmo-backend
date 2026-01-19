@@ -1,6 +1,6 @@
 """
 Endpoint para monitoreo y control de optimizaciones de IA
-Proporciona visibilidad en el sistema de orquestación
+Proporciona visibilidad en el sistema de orquestacion
 """
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -21,8 +21,8 @@ budget_service = AdaptiveBudgetService()
 @router.get("/metrics")
 async def get_ai_optimization_metrics():
     """
-    Obtiene métricas de optimización del sistema de IA
-    Incluye: caché, presupuesto, streaming, RAG
+    Obtiene metricas de optimizacion del sistema de IA
+    Incluye: cache, presupuesto, streaming, RAG
     """
     try:
         metrics = orchestrator.get_orchestration_metrics()
@@ -49,13 +49,13 @@ async def get_ai_optimization_metrics():
     except Exception as e:
         raise HTTPException(
             status_code=500,
-            detail=f"Error obteniendo métricas: {str(e)}"
+            detail=f"Error obteniendo metricas: {str(e)}"
         )
 
 @router.get("/cache-stats")
 async def get_cache_statistics():
     """
-    Obtiene estadísticas detalladas del caché
+    Obtiene estadisticas detalladas del cache
     """
     try:
         stats = cache_service.get_cache_stats()
@@ -68,13 +68,13 @@ async def get_cache_statistics():
     except Exception as e:
         raise HTTPException(
             status_code=500,
-            detail=f"Error obteniendo estadísticas de caché: {str(e)}"
+            detail=f"Error obteniendo estadisticas de cache: {str(e)}"
         )
 
 @router.post("/cleanup-cache")
 async def cleanup_expired_cache():
     """
-    Limpia entradas expiradas del caché
+    Limpia entradas expiradas del cache
     """
     try:
         cleaned_count = cache_service.cleanup_expired()
@@ -82,18 +82,18 @@ async def cleanup_expired_cache():
         return {
             "status": "success",
             "cleaned_entries": cleaned_count,
-            "message": f"Se limpiaron {cleaned_count} entradas expiradas del caché"
+            "message": f"Se limpiaron {cleaned_count} entradas expiradas del cache"
         }
     except Exception as e:
         raise HTTPException(
             status_code=500,
-            detail=f"Error limpiando caché: {str(e)}"
+            detail=f"Error limpiando cache: {str(e)}"
         )
 
 @router.post("/analyze-complexity")
 async def analyze_query_complexity(message: str):
     """
-    Analiza la complejidad de una consulta para ver qué presupuesto recibiría
+    Analiza la complejidad de una consulta para ver que presupuesto recibiria
     """
     try:
         complexity_level, complexity_factor = budget_service.analyze_query_complexity(message)
@@ -127,15 +127,15 @@ async def analyze_query_complexity(message: str):
 
 def _get_cache_recommendation(stats: Dict) -> str:
     """
-    Genera recomendación basada en estadísticas de caché
+    Genera recomendacion basada en estadisticas de cache
     """
     hit_rate = stats.get('hit_rate_percent', 0)
     
     if hit_rate >= 70:
-        return "Excelente desempeño del caché"
+        return "Excelente desempeno del cache"
     elif hit_rate >= 50:
-        return "Desempeño moderado del caché - considere revisar patrones de consulta"
+        return "Desempeno moderado del cache - considere revisar patrones de consulta"
     elif hit_rate >= 30:
-        return "Desempeño bajo del caché - muchas consultas únicas"
+        return "Desempeno bajo del cache - muchas consultas unicas"
     else:
-        return "Caché subutilizado - las consultas son muy variadas"
+        return "Cache subutilizado - las consultas son muy variadas"

@@ -1,5 +1,5 @@
 """
-Servicio para configuración avanzada de compañías
+Servicio para configuracion avanzada de companias
 """
 
 from sqlalchemy.orm import Session
@@ -12,16 +12,16 @@ from app.models.company import Company, CompanyDocument, AIConfiguration
 import json
 
 class CompanyConfigurationService:
-    """Servicio para configuración avanzada y gestión integral de compañías"""
+    """Servicio para configuracion avanzada y gestion integral de companias"""
     
     @staticmethod
     def get_full_configuration(db: Session, company_id: int) -> Optional[Dict[str, Any]]:
-        """Obtener configuración completa de una compañía"""
+        """Obtener configuracion completa de una compania"""
         company = CompanyService.get_company_by_id(db, company_id)
         if not company:
             return None
         
-        # Obtener documentos por categoría
+        # Obtener documentos por categoria
         knowledge_docs = CompanyDocumentService.get_company_documents(
             db, company_id, DocumentCategory.KNOWLEDGE_BASE
         )
@@ -29,10 +29,10 @@ class CompanyConfigurationService:
             db, company_id, DocumentCategory.INSTRUCTIONS
         )
         
-        # Obtener configuración de IA
+        # Obtener configuracion de IA
         ai_config = AIConfigurationService.get_by_company_id(db, company_id)
         
-        # Obtener estadísticas de procesamiento
+        # Obtener estadisticas de procesamiento
         processing_summary = CompanyDocumentService.get_processing_summary(db, company_id)
         
         return {
@@ -89,24 +89,24 @@ class CompanyConfigurationService:
     
     @staticmethod
     async def initialize_ai_configuration(db: Session, company_id: int) -> Dict[str, Any]:
-        """Inicializar configuración de IA con valores por defecto inteligentes"""
+        """Inicializar configuracion de IA con valores por defecto inteligentes"""
         company = CompanyService.get_company_by_id(db, company_id)
         if not company:
-            return {"success": False, "error": "Compañía no encontrada"}
+            return {"success": False, "error": "Compania no encontrada"}
         
-        # Verificar si ya existe configuración
+        # Verificar si ya existe configuracion
         existing_config = AIConfigurationService.get_by_company_id(db, company_id)
         if existing_config:
-            return {"success": False, "error": "Configuración de IA ya existe"}
+            return {"success": False, "error": "Configuracion de IA ya existe"}
         
-        # Crear configuración por defecto basada en la industria
+        # Crear configuracion por defecto basada en la industria
         default_config = CompanyConfigurationService._generate_default_ai_config(company)
         
         try:
             ai_config = AIConfigurationService.create_configuration(db, default_config)
             return {
                 "success": True,
-                "message": "Configuración de IA inicializada exitosamente",
+                "message": "Configuracion de IA inicializada exitosamente",
                 "ai_configuration_id": ai_config.id
             }
         except Exception as e:
@@ -114,32 +114,32 @@ class CompanyConfigurationService:
     
     @staticmethod
     def _generate_default_ai_config(company: Company) -> AIConfigurationCreate:
-        """Generar configuración de IA por defecto basada en la industria"""
+        """Generar configuracion de IA por defecto basada en la industria"""
         industry_configs = {
-            "tecnología": {
+            "tecnologia": {
                 "response_style": "technical",
                 "temperature": "0.7",
-                "methodology_prompt": "Eres un consultor estratégico especializado en tecnología y software. Proporciona análisis técnicos profundos y recomendaciones basadas en mejores prácticas de la industria tech."
+                "methodology_prompt": "Eres un consultor estrategico especializado en tecnologia y software. Proporciona analisis tecnicos profundos y recomendaciones basadas en mejores practicas de la industria tech."
             },
             "marketing": {
                 "response_style": "creative",
                 "temperature": "0.8",
-                "methodology_prompt": "Eres un estratega de marketing digital experto. Enfócate en estrategias de crecimiento, branding y optimización de conversiones."
+                "methodology_prompt": "Eres un estratega de marketing digital experto. Enfocate en estrategias de crecimiento, branding y optimizacion de conversiones."
             },
             "finanzas": {
                 "response_style": "analytical",
                 "temperature": "0.6",
-                "methodology_prompt": "Eres un consultor financiero estratégico. Proporciona análisis rigurosos basados en datos y métricas financieras."
+                "methodology_prompt": "Eres un consultor financiero estrategico. Proporciona analisis rigurosos basados en datos y metricas financieras."
             },
             "salud": {
                 "response_style": "professional",
                 "temperature": "0.6",
-                "methodology_prompt": "Eres un consultor estratégico especializado en el sector salud. Considera regulaciones, ética y impacto social en tus recomendaciones."
+                "methodology_prompt": "Eres un consultor estrategico especializado en el sector salud. Considera regulaciones, etica y impacto social en tus recomendaciones."
             }
         }
         
         industry_key = company.industry.lower()
-        config = industry_configs.get(industry_key, industry_configs["tecnología"])
+        config = industry_configs.get(industry_key, industry_configs["tecnologia"])
         
         return AIConfigurationCreate(
             company_id=company.id,
@@ -155,15 +155,15 @@ class CompanyConfigurationService:
     
     @staticmethod
     def get_ai_effectiveness_metrics(db: Session, company_id: int) -> Dict[str, Any]:
-        """Obtener métricas de efectividad de la IA"""
-        # Aquí implementarías lógica para calcular métricas reales
-        # Por ahora, retornamos métricas de ejemplo
+        """Obtener metricas de efectividad de la IA"""
+        # Aqui implementarias logica para calcular metricas reales
+        # Por ahora, retornamos metricas de ejemplo
         
         ai_config = AIConfigurationService.get_by_company_id(db, company_id)
         if not ai_config:
-            return {"error": "No hay configuración de IA"}
+            return {"error": "No hay configuracion de IA"}
         
-        # Métricas simuladas - en producción vendrían de logs y analytics
+        # Metricas simuladas - en produccion vendrian de logs y analytics
         return {
             "response_quality": {
                 "average_confidence": 0.85,
@@ -194,15 +194,15 @@ class CompanyConfigurationService:
         company_id: int, 
         optimization_data: Dict[str, Any]
     ) -> Dict[str, Any]:
-        """Optimizar configuración basada en métricas de uso"""
+        """Optimizar configuracion basada en metricas de uso"""
         ai_config = AIConfigurationService.get_by_company_id(db, company_id)
         if not ai_config:
-            return {"success": False, "error": "No hay configuración de IA"}
+            return {"success": False, "error": "No hay configuracion de IA"}
         
-        # Analizar datos de optimización y sugerir cambios
+        # Analizar datos de optimizacion y sugerir cambios
         suggestions = CompanyConfigurationService._analyze_optimization_data(optimization_data)
         
-        # Aplicar optimizaciones automáticas si están habilitadas
+        # Aplicar optimizaciones automaticas si estan habilitadas
         if optimization_data.get("auto_apply", False):
             from app.models.schemas import AIConfigurationUpdate
             
@@ -225,7 +225,7 @@ class CompanyConfigurationService:
                 )
                 return {
                     "success": True,
-                    "message": "Configuración optimizada automáticamente",
+                    "message": "Configuracion optimizada automaticamente",
                     "applied_changes": suggestions,
                     "updated_config": updated_config.id
                 }
@@ -235,12 +235,12 @@ class CompanyConfigurationService:
         return {
             "success": True,
             "suggestions": suggestions,
-            "message": "Análisis completado. Revisa las sugerencias para optimizar manualmente."
+            "message": "Analisis completado. Revisa las sugerencias para optimizar manualmente."
         }
     
     @staticmethod
     def _analyze_optimization_data(data: Dict[str, Any]) -> Dict[str, Any]:
-        """Analizar datos y generar sugerencias de optimización"""
+        """Analizar datos y generar sugerencias de optimizacion"""
         suggestions = {}
         
         # Analizar temperatura basada en feedback
@@ -260,7 +260,7 @@ class CompanyConfigurationService:
                     "instruction_priority": "high"
                 }
         
-        # Sugerir mejoras en documentación
+        # Sugerir mejoras en documentacion
         if data.get("clarification_rate", 0) > 0.2:
             suggestions["improve_documentation"] = {
                 "add_more_instructions": True,
@@ -271,7 +271,7 @@ class CompanyConfigurationService:
     
     @staticmethod
     def get_document_categories_status(db: Session, company_id: int) -> Dict[str, Any]:
-        """Obtener estado detallado de documentos por categoría"""
+        """Obtener estado detallado de documentos por categoria"""
         knowledge_docs = CompanyDocumentService.get_company_documents(
             db, company_id, DocumentCategory.KNOWLEDGE_BASE
         )
@@ -308,10 +308,10 @@ class CompanyConfigurationService:
         recommendations = []
         
         if len(knowledge_docs) < 3:
-            recommendations.append("Considera agregar más documentos de fuentes de conocimiento para mejorar la precisión de las respuestas.")
+            recommendations.append("Considera agregar mas documentos de fuentes de conocimiento para mejorar la precision de las respuestas.")
         
         if len(instruction_docs) < 2:
-            recommendations.append("Agrega documentos de instrucciones específicas para personalizar mejor el comportamiento de la IA.")
+            recommendations.append("Agrega documentos de instrucciones especificas para personalizar mejor el comportamiento de la IA.")
         
         failed_docs = [d for d in knowledge_docs + instruction_docs if d.processing_status == "failed"]
         if failed_docs:
@@ -319,16 +319,16 @@ class CompanyConfigurationService:
         
         high_priority_docs = [d for d in knowledge_docs + instruction_docs if d.priority <= 2]
         if len(high_priority_docs) < 2:
-            recommendations.append("Asigna prioridad alta (1-2) a los documentos más importantes para mejorar la relevancia.")
+            recommendations.append("Asigna prioridad alta (1-2) a los documentos mas importantes para mejorar la relevancia.")
         
         return recommendations
     
     @staticmethod
     def validate_company_setup(db: Session, company_id: int) -> Dict[str, Any]:
-        """Validar que la configuración de la compañía esté completa"""
+        """Validar que la configuracion de la compania este completa"""
         company = CompanyService.get_company_by_id(db, company_id)
         if not company:
-            return {"valid": False, "error": "Compañía no encontrada"}
+            return {"valid": False, "error": "Compania no encontrada"}
         
         validation_results = {
             "valid": True,
@@ -338,9 +338,9 @@ class CompanyConfigurationService:
             "max_score": 100
         }
         
-        # Validar información básica de la compañía
+        # Validar informacion basica de la compania
         if not company.description:
-            validation_results["warnings"].append("Falta descripción de la compañía")
+            validation_results["warnings"].append("Falta descripcion de la compania")
         else:
             validation_results["score"] += 10
         
@@ -367,16 +367,16 @@ class CompanyConfigurationService:
         else:
             validation_results["score"] += 20
         
-        # Validar configuración de IA
+        # Validar configuracion de IA
         ai_config = AIConfigurationService.get_by_company_id(db, company_id)
         if not ai_config:
-            validation_results["issues"].append("No hay configuración de IA")
+            validation_results["issues"].append("No hay configuracion de IA")
             validation_results["valid"] = False
         else:
             validation_results["score"] += 25
             
             if not ai_config.methodology_prompt:
-                validation_results["warnings"].append("Falta prompt de metodología personalizada")
+                validation_results["warnings"].append("Falta prompt de metodologia personalizada")
             else:
                 validation_results["score"] += 10
         
@@ -387,7 +387,7 @@ class CompanyConfigurationService:
         if total_docs > 0:
             processing_rate = len(processed_docs) / total_docs
             if processing_rate < 0.8:
-                validation_results["warnings"].append(f"Solo {processing_rate:.0%} de los documentos están procesados")
+                validation_results["warnings"].append(f"Solo {processing_rate:.0%} de los documentos estan procesados")
             else:
                 validation_results["score"] += 10
         
@@ -400,11 +400,11 @@ class CompanyConfigurationService:
         instruction_docs: List[CompanyDocument],
         ai_config: Optional[AIConfiguration]
     ) -> Dict[str, Any]:
-        """Calcular estado general de configuración"""
+        """Calcular estado general de configuracion"""
         total_steps = 4
         completed_steps = 0
         
-        # Paso 1: Información básica de la compañía
+        # Paso 1: Informacion basica de la compania
         if company.description:
             completed_steps += 1
         
@@ -416,7 +416,7 @@ class CompanyConfigurationService:
         if len(instruction_docs) > 0:
             completed_steps += 1
         
-        # Paso 4: Configuración de IA
+        # Paso 4: Configuracion de IA
         if ai_config:
             completed_steps += 1
         
@@ -448,33 +448,33 @@ class CompanyConfigurationService:
         instruction_docs: List[CompanyDocument],
         ai_config: Optional[AIConfiguration]
     ) -> List[str]:
-        """Obtener próximos pasos recomendados"""
+        """Obtener proximos pasos recomendados"""
         next_steps = []
         
         if not company.description:
-            next_steps.append("Agregar descripción detallada de la compañía")
+            next_steps.append("Agregar descripcion detallada de la compania")
         
         if len(knowledge_docs) == 0:
             next_steps.append("Cargar documentos de fuentes de conocimiento (.txt)")
         
         if len(instruction_docs) == 0:
-            next_steps.append("Cargar documentos de instrucciones específicas (.txt)")
+            next_steps.append("Cargar documentos de instrucciones especificas (.txt)")
         
         if not ai_config:
-            next_steps.append("Configurar parámetros de IA personalizada")
+            next_steps.append("Configurar parametros de IA personalizada")
         
         if len(knowledge_docs) > 0 and len(instruction_docs) > 0 and ai_config:
             next_steps.append("Procesar documentos pendientes")
-            next_steps.append("Probar configuración de IA")
+            next_steps.append("Probar configuracion de IA")
         
         return next_steps
     
     @staticmethod
     def get_client_view_configuration(db: Session, company_id: int) -> Dict[str, Any]:
-        """Obtener vista de configuración para clientes (información limitada)"""
+        """Obtener vista de configuracion para clientes (informacion limitada)"""
         company = CompanyService.get_company_by_id(db, company_id)
         if not company:
-            return {"error": "Compañía no encontrada"}
+            return {"error": "Compania no encontrada"}
         
         ai_config = AIConfigurationService.get_by_company_id(db, company_id)
         processing_summary = CompanyDocumentService.get_processing_summary(db, company_id)
@@ -499,7 +499,7 @@ class CompanyConfigurationService:
         if not ai_config:
             return {
                 "status": "not_configured",
-                "message": "La IA aún no ha sido configurada para tu empresa"
+                "message": "La IA aun no ha sido configurada para tu empresa"
             }
         
         processing_summary = CompanyDocumentService.get_processing_summary(db, company_id)
@@ -521,7 +521,7 @@ class CompanyConfigurationService:
         
         return {
             "status": "ready",
-            "message": "Tu IA personalizada está lista y configurada",
+            "message": "Tu IA personalizada esta lista y configurada",
             "features": {
                 "custom_knowledge": True,
                 "specific_instructions": True,

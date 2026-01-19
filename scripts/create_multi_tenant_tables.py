@@ -8,7 +8,7 @@ import sys
 import psycopg2
 from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
 
-# Agregar el directorio raíz al path
+# Agregar el directorio raiz al path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from app.core.config import settings
@@ -28,7 +28,7 @@ def create_multi_tenant_tables():
         conn.set_isolation_level(ISOLATION_LEVEL_AUTOCOMMIT)
         cursor = conn.cursor()
         
-        print("🏢 Creando tablas para sistema multi-tenant...")
+        print(" Creando tablas para sistema multi-tenant...")
         
         # Crear tabla companies
         cursor.execute("""
@@ -43,7 +43,7 @@ def create_multi_tenant_tables():
                 updated_at TIMESTAMP WITH TIME ZONE
             )
         """)
-        print("✅ Tabla 'companies' creada")
+        print("[OK] Tabla 'companies' creada")
         
         # Crear tabla ai_configurations
         cursor.execute("""
@@ -62,10 +62,10 @@ def create_multi_tenant_tables():
                 updated_at TIMESTAMP WITH TIME ZONE
             )
         """)
-        print("✅ Tabla 'ai_configurations' creada")
+        print("[OK] Tabla 'ai_configurations' creada")
         
         # Agregar nuevas columnas a la tabla users
-        print("🔄 Actualizando tabla 'users'...")
+        print("[REFRESH] Actualizando tabla 'users'...")
         
         # Verificar si las columnas ya existen
         cursor.execute("""
@@ -78,47 +78,47 @@ def create_multi_tenant_tables():
         
         if 'company_id' not in existing_columns:
             cursor.execute("ALTER TABLE users ADD COLUMN company_id INTEGER REFERENCES companies(id)")
-            print("✅ Columna 'company_id' agregada a users")
+            print("[OK] Columna 'company_id' agregada a users")
         
         if 'work_area' not in existing_columns:
             cursor.execute("ALTER TABLE users ADD COLUMN work_area VARCHAR(255)")
-            print("✅ Columna 'work_area' agregada a users")
+            print("[OK] Columna 'work_area' agregada a users")
         
         if 'role' not in existing_columns:
             cursor.execute("ALTER TABLE users ADD COLUMN role VARCHAR(50) DEFAULT 'client'")
-            print("✅ Columna 'role' agregada a users")
+            print("[OK] Columna 'role' agregada a users")
         
-        # Crear índices para optimizar consultas
+        # Crear indices para optimizar consultas
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_companies_name ON companies(name)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_companies_industry ON companies(industry)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_users_company_id ON users(company_id)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_users_role ON users(role)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_ai_configurations_company_id ON ai_configurations(company_id)")
-        print("✅ Índices creados")
+        print("[OK] Indices creados")
         
-        # Crear compañías de ejemplo y configurar usuario admin
-        print("🏢 Creando datos iniciales...")
+        # Crear companias de ejemplo y configurar usuario admin
+        print(" Creando datos iniciales...")
         
-        # Crear compañía por defecto para admin
+        # Crear compania por defecto para admin
         cursor.execute("""
             INSERT INTO companies (name, industry, sector, description)
-            VALUES ('Erasmo AI', 'Tecnología', 'Inteligencia Artificial', 'Plataforma de IA conversacional')
+            VALUES ('Erasmo AI', 'Tecnologia', 'Inteligencia Artificial', 'Plataforma de IA conversacional')
             ON CONFLICT (name) DO NOTHING
         """)
         
-        # Obtener ID de la compañía Erasmo AI
+        # Obtener ID de la compania Erasmo AI
         cursor.execute("SELECT id FROM companies WHERE name = 'Erasmo AI'")
         erasmo_company_id = cursor.fetchone()[0]
         
         # Actualizar usuario admin
         cursor.execute("""
             UPDATE users 
-            SET company_id = %s, work_area = 'Administración', role = 'admin'
+            SET company_id = %s, work_area = 'Administracion', role = 'admin'
             WHERE username = 'admin'
         """, (erasmo_company_id,))
-        print("✅ Usuario admin actualizado")
+        print("[OK] Usuario admin actualizado")
         
-        # Crear configuración de IA por defecto para Erasmo AI
+        # Crear configuracion de IA por defecto para Erasmo AI
         cursor.execute("""
             INSERT INTO ai_configurations (
                 company_id, 
@@ -128,31 +128,31 @@ def create_multi_tenant_tables():
             )
             VALUES (
                 %s,
-                'Eres un asistente de IA especializado en consultoría estratégica. Proporciona respuestas estructuradas, profesionales y orientadas a la acción.',
+                'Eres un asistente de IA especializado en consultoria estrategica. Proporciona respuestas estructuradas, profesionales y orientadas a la accion.',
                 '{"expertise": "strategic_consulting", "tone": "professional", "approach": "analytical"}',
                 'professional'
             )
             ON CONFLICT DO NOTHING
         """, (erasmo_company_id,))
-        print("✅ Configuración de IA por defecto creada")
+        print("[OK] Configuracion de IA por defecto creada")
         
-        print("🎉 Sistema multi-tenant configurado exitosamente!")
-        print("💡 Ahora las compañías pueden tener configuraciones de IA personalizadas")
+        print(" Sistema multi-tenant configurado exitosamente!")
+        print("[IDEA] Ahora las companias pueden tener configuraciones de IA personalizadas")
         
         cursor.close()
         conn.close()
         
     except Exception as e:
-        print(f"❌ Error creando tablas multi-tenant: {e}")
+        print(f"[ERR] Error creando tablas multi-tenant: {e}")
         return False
     
     return True
 
 if __name__ == "__main__":
-    print("🚀 Iniciando creación de sistema multi-tenant...")
+    print("[LAUNCH] Iniciando creacion de sistema multi-tenant...")
     success = create_multi_tenant_tables()
     if success:
-        print("🎉 Sistema multi-tenant creado exitosamente!")
+        print(" Sistema multi-tenant creado exitosamente!")
     else:
-        print("❌ Error en la creación del sistema multi-tenant")
+        print("[ERR] Error en la creacion del sistema multi-tenant")
         sys.exit(1)

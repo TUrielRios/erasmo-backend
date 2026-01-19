@@ -19,17 +19,17 @@ async def ingest_documents(
     files: List[UploadFile] = File(...),
     ingestion_type: IngestionType = IngestionType.KNOWLEDGE,
     dimension: str = "general",
-    modelo_base: str = "estratégico",
+    modelo_base: str = "estrategico",
     tipo_output: str = "conceptual-accional",
     company_id: Optional[int] = Form(None)
 ):
     """
-    Ingesta de documentos .txt y .md para indexación semántica o configuración de personalidad
+    Ingesta de documentos .txt y .md para indexacion semantica o configuracion de personalidad
     
     Args:
         files: Lista de archivos a procesar
         ingestion_type: Tipo de ingesta (personality o knowledge)
-        dimension: Dimensión del conocimiento (estrategia, liderazgo, etc.)
+        dimension: Dimension del conocimiento (estrategia, liderazgo, etc.)
         modelo_base: Modelo conceptual base
         tipo_output: Tipo de salida esperada
         company_id: ID de la empresa (opcional, para filtrado por empresa)
@@ -53,13 +53,13 @@ async def ingest_documents(
                 failed_files.append(f"{file.filename}: Tipo de archivo no soportado")
                 continue
             
-            # Validar tamaño de archivo
+            # Validar tamano de archivo
             content = await file.read()
             if len(content) > settings.MAX_FILE_SIZE:
                 failed_files.append(f"{file.filename}: Archivo demasiado grande")
                 continue
             
-            print(f"🔄 Procesando archivo: {file.filename} como {ingestion_type.value}")
+            print(f"[REFRESH] Procesando archivo: {file.filename} como {ingestion_type.value}")
             
             additional_metadata = {
                 "ingestion_type": ingestion_type.value,
@@ -72,7 +72,7 @@ async def ingest_documents(
             # Include company_id in metadata if provided
             if company_id is not None:
                 additional_metadata["company_id"] = company_id
-                print(f"📋 Including company_id {company_id} for file {file.filename}")
+                print(f"[CLIPBOARD] Including company_id {company_id} for file {file.filename}")
             
             if ingestion_type == IngestionType.PERSONALITY:
                 chunk_ids = await ingestion_service.process_personality_file(
@@ -105,10 +105,10 @@ async def ingest_documents(
             metadata_list.append(doc_metadata)
             processed_files.append(file.filename)
             
-            print(f"✅ Archivo {file.filename} procesado: {chunks_count} chunks")
+            print(f"[OK] Archivo {file.filename} procesado: {chunks_count} chunks")
             
         except Exception as e:
-            print(f"❌ Error procesando {file.filename}: {str(e)}")
+            print(f"[ERR] Error procesando {file.filename}: {str(e)}")
             failed_files.append(f"{file.filename}: Error - {str(e)}")
     
     return IngestResponse(
@@ -126,7 +126,7 @@ async def ingest_personality_documents(
     replace_existing: bool = False
 ):
     """
-    Endpoint específico para configurar la personalidad del agente
+    Endpoint especifico para configurar la personalidad del agente
     
     Args:
         files: Archivos que definen el comportamiento, tono y estilo del agente
@@ -141,7 +141,7 @@ async def ingest_personality_documents(
     # Clear existing personality if requested
     if replace_existing:
         await ingestion_service.clear_personality()
-        print("🧹 Personalidad existente eliminada")
+        print(" Personalidad existente eliminada")
     
     # Process files as personality configuration
     return await ingest_documents(
@@ -155,7 +155,7 @@ async def ingest_personality_documents(
 @router.get("/ingest/personality")
 async def get_personality_config():
     """
-    Obtiene la configuración actual de personalidad del agente
+    Obtiene la configuracion actual de personalidad del agente
     """
     
     try:
@@ -168,13 +168,13 @@ async def get_personality_config():
             "timestamp": datetime.now()
         }
     except Exception as e:
-        print(f"❌ Error obteniendo configuración de personalidad: {str(e)}")
+        print(f"[ERR] Error obteniendo configuracion de personalidad: {str(e)}")
         return {
             "status": "error",
             "error": str(e),
             "personality": {
                 "status": "no_personality_configured",
-                "message": "Error al obtener configuración",
+                "message": "Error al obtener configuracion",
                 "files": []
             },
             "timestamp": datetime.now()
@@ -183,7 +183,7 @@ async def get_personality_config():
 @router.delete("/ingest/personality")
 async def clear_personality_config():
     """
-    Elimina la configuración de personalidad actual
+    Elimina la configuracion de personalidad actual
     """
     
     try:
@@ -192,11 +192,11 @@ async def clear_personality_config():
         
         return {
             "success": success,
-            "message": "Configuración de personalidad eliminada" if success else "Error eliminando personalidad",
+            "message": "Configuracion de personalidad eliminada" if success else "Error eliminando personalidad",
             "timestamp": datetime.now()
         }
     except Exception as e:
-        print(f"❌ Error eliminando personalidad: {str(e)}")
+        print(f"[ERR] Error eliminando personalidad: {str(e)}")
         return {
             "success": False,
             "message": f"Error eliminando personalidad: {str(e)}",
@@ -226,7 +226,7 @@ async def get_ingestion_status():
             }
         }
     except Exception as e:
-        print(f"❌ Error obteniendo stats: {str(e)}")
+        print(f"[ERR] Error obteniendo stats: {str(e)}")
         return {
             "status": "error",
             "error": str(e),
@@ -240,7 +240,7 @@ async def get_ingestion_status():
 @router.delete("/ingest/clear")
 async def clear_knowledge_base():
     """
-    Limpia toda la base de conocimiento (usar con precaución)
+    Limpia toda la base de conocimiento (usar con precaucion)
     """
     
     # Implementar limpieza real de vector DB
@@ -255,7 +255,7 @@ async def clear_knowledge_base():
             "chunks_removed": ingestion_service.chunks_removed
         }
     except Exception as e:
-        print(f"❌ Error limpiando base de conocimiento: {str(e)}")
+        print(f"[ERR] Error limpiando base de conocimiento: {str(e)}")
         return {
             "message": "Error al limpiar base de conocimiento",
             "timestamp": datetime.now(),
@@ -268,20 +268,20 @@ async def ingest_company_documents(
     files: List[UploadFile] = File(...),
     ingestion_type: IngestionType = IngestionType.KNOWLEDGE,
     dimension: str = "general",
-    modelo_base: str = "estratégico",
+    modelo_base: str = "estrategico",
     tipo_output: str = "conceptual-accional"
 ):
     """
-    Endpoint específico para ingesta de documentos de una empresa específica
+    Endpoint especifico para ingesta de documentos de una empresa especifica
     
-    Este endpoint permite subir documentos que serán asociados únicamente a la empresa especificada,
+    Este endpoint permite subir documentos que seran asociados unicamente a la empresa especificada,
     garantizando el aislamiento de datos entre diferentes empresas.
     
     Args:
         company_id: ID de la empresa (requerido para filtrado por empresa)
         files: Lista de archivos a procesar (.txt, .md)
         ingestion_type: Tipo de ingesta (personality o knowledge)
-        dimension: Dimensión del conocimiento (estrategia, liderazgo, etc.)
+        dimension: Dimension del conocimiento (estrategia, liderazgo, etc.)
         modelo_base: Modelo conceptual base
         tipo_output: Tipo de salida esperada
     
@@ -290,11 +290,11 @@ async def ingest_company_documents(
         
     Example:
         POST /api/v1/ingest/company/123
-        - Todos los documentos se asociarán a la empresa con ID 123
-        - Solo usuarios de esa empresa podrán acceder a estos documentos
+        - Todos los documentos se asociaran a la empresa con ID 123
+        - Solo usuarios de esa empresa podran acceder a estos documentos
     """
     
-    print(f"🏢 Iniciando ingesta para empresa ID: {company_id}")
+    print(f" Iniciando ingesta para empresa ID: {company_id}")
     
     return await ingest_documents(
         files=files,

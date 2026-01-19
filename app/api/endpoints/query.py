@@ -1,5 +1,5 @@
 """
-Endpoints para consultas conversacionales - sin autenticación JWT
+Endpoints para consultas conversacionales - sin autenticacion JWT
 """
 
 from fastapi import APIRouter, HTTPException, Depends
@@ -65,7 +65,7 @@ async def process_query_stream(
             if request.session_id:
                 conversation = chat_service.get_conversation_by_session_id(db, current_user, request.session_id)
                 if not conversation:
-                    yield f"data: {json.dumps({'error': 'Conversación no encontrada'})}\n\n"
+                    yield f"data: {json.dumps({'error': 'Conversacion no encontrada'})}\n\n"
                     return
                 session_id = request.session_id
             else:
@@ -98,7 +98,7 @@ async def process_query_stream(
             has_previous_clarification = any(
                 "clarification" in msg.get('content', '').lower() or 
                 any(keyword in msg.get('content', '').lower() 
-                    for keyword in ['qué', 'cuál', 'cómo', 'opción'])
+                    for keyword in ['que', 'cual', 'como', 'opcion'])
                 for msg in history if msg.get('role') == 'assistant'
             )
             
@@ -117,7 +117,7 @@ async def process_query_stream(
                 }
                 yield f"data: {json.dumps(clarification_data)}\n\n"
                 
-                clarification_content = "[Solicitud de clarificación]"
+                clarification_content = "[Solicitud de clarificacion]"
                 clarification_metadata = {"type": "clarification", "questions": len(clarification_questions)}
                 chat_service.add_message_to_conversation(
                     db, current_user, session_id, "assistant", clarification_content, clarification_metadata
@@ -137,9 +137,9 @@ async def process_query_stream(
                 # Save complete response to database
                 try:
                     memory_service.add_message(db, session_id, "assistant", full_response)
-                    print(f"✅ [DEBUG] Streaming response saved to memory")
+                    print(f"[OK] [DEBUG] Streaming response saved to memory")
                 except Exception as e:
-                    print(f"❌ [DEBUG] Error saving streaming response: {e}")
+                    print(f"[ERR] [DEBUG] Error saving streaming response: {e}")
             
             # Send completion signal
             processing_time = time.time() - start_time
@@ -170,7 +170,7 @@ async def process_query(
     db: Session = Depends(get_db)
 ):
     """
-    Procesa una consulta sin autenticación JWT - requiere user_id en el request
+    Procesa una consulta sin autenticacion JWT - requiere user_id en el request
     """
     
     start_time = time.time()
@@ -198,12 +198,12 @@ async def process_query(
             if not conversation:
                 raise HTTPException(
                     status_code=404,
-                    detail="Conversación no encontrada o no pertenece al usuario"
+                    detail="Conversacion no encontrada o no pertenece al usuario"
                 )
             session_id = request.session_id
             print(f"[DEBUG] Using existing conversation: {session_id}")
         else:
-            # Crear nueva conversación
+            # Crear nueva conversacion
             conversation = chat_service.get_or_create_conversation(db, current_user, None)
             session_id = conversation.session_id
             print(f"[DEBUG] Created new conversation: {session_id}")
@@ -237,7 +237,7 @@ async def process_query(
         has_previous_clarification = any(
             "clarification" in msg.get('content', '').lower() or 
             any(keyword in msg.get('content', '').lower() 
-                for keyword in ['qué', 'cuál', 'cómo', 'opción'])
+                for keyword in ['que', 'cual', 'como', 'opcion'])
             for msg in history if msg.get('role') == 'assistant'
         )
         
@@ -251,10 +251,10 @@ async def process_query(
             print(f"[DEBUG] Ambiguity analysis result: {is_ambiguous}")
         
         if is_ambiguous and not has_previous_clarification:
-            # Solo una ronda de clarificación permitida
+            # Solo una ronda de clarificacion permitida
             clarification_questions = await conversation_service.generate_clarification_questions(request.message)
             
-            clarification_content = "[Solicitud de clarificación]"
+            clarification_content = "[Solicitud de clarificacion]"
             clarification_metadata = {"type": "clarification", "questions": len(clarification_questions)}
             
             assistant_message = chat_service.add_message_to_conversation(
@@ -279,9 +279,9 @@ async def process_query(
                         require_analysis=True,
                         attachments=request.attachments  # Pass attachments
                     )
-                    print(f"✅ [DEBUG] Conceptual response generated with instructions")
+                    print(f"[OK] [DEBUG] Conceptual response generated with instructions")
                 except Exception as e:
-                    print(f"❌ [DEBUG] Error generating conceptual response: {e}")
+                    print(f"[ERR] [DEBUG] Error generating conceptual response: {e}")
                     conceptual = ConceptualResponse(
                         content="Error generando respuesta conceptual. Intenta nuevamente.",
                         sources=[],
@@ -295,22 +295,22 @@ async def process_query(
                         require_analysis=True,
                         attachments=request.attachments  # Pass attachments
                     )[1]  # Get accional from tuple
-                    print(f"✅ [DEBUG] Accional response generated with instructions")
+                    print(f"[OK] [DEBUG] Accional response generated with instructions")
                 except Exception as e:
-                    print(f"❌ [DEBUG] Error generating accional response: {e}")
+                    print(f"[ERR] [DEBUG] Error generating accional response: {e}")
                     accional = AccionalResponse(
-                        content="Error generando plan de acción. Intenta nuevamente.",
+                        content="Error generando plan de accion. Intenta nuevamente.",
                         priority="media",
                         timeline="Indefinido"
                     )
 
                 # Save assistant response with structured format
                 try:
-                    full_response = f"## Análisis Conceptual\n{conceptual.content}\n\n## Plan de Acción\n{accional.content}"
+                    full_response = f"## Analisis Conceptual\n{conceptual.content}\n\n## Plan de Accion\n{accional.content}"
                     memory_service.add_message(db, session_id, "assistant", full_response)
-                    print(f"✅ [DEBUG] Assistant response added to memory")
+                    print(f"[OK] [DEBUG] Assistant response added to memory")
                 except Exception as e:
-                    print(f"❌ [DEBUG] Error adding assistant response to memory: {e}")
+                    print(f"[ERR] [DEBUG] Error adding assistant response to memory: {e}")
                     
                 response_metadata = {
                     "type": "strategic_response",
@@ -334,14 +334,14 @@ async def process_query(
                     
                     # For normal responses, conceptual.content has the full response
                     normal_response = conceptual.content
-                    print(f"✅ [DEBUG] Normal response generated")
+                    print(f"[OK] [DEBUG] Normal response generated")
                     
                     # Save assistant response as plain text
                     try:
                         memory_service.add_message(db, session_id, "assistant", normal_response)
-                        print(f"✅ [DEBUG] Normal assistant response added to memory")
+                        print(f"[OK] [DEBUG] Normal assistant response added to memory")
                     except Exception as e:
-                        print(f"❌ [DEBUG] Error adding assistant response to memory: {e}")
+                        print(f"[ERR] [DEBUG] Error adding assistant response to memory: {e}")
                         
                     response_metadata = {
                         "type": "normal_response",
@@ -361,7 +361,7 @@ async def process_query(
                     accional = None
                     
                 except Exception as e:
-                    print(f"❌ [DEBUG] Error generating normal response: {e}")
+                    print(f"[ERR] [DEBUG] Error generating normal response: {e}")
                     conceptual = ConceptualResponse(
                         content="Error generando respuesta. Intenta nuevamente.",
                         sources=[],
@@ -415,7 +415,7 @@ async def get_session_history(
     db: Session = Depends(get_db)
 ):
     """
-    Obtiene el historial de conversación - requiere user_id
+    Obtiene el historial de conversacion - requiere user_id
     """
     
     # Get user from database
@@ -431,7 +431,7 @@ async def get_session_history(
     if not conversation:
         raise HTTPException(
             status_code=404,
-            detail="Conversación no encontrada o no pertenece al usuario"
+            detail="Conversacion no encontrada o no pertenece al usuario"
         )
     
     conversation_with_messages = chat_service.get_conversation_with_messages(
@@ -441,7 +441,7 @@ async def get_session_history(
     if not conversation_with_messages:
         raise HTTPException(
             status_code=404,
-            detail="Error obteniendo historial de conversación"
+            detail="Error obteniendo historial de conversacion"
         )
     
     key_info = {}
@@ -483,7 +483,7 @@ async def clear_session(
     db: Session = Depends(get_db)
 ):
     """
-    Elimina una conversación - requiere user_id
+    Elimina una conversacion - requiere user_id
     """
     
     # Get user from database
@@ -500,7 +500,7 @@ async def clear_session(
     if not success:
         raise HTTPException(
             status_code=404,
-            detail="Conversación no encontrada o no pertenece al usuario"
+            detail="Conversacion no encontrada o no pertenece al usuario"
         )
     
     # Also clear from in-memory cache if exists
@@ -508,7 +508,7 @@ async def clear_session(
         del conversation_service.conversation_memory[session_id]
     
     return {
-        "message": f"Conversación {session_id} eliminada exitosamente",
+        "message": f"Conversacion {session_id} eliminada exitosamente",
         "success": success,
         "timestamp": datetime.now()
     }

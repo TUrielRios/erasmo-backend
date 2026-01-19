@@ -1,6 +1,6 @@
 """
-Servicio avanzado de caché para contexto y respuestas
-Implementa múltiples estrategias de caché para máximo rendimiento y eficiencia
+Servicio avanzado de cache para contexto y respuestas
+Implementa multiples estrategias de cache para maximo rendimiento y eficiencia
 """
 
 import hashlib
@@ -12,14 +12,14 @@ from app.core.config import settings
 
 class AdvancedCacheService:
     """
-    Sistema de caché multi-nivel para contexto, respuestas y análisis
-    Optimiza reutilización de contexto y acelera respuestas similares
+    Sistema de cache multi-nivel para contexto, respuestas y analisis
+    Optimiza reutilizacion de contexto y acelera respuestas similares
     """
     
     def __init__(self):
         self.context_cache: Dict[str, Dict[str, Any]] = {}
         self.response_cache: Dict[str, Dict[str, Any]] = {}
-        self.semantic_cache: Dict[str, List[str]] = {}  # Para búsquedas semánticas
+        self.semantic_cache: Dict[str, List[str]] = {}  # Para busquedas semanticas
         self.cache_stats = {
             'context_hits': 0,
             'context_misses': 0,
@@ -30,27 +30,27 @@ class AdvancedCacheService:
     
     def _generate_context_key(self, company_id: int, project_id: Optional[int], message: str) -> str:
         """
-        Genera clave de caché única para contexto basada en compañía, proyecto y mensaje
+        Genera clave de cache unica para contexto basada en compania, proyecto y mensaje
         """
         key_data = f"{company_id}:{project_id}:{message[:100]}"
         return hashlib.md5(key_data.encode()).hexdigest()
     
     def _generate_response_key(self, session_id: str, message: str) -> str:
         """
-        Genera clave de caché única para respuestas
+        Genera clave de cache unica para respuestas
         """
         key_data = f"{session_id}:{message}"
         return hashlib.md5(key_data.encode()).hexdigest()
     
     def get_cached_context(self, company_id: int, project_id: Optional[int], message: str) -> Optional[List[Dict[str, Any]]]:
         """
-        Obtiene contexto del caché si existe y es válido
+        Obtiene contexto del cache si existe y es valido
         """
         key = self._generate_context_key(company_id, project_id, message)
         
         if key in self.context_cache:
             cached = self.context_cache[key]
-            # Verificar expiración
+            # Verificar expiracion
             if datetime.now() < cached['expires_at']:
                 self.cache_stats['context_hits'] += 1
                 return cached['context']
@@ -63,7 +63,7 @@ class AdvancedCacheService:
     
     def cache_context(self, company_id: int, project_id: Optional[int], message: str, context: List[Dict[str, Any]]):
         """
-        Almacena contexto en caché con TTL
+        Almacena contexto en cache con TTL
         """
         key = self._generate_context_key(company_id, project_id, message)
         
@@ -78,7 +78,7 @@ class AdvancedCacheService:
     
     def get_cached_response(self, session_id: str, message: str) -> Optional[Dict[str, Any]]:
         """
-        Obtiene respuesta en caché si existe
+        Obtiene respuesta en cache si existe
         """
         key = self._generate_response_key(session_id, message)
         
@@ -96,7 +96,7 @@ class AdvancedCacheService:
     
     def cache_response(self, session_id: str, message: str, response: Dict[str, Any]):
         """
-        Almacena respuesta en caché con TTL más largo
+        Almacena respuesta en cache con TTL mas largo
         """
         key = self._generate_response_key(session_id, message)
         
@@ -110,8 +110,8 @@ class AdvancedCacheService:
     
     def find_similar_cached_response(self, message: str, threshold: float = 0.85) -> Optional[Dict[str, Any]]:
         """
-        Busca respuestas en caché similares usando similitud de caracteres
-        Útil para preguntas muy similares
+        Busca respuestas en cache similares usando similitud de caracteres
+        Util para preguntas muy similares
         """
         from difflib import SequenceMatcher
         
@@ -130,7 +130,7 @@ class AdvancedCacheService:
     
     def get_cache_stats(self) -> Dict[str, Any]:
         """
-        Obtiene estadísticas del caché
+        Obtiene estadisticas del cache
         """
         total_hits = self.cache_stats['context_hits'] + self.cache_stats['response_hits']
         total_requests = total_hits + self.cache_stats['context_misses'] + self.cache_stats['response_misses']
@@ -153,8 +153,8 @@ class AdvancedCacheService:
     
     def cleanup_expired(self):
         """
-        Limpia entradas expiradas del caché
-        Debería ejecutarse periódicamente
+        Limpia entradas expiradas del cache
+        Deberia ejecutarse periodicamente
         """
         now = datetime.now()
         

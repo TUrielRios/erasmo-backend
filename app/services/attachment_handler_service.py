@@ -1,6 +1,6 @@
 """
 Servicio para manejar archivos adjuntos en conversaciones
-Integra análisis de archivos con el contexto del chat
+Integra analisis de archivos con el contexto del chat
 """
 
 import logging
@@ -25,7 +25,7 @@ class AttachmentHandlerService:
         if not attachments:
             return ""
         
-        context = "\n\n📎 CONTEXTO DE ARCHIVOS ADJUNTOS:\n"
+        context = "\n\n[ATTACH] CONTEXTO DE ARCHIVOS ADJUNTOS:\n"
         context += "=" * 60 + "\n"
         
         for i, attachment in enumerate(attachments, 1):
@@ -33,11 +33,11 @@ class AttachmentHandlerService:
             filename = attachment.get("filename", "Sin nombre")
             
             if file_type == "image":
-                context += f"\n[{i}] 📷 Imagen: {filename}\n"
-                context += f"Análisis:\n{attachment.get('analysis', 'Sin análisis')}\n"
+                context += f"\n[{i}]  Imagen: {filename}\n"
+                context += f"Analisis:\n{attachment.get('analysis', 'Sin analisis')}\n"
             
             elif file_type == "document":
-                context += f"\n[{i}] 📄 Documento: {filename}\n"
+                context += f"\n[{i}] [DOC] Documento: {filename}\n"
                 file_format = attachment.get("file_format", "")
                 
                 if attachment.get("summary"):
@@ -80,7 +80,7 @@ class AttachmentHandlerService:
             has_filename = "filename" in attachment
             
             if not (has_type and has_filename):
-                logger.warning(f"[v0] Archivo adjunto con estructura inválida: {attachment}")
+                logger.warning(f"[v0] Archivo adjunto con estructura invalida: {attachment}")
                 return False
         
         logger.info(f"[v0] {len(attachments)} archivos adjuntos validados")

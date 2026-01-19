@@ -1,5 +1,5 @@
 """
-Endpoints de autenticación simplificados - sin JWT
+Endpoints de autenticacion simplificados - sin JWT
 """
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -12,13 +12,13 @@ router = APIRouter(prefix="/auth", tags=["authentication"])
 
 @router.post("/register", response_model=UserResponse)
 async def register_user(user_data: UserCreate, db: Session = Depends(get_db)):
-    """Registrar nuevo usuario con compañía"""
+    """Registrar nuevo usuario con compania"""
     try:
         user = AuthService.create_user(db, user_data)
         return UserResponse.from_orm(user)
         
     except ValueError as e:
-        # Errores de validación del servicio
+        # Errores de validacion del servicio
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e)
@@ -31,7 +31,7 @@ async def register_user(user_data: UserCreate, db: Session = Depends(get_db)):
 
 @router.post("/login")
 async def login_user(login_data: UserLogin, db: Session = Depends(get_db)):
-    """Iniciar sesión - solo verificación de contraseña"""
+    """Iniciar sesion - solo verificacion de contrasena"""
     # Autenticar usuario
     user = AuthService.authenticate_user(db, login_data.email, login_data.password)
     
@@ -48,5 +48,5 @@ async def login_user(login_data: UserLogin, db: Session = Depends(get_db)):
 
 @router.post("/logout")
 async def logout():
-    """Cerrar sesión"""
-    return {"message": "Sesión cerrada correctamente"}
+    """Cerrar sesion"""
+    return {"message": "Sesion cerrada correctamente"}

@@ -1,5 +1,5 @@
 """
-Configuración de base de datos PostgreSQL para memoria conversacional
+Configuracion de base de datos PostgreSQL para memoria conversacional
 """
 
 from sqlalchemy import create_engine, MetaData
@@ -17,7 +17,7 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
 def get_db():
-    """Dependency para obtener sesión de base de datos"""
+    """Dependency para obtener sesion de base de datos"""
     db = SessionLocal()
     try:
         yield db
@@ -34,7 +34,7 @@ async def init_db():
         from app.models.project_file import ProjectFile
         
         Base.metadata.create_all(bind=engine)
-        print("✅ Base de datos PostgreSQL inicializada correctamente")
+        print("[OK] Base de datos PostgreSQL inicializada correctamente")
     except Exception as e:
-        print(f"❌ Error inicializando base de datos: {e}")
+        print(f"[ERR] Error inicializando base de datos: {e}")
         raise

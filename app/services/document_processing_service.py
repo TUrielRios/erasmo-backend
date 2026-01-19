@@ -10,11 +10,11 @@ import re
 import asyncio
 
 class DocumentProcessingService:
-    """Servicio para procesamiento inteligente de documentos por categoría"""
+    """Servicio para procesamiento inteligente de documentos por categoria"""
     
     @staticmethod
     async def process_company_documents(db: Session, company_id: int) -> Dict[str, Any]:
-        """Procesar todos los documentos pendientes de una compañía"""
+        """Procesar todos los documentos pendientes de una compania"""
         pending_docs = db.query(CompanyDocument).filter(
             CompanyDocument.company_id == company_id,
             CompanyDocument.processing_status == "pending",
@@ -34,7 +34,7 @@ class DocumentProcessingService:
                     db, doc.id, "processing"
                 )
                 
-                # Procesar según categoría
+                # Procesar segun categoria
                 if doc.category == DocumentCategory.KNOWLEDGE_BASE:
                     success = await DocumentProcessingService._process_knowledge_document(db, doc)
                 elif doc.category == DocumentCategory.INSTRUCTIONS:
@@ -71,10 +71,10 @@ class DocumentProcessingService:
             if not content:
                 return False
             
-            # Aquí implementarías la lógica específica para documentos de conocimiento
-            # Por ejemplo: vectorización, indexación, extracción de conceptos clave
+            # Aqui implementarias la logica especifica para documentos de conocimiento
+            # Por ejemplo: vectorizacion, indexacion, extraccion de conceptos clave
             
-            # Placeholder para procesamiento específico
+            # Placeholder para procesamiento especifico
             processed_content = DocumentProcessingService._extract_knowledge_concepts(content)
             
             return True
@@ -93,10 +93,10 @@ class DocumentProcessingService:
             if not content:
                 return False
             
-            # Aquí implementarías la lógica específica para documentos de instrucciones
-            # Por ejemplo: extracción de reglas, validación de formato, estructuración
+            # Aqui implementarias la logica especifica para documentos de instrucciones
+            # Por ejemplo: extraccion de reglas, validacion de formato, estructuracion
             
-            # Placeholder para procesamiento específico
+            # Placeholder para procesamiento especifico
             processed_instructions = DocumentProcessingService._extract_instructions(content)
             
             return True
@@ -115,7 +115,7 @@ class DocumentProcessingService:
             if not content:
                 return False
             
-            # Procesamiento básico para documentos generales
+            # Procesamiento basico para documentos generales
             return True
             
         except Exception as e:
@@ -125,7 +125,7 @@ class DocumentProcessingService:
     @staticmethod
     def _extract_knowledge_concepts(content: str) -> Dict[str, Any]:
         """Extraer conceptos clave de documentos de conocimiento"""
-        # Implementación placeholder - aquí irían algoritmos de NLP
+        # Implementacion placeholder - aqui irian algoritmos de NLP
         concepts = {
             "key_terms": [],
             "definitions": {},
@@ -133,7 +133,7 @@ class DocumentProcessingService:
             "categories": []
         }
         
-        # Ejemplo básico de extracción de términos
+        # Ejemplo basico de extraccion de terminos
         lines = content.split('\n')
         for line in lines:
             if ':' in line and len(line.split(':')) == 2:
@@ -152,7 +152,7 @@ class DocumentProcessingService:
             "priorities": []
         }
         
-        # Ejemplo básico de extracción de instrucciones
+        # Ejemplo basico de extraccion de instrucciones
         lines = content.split('\n')
         for line in lines:
             line = line.strip()
@@ -169,7 +169,7 @@ class DocumentProcessingService:
     
     @staticmethod
     def get_company_knowledge_summary(db: Session, company_id: int) -> Dict[str, Any]:
-        """Obtener resumen del conocimiento procesado de una compañía"""
+        """Obtener resumen del conocimiento procesado de una compania"""
         knowledge_docs = CompanyDocumentService.get_knowledge_base_documents(db, company_id)
         instruction_docs = CompanyDocumentService.get_instruction_documents(db, company_id)
         
@@ -188,7 +188,7 @@ class DocumentProcessingService:
             }
         }
         
-        # Analizar distribución de prioridades
+        # Analizar distribucion de prioridades
         for doc in knowledge_docs + instruction_docs:
             category = "knowledge_base" if doc.category == DocumentCategory.KNOWLEDGE_BASE else "instructions"
             priority = f"priority_{doc.priority}"

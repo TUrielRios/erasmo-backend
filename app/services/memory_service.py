@@ -20,12 +20,12 @@ class MemoryService:
         Inicializa el servicio de memoria
         
         Args:
-            default_memory_limit: Número por defecto de mensajes a recordar
+            default_memory_limit: Numero por defecto de mensajes a recordar
         """
         self.default_memory_limit = default_memory_limit
     
     def get_or_create_conversation(self, db: Session, session_id: str = None) -> Conversation:
-        """Obtiene o crea una conversación"""
+        """Obtiene o crea una conversacion"""
         if not session_id:
             session_id = str(uuid.uuid4())
         
@@ -37,30 +37,30 @@ class MemoryService:
         if not conversation:
             conversation = Conversation(
                 session_id=session_id,
-                title="Nueva Conversación",
+                title="Nueva Conversacion",
                 is_active=True
             )
             db.add(conversation)
             db.commit()
             db.refresh(conversation)
-            print(f"✅ Nueva conversación creada: {session_id}")
+            print(f"[OK] Nueva conversacion creada: {session_id}")
         
         return conversation
     
     def add_message(self, db: Session, session_id: str, role: str, content: str, metadata: Dict = None) -> Message:
         """
-        Añade un mensaje a la conversación
+        Anade un mensaje a la conversacion
         
         Args:
-            db: Sesión de base de datos
-            session_id: ID de la sesión
+            db: Sesion de base de datos
+            session_id: ID de la sesion
             role: Rol del mensaje ('user' o 'assistant')
             content: Contenido del mensaje
             metadata: Metadatos adicionales del mensaje
         """
         conversation = self.get_or_create_conversation(db, session_id)
         
-        # Preparar metadatos con timestamp y información adicional
+        # Preparar metadatos con timestamp y informacion adicional
         message_metadata = {
             "created_at": datetime.utcnow().isoformat(),
             "message_length": len(content),
@@ -81,26 +81,26 @@ class MemoryService:
         db.commit()
         db.refresh(message)
         
-        # Actualizar título de conversación si es el primer mensaje del usuario
-        if role == "user" and conversation.title == "Nueva Conversación":
+        # Actualizar titulo de conversacion si es el primer mensaje del usuario
+        if role == "user" and conversation.title == "Nueva Conversacion":
             title = content[:50] + "..." if len(content) > 50 else content
             conversation.title = title
             db.commit()
         
-        # Limpiar mensajes antiguos si excedemos el límite de memoria
+        # Limpiar mensajes antiguos si excedemos el limite de memoria
         self._cleanup_old_messages(db, conversation.id)
         
-        print(f"✅ Mensaje añadido: {role} - {len(content)} caracteres")
+        print(f"[OK] Mensaje anadido: {role} - {len(content)} caracteres")
         return message
     
     def get_conversation_history(self, db: Session, session_id: str, limit: int = None) -> List[Dict[str, Any]]:
         """
-        Obtiene el historial completo de una conversación
+        Obtiene el historial completo de una conversacion
         
         Args:
-            db: Sesión de base de datos
-            session_id: ID de la sesión
-            limit: Límite de mensajes (por defecto usa self.default_memory_limit)
+            db: Sesion de base de datos
+            session_id: ID de la sesion
+            limit: Limite de mensajes (por defecto usa self.default_memory_limit)
         """
         if limit is None:
             limit = self.default_memory_limit
@@ -113,12 +113,12 @@ class MemoryService:
         if not conversation:
             return []
         
-        # Obtener los últimos N mensajes ordenados cronológicamente
+        # Obtener los ultimos N mensajes ordenados cronologicamente
         messages = db.query(Message).filter(
             Message.conversation_id == conversation.id
         ).order_by(desc(Message.timestamp)).limit(limit).all()
         
-        # Revertir para tener orden cronológico correcto
+        # Revertir para tener orden cronologico correcto
         messages.reverse()
         
         history = []
@@ -142,10 +142,10 @@ class MemoryService:
         Obtiene el contexto completo formateado para el AI
         
         Args:
-            db: Sesión de base de datos
-            session_id: ID de la sesión
-            include_system_info: Si incluir información del sistema
-            memory_limit: Límite de mensajes a incluir
+            db: Sesion de base de datos
+            session_id: ID de la sesion
+            include_system_info: Si incluir informacion del sistema
+            memory_limit: Limite de mensajes a incluir
         
         Returns:
             Diccionario con el contexto completo
@@ -158,7 +158,7 @@ class MemoryService:
         if not history:
             return {
                 "messages": [],
-                "context_summary": "Nueva conversación sin historial previo",
+                "context_summary": "Nueva conversacion sin historial previo",
                 "message_count": 0,
                 "session_info": {
                     "session_id": session_id,
@@ -181,7 +181,7 @@ class MemoryService:
         # Generar resumen del contexto
         context_summary = self._generate_context_summary(history)
         
-        # Información de la sesión
+        # Informacion de la sesion
         session_info = {
             "session_id": session_id,
             "is_new_session": False,
@@ -205,13 +205,13 @@ class MemoryService:
     
     def get_conversation_summary(self, db: Session, session_id: str) -> Dict[str, Any]:
         """
-        Obtiene un resumen de la conversación actual
+        Obtiene un resumen de la conversacion actual
         """
         history = self.get_conversation_history(db, session_id)
         
         if not history:
             return {
-                "summary": "Conversación nueva sin mensajes",
+                "summary": "Conversacion nueva sin mensajes",
                 "stats": {
                     "total_messages": 0,
                     "user_messages": 0,
@@ -222,7 +222,7 @@ class MemoryService:
         user_messages = [msg for msg in history if msg["role"] == "user"]
         assistant_messages = [msg for msg in history if msg["role"] == "assistant"]
         
-        # Calcular estadísticas
+        # Calcular estadisticas
         stats = {
             "total_messages": len(history),
             "user_messages": len(user_messages),
@@ -239,13 +239,13 @@ class MemoryService:
         return {
             "summary": summary,
             "stats": stats,
-            "recent_topics": self._extract_recent_topics(history[-10:])  # Últimos 10 mensajes
+            "recent_topics": self._extract_recent_topics(history[-10:])  # Ultimos 10 mensajes
         }
     
     def search_in_conversation(self, db: Session, session_id: str, 
                               search_term: str, limit: int = 10) -> List[Dict[str, Any]]:
         """
-        Busca mensajes que contengan un término específico
+        Busca mensajes que contengan un termino especifico
         """
         conversation = db.query(Conversation).filter(
             Conversation.session_id == session_id,
@@ -275,12 +275,12 @@ class MemoryService:
         return results
     
     def update_memory_limit(self, new_limit: int):
-        """Actualiza el límite de memoria por defecto"""
-        self.default_memory_limit = max(10, new_limit)  # Mínimo 10 mensajes
-        print(f"✅ Límite de memoria actualizado a {self.default_memory_limit} mensajes")
+        """Actualiza el limite de memoria por defecto"""
+        self.default_memory_limit = max(10, new_limit)  # Minimo 10 mensajes
+        print(f"[OK] Limite de memoria actualizado a {self.default_memory_limit} mensajes")
     
     def clear_conversation(self, db: Session, session_id: str) -> bool:
-        """Marca una conversación como inactiva"""
+        """Marca una conversacion como inactiva"""
         conversation = db.query(Conversation).filter(
             Conversation.session_id == session_id
         ).first()
@@ -288,21 +288,21 @@ class MemoryService:
         if conversation:
             conversation.is_active = False
             db.commit()
-            print(f"✅ Conversación {session_id} marcada como inactiva")
+            print(f"[OK] Conversacion {session_id} marcada como inactiva")
             return True
         
         return False
     
     def _cleanup_old_messages(self, db: Session, conversation_id: int):
-        """Limpia mensajes antiguos que excedan el límite de memoria"""
-        return  # No hacer limpieza automática
+        """Limpia mensajes antiguos que excedan el limite de memoria"""
+        return  # No hacer limpieza automatica
         
-        # Código original comentado para mantener la funcionalidad si se necesita
+        # Codigo original comentado para mantener la funcionalidad si se necesita
         # total_messages = db.query(Message).filter(
         #     Message.conversation_id == conversation_id
         # ).count()
         # 
-        # # Si excedemos el límite, eliminar los mensajes más antiguos
+        # # Si excedemos el limite, eliminar los mensajes mas antiguos
         # if total_messages > self.default_memory_limit * 1.5:  # Permitir un 50% extra antes de limpiar
         #     messages_to_delete = total_messages - self.default_memory_limit
         #     
@@ -314,7 +314,7 @@ class MemoryService:
         #         db.delete(message)
         #     
         #     db.commit()
-        #     print(f"🧹 Limpiados {messages_to_delete} mensajes antiguos")
+        #     print(f" Limpiados {messages_to_delete} mensajes antiguos")
     
     def _parse_message_metadata(self, metadata_json: str) -> Dict[str, Any]:
         """Parse metadata JSON de forma segura"""
@@ -332,42 +332,42 @@ class MemoryService:
             return {}
     
     def _generate_context_summary(self, history: List[Dict[str, Any]]) -> str:
-        """Genera un resumen del contexto de la conversación"""
+        """Genera un resumen del contexto de la conversacion"""
         if not history:
-            return "Nueva conversación"
+            return "Nueva conversacion"
         
         user_messages = [msg for msg in history if msg["role"] == "user"]
         assistant_messages = [msg for msg in history if msg["role"] == "assistant"]
         
         summary_parts = [
-            f"Conversación con {len(history)} mensajes totales",
+            f"Conversacion con {len(history)} mensajes totales",
             f"({len(user_messages)} del usuario, {len(assistant_messages)} del asistente)"
         ]
         
         if history:
             time_span = datetime.fromisoformat(history[-1]["timestamp"]) - datetime.fromisoformat(history[0]["timestamp"])
-            if time_span.total_seconds() > 3600:  # Más de 1 hora
-                summary_parts.append(f"Duración: {time_span.total_seconds()//3600:.0f}h {(time_span.total_seconds()%3600)//60:.0f}m")
+            if time_span.total_seconds() > 3600:  # Mas de 1 hora
+                summary_parts.append(f"Duracion: {time_span.total_seconds()//3600:.0f}h {(time_span.total_seconds()%3600)//60:.0f}m")
             else:
-                summary_parts.append(f"Duración: {time_span.total_seconds()//60:.0f}m")
+                summary_parts.append(f"Duracion: {time_span.total_seconds()//60:.0f}m")
         
         return ". ".join(summary_parts)
     
     def _generate_conversation_summary(self, history: List[Dict[str, Any]], stats: Dict[str, Any]) -> str:
-        """Genera un resumen narrativo de la conversación"""
+        """Genera un resumen narrativo de la conversacion"""
         if not history:
-            return "Conversación vacía"
+            return "Conversacion vacia"
         
         # Tomar una muestra de mensajes para el resumen
         sample_size = min(5, len(history))
         recent_messages = history[-sample_size:]
         
-        summary = f"Conversación activa con {stats['total_messages']} mensajes intercambiados. "
+        summary = f"Conversacion activa con {stats['total_messages']} mensajes intercambiados. "
         
         if stats['user_messages'] > stats['assistant_messages']:
             summary += "El usuario ha sido muy participativo. "
         
-        # Agregar información sobre temas recientes si es posible
+        # Agregar informacion sobre temas recientes si es posible
         recent_topics = self._extract_recent_topics(recent_messages)
         if recent_topics:
             summary += f"Temas recientes: {', '.join(recent_topics[:3])}."
@@ -375,24 +375,24 @@ class MemoryService:
         return summary
     
     def _extract_recent_topics(self, recent_messages: List[Dict[str, Any]]) -> List[str]:
-        """Extrae temas de mensajes recientes (implementación básica)"""
+        """Extrae temas de mensajes recientes (implementacion basica)"""
         topics = []
         
-        # Esta es una implementación simple - en un caso real podrías usar NLP
-        common_words = set(['el', 'la', 'de', 'que', 'y', 'en', 'un', 'es', 'se', 'no', 'te', 'lo', 'le', 'da', 'su', 'por', 'son', 'con', 'para', 'al', 'me', 'si', 'muy', 'más', 'como', 'pero', 'sus', 'del', 'está', 'todo', 'una', 'ser', 'son', 'hacer', 'puede', 'tiene'])
+        # Esta es una implementacion simple - en un caso real podrias usar NLP
+        common_words = set(['el', 'la', 'de', 'que', 'y', 'en', 'un', 'es', 'se', 'no', 'te', 'lo', 'le', 'da', 'su', 'por', 'son', 'con', 'para', 'al', 'me', 'si', 'muy', 'mas', 'como', 'pero', 'sus', 'del', 'esta', 'todo', 'una', 'ser', 'son', 'hacer', 'puede', 'tiene'])
         
         for msg in recent_messages:
             if msg["role"] == "user":
                 words = msg["content"].lower().split()
-                # Buscar palabras significativas (más de 3 caracteres, no comunes)
+                # Buscar palabras significativas (mas de 3 caracteres, no comunes)
                 significant_words = [w for w in words if len(w) > 3 and w not in common_words and w.isalpha()]
-                topics.extend(significant_words[:2])  # Máximo 2 por mensaje
+                topics.extend(significant_words[:2])  # Maximo 2 por mensaje
         
-        # Devolver temas únicos
-        return list(set(topics))[:5]  # Máximo 5 temas
+        # Devolver temas unicos
+        return list(set(topics))[:5]  # Maximo 5 temas
     
     def _get_message_context(self, db: Session, message_id: int, context_size: int = 2) -> Dict[str, Any]:
-        """Obtiene el contexto alrededor de un mensaje específico"""
+        """Obtiene el contexto alrededor de un mensaje especifico"""
         message = db.query(Message).filter(Message.id == message_id).first()
         if not message:
             return {}
@@ -414,7 +414,7 @@ class MemoryService:
         }
     
     def _get_system_info(self, db: Session, session_id: str) -> Dict[str, Any]:
-        """Obtiene información del sistema para incluir en el contexto"""
+        """Obtiene informacion del sistema para incluir en el contexto"""
         return {
             "memory_service_version": "2.0",
             "memory_limit": self.default_memory_limit,
@@ -430,15 +430,15 @@ class MemoryService:
     
     def extract_key_info(self, db: Session, session_id: str, content: str) -> Dict[str, Any]:
         """
-        Extrae información clave de un mensaje para almacenar en memoria
+        Extrae informacion clave de un mensaje para almacenar en memoria
         
         Args:
-            db: Sesión de base de datos
-            session_id: ID de la sesión
+            db: Sesion de base de datos
+            session_id: ID de la sesion
             content: Contenido del mensaje a analizar
             
         Returns:
-            Diccionario con información clave extraída
+            Diccionario con informacion clave extraida
         """
         key_info = {
             "message_length": len(content),
@@ -449,9 +449,9 @@ class MemoryService:
             "session_id": session_id
         }
         
-        # Extraer palabras clave básicas
+        # Extraer palabras clave basicas
         words = content.lower().split()
-        common_words = {'el', 'la', 'de', 'que', 'y', 'en', 'un', 'es', 'se', 'no', 'te', 'lo', 'le', 'da', 'su', 'por', 'son', 'con', 'para', 'al', 'me', 'si', 'muy', 'más', 'como', 'pero', 'sus', 'del', 'está', 'todo', 'una', 'ser', 'hacer', 'puede', 'tiene'}
+        common_words = {'el', 'la', 'de', 'que', 'y', 'en', 'un', 'es', 'se', 'no', 'te', 'lo', 'le', 'da', 'su', 'por', 'son', 'con', 'para', 'al', 'me', 'si', 'muy', 'mas', 'como', 'pero', 'sus', 'del', 'esta', 'todo', 'una', 'ser', 'hacer', 'puede', 'tiene'}
         
         keywords = [word for word in words if len(word) > 3 and word not in common_words and word.isalpha()]
         key_info["keywords"] = keywords[:10]  # Top 10 keywords

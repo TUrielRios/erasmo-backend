@@ -12,19 +12,19 @@ router = APIRouter()
 @router.get("/health", response_model=HealthResponse)
 async def health_check():
     """
-    Endpoint de verificación de salud del sistema
+    Endpoint de verificacion de salud del sistema
     
     Verifica el estado de:
     - API principal
-    - Conexión a vector database
-    - Conexión a OpenAI API
+    - Conexion a vector database
+    - Conexion a OpenAI API
     - Servicios auxiliares
     """
     
     # TODO: Implementar verificaciones reales de servicios
     services_status = {
         "api": "healthy",
-        "vector_db": "healthy",  # TODO: Verificar conexión real
+        "vector_db": "healthy",  # TODO: Verificar conexion real
         "openai": "healthy",     # TODO: Verificar API key
         "embeddings": "healthy"   # TODO: Verificar modelo de embeddings
     }
@@ -39,10 +39,10 @@ async def health_check():
 @router.get("/health/detailed")
 async def detailed_health_check():
     """
-    Endpoint de salud detallado con métricas adicionales
+    Endpoint de salud detallado con metricas adicionales
     """
     
-    # TODO: Implementar métricas detalladas
+    # TODO: Implementar metricas detalladas
     return {
         "status": "healthy",
         "timestamp": datetime.now(),

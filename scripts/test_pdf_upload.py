@@ -3,13 +3,13 @@ import os
 import sys
 import base64
 
-# Configuración
+# Configuracion
 API_URL = os.getenv("API_URL", "http://localhost:8000/api/v1")
 USER_ID = 1
 
 def create_dummy_pdf(filename="test_doc.pdf"):
-    """Crea un PDF válido para pruebas"""
-    # PDF mínimo válido 1.4
+    """Crea un PDF valido para pruebas"""
+    # PDF minimo valido 1.4
     pdf_content = (
         b"%PDF-1.4\n"
         b"1 0 obj\n"
@@ -58,10 +58,10 @@ def create_dummy_pdf(filename="test_doc.pdf"):
     try:
         with open(filename, "wb") as f:
             f.write(pdf_content)
-        print(f"📄 PDF de prueba creado: {filename}")
+        print(f"[DOC] PDF de prueba creado: {filename}")
         return filename
     except Exception as e:
-        print(f"❌ Error creando PDF: {e}")
+        print(f"[ERR] Error creando PDF: {e}")
         return None
 
 def test_upload_and_analyze():
@@ -69,7 +69,7 @@ def test_upload_and_analyze():
     if not create_dummy_pdf(filename):
         return
 
-    print(f"\n🚀 Iniciando prueba de carga de PDF...")
+    print(f"\n[LAUNCH] Iniciando prueba de carga de PDF...")
     
     url = f"{API_URL}/files/analyze-with-message"
     
@@ -78,27 +78,27 @@ def test_upload_and_analyze():
             files = {"file": (filename, f, "application/pdf")}
             params = {"user_id": USER_ID}
             
-            print(f"📡 Enviando petición a {url}...")
+            print(f" Enviando peticion a {url}...")
             response = requests.post(url, files=files, params=params)
             
             if response.status_code == 200:
                 data = response.json()
-                print("\n✅ ÉXITO: Archivo procesado correctamente")
+                print("\n[OK] EXITO: Archivo procesado correctamente")
                 print("-" * 50)
-                print(f"📂 Archivo: {data.get('filename')}")
-                print(f"📋 Tipo: {data.get('file_type')}")
-                print(f"📝 Mensaje del sistema: {data.get('message')}")
+                print(f" Archivo: {data.get('filename')}")
+                print(f"[CLIPBOARD] Tipo: {data.get('file_type')}")
+                print(f" Mensaje del sistema: {data.get('message')}")
                 print("-" * 50)
-                print("Contexto extraído (primeros 200 caracteres):")
+                print("Contexto extraido (primeros 200 caracteres):")
                 print(data.get('file_context', '')[:200] + "...")
                 return data
             else:
-                print(f"\n❌ ERROR: Código de estado {response.status_code}")
+                print(f"\n[ERR] ERROR: Codigo de estado {response.status_code}")
                 print(response.text)
                 return None
                 
     except Exception as e:
-        print(f"\n❌ EXCEPCIÓN: {str(e)}")
+        print(f"\n[ERR] EXCEPCION: {str(e)}")
         return None
 
 if __name__ == "__main__":

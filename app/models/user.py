@@ -1,5 +1,5 @@
 """
-Modelos de autenticación y gestión de usuarios
+Modelos de autenticacion y gestion de usuarios
 """
 
 from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey
@@ -18,7 +18,7 @@ class User(Base):
     full_name = Column(String(255), nullable=True)
     
     company_id = Column(Integer, ForeignKey("companies.id"), nullable=True)
-    work_area = Column(String(255), nullable=True)  # Área de desempeño
+    work_area = Column(String(255), nullable=True)  # Area de desempeno
     role = Column(String(50), default="client")  # 'client' o 'admin'
     
     is_active = Column(Boolean, default=True)

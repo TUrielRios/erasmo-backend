@@ -21,20 +21,20 @@ class MarkdownFormatter:
         Formatea una respuesta conceptual en Markdown
         """
         
-        markdown = f"""# 🧠 Análisis Conceptual
+        markdown = f"""# [BRAIN] Analisis Conceptual
 
 {content}
 
-## 📚 Fuentes de Conocimiento
+## [KNOWLEDGE] Fuentes de Conocimiento
 
 {MarkdownFormatter._format_sources(sources)}
 
-## 📊 Nivel de Confianza
+## [STATS] Nivel de Confianza
 
 **Confianza:** {confidence:.1%}
 
 ---
-*Generado por Erasmo Estratégico Verbal*
+*Generado por Erasmo Estrategico Verbal*
 """
         
         return markdown
@@ -51,18 +51,18 @@ class MarkdownFormatter:
         """
         
         priority_emoji = {
-            "alta": "🔴",
-            "media": "🟡", 
-            "baja": "🟢"
+            "alta": "[IMPORTANT]",
+            "media": "[y]", 
+            "baja": "[g]"
         }
         
-        markdown = f"""# ⚡ Plan de Acción
+        markdown = f"""# [ACTION] Plan de Accion
 
 {content}
 
-## 📋 Información del Plan
+## [CLIPBOARD] Informacion del Plan
 
-**Prioridad:** {priority_emoji.get(priority, "⚪")} {priority.title()}
+**Prioridad:** {priority_emoji.get(priority, "[o]")} {priority.title()}
 """
         
         if timeline:
@@ -70,7 +70,7 @@ class MarkdownFormatter:
         
         markdown += """
 ---
-*Generado por Erasmo Estratégico Verbal*
+*Generado por Erasmo Estrategico Verbal*
 """
         
         return markdown
@@ -78,12 +78,12 @@ class MarkdownFormatter:
     @staticmethod
     def format_clarification_questions(questions: List[Dict[str, Any]]) -> str:
         """
-        Formatea preguntas de clarificación en Markdown
+        Formatea preguntas de clarificacion en Markdown
         """
         
-        markdown = """# ❓ Necesito Más Información
+        markdown = """# [QUERY] Necesito Mas Informacion
 
-Para darte la mejor respuesta estratégica, necesito que me ayudes con algunas clarificaciones:
+Para darte la mejor respuesta estrategica, necesito que me ayudes con algunas clarificaciones:
 
 """
         
@@ -101,7 +101,7 @@ Para darte la mejor respuesta estratégica, necesito que me ayudes con algunas c
                 markdown += "\n"
         
         markdown += """---
-*Una vez que me proporciones esta información, podré generar una respuesta conceptual y un plan de acción específico para tu situación.*
+*Una vez que me proporciones esta informacion, podre generar una respuesta conceptual y un plan de accion especifico para tu situacion.*
 """
         
         return markdown
@@ -113,11 +113,11 @@ Para darte la mejor respuesta estratégica, necesito que me ayudes con algunas c
         """
         
         if not sources:
-            return "*No se encontraron fuentes específicas para esta respuesta.*"
+            return "*No se encontraron fuentes especificas para esta respuesta.*"
         
         formatted = ""
         for source in sources:
-            formatted += f"- 📄 `{source}`\n"
+            formatted += f"- [DOC] `{source}`\n"
         
         return formatted
     
@@ -127,7 +127,7 @@ Para darte la mejor respuesta estratégica, necesito que me ayudes con algunas c
         Formatea un mensaje de error en Markdown
         """
         
-        markdown = f"""# ⚠️ Error en el Procesamiento
+        markdown = f"""# [WARN] Error en el Procesamiento
 
 Lo siento, he encontrado un problema al procesar tu consulta:
 
@@ -135,17 +135,17 @@ Lo siento, he encontrado un problema al procesar tu consulta:
 """
         
         if error_code:
-            markdown += f"**Código:** `{error_code}`\n"
+            markdown += f"**Codigo:** `{error_code}`\n"
         
         markdown += """
-## 🔄 Qué puedes hacer:
+## [REFRESH] Que puedes hacer:
 
-1. **Reformula tu pregunta** - Intenta ser más específico
-2. **Verifica la conexión** - Asegúrate de que el sistema esté funcionando
+1. **Reformula tu pregunta** - Intenta ser mas especifico
+2. **Verifica la conexion** - Asegurate de que el sistema este funcionando
 3. **Contacta soporte** - Si el problema persiste
 
 ---
-*Erasmo Estratégico Verbal - Sistema de IA Conversacional*
+*Erasmo Estrategico Verbal - Sistema de IA Conversacional*
 """
         
         return markdown

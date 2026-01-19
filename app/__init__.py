@@ -1,3 +1,3 @@
 """
-Paquete principal de la aplicación Erasmo
+Paquete principal de la aplicacion Erasmo
 """

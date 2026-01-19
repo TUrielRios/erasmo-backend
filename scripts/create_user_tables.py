@@ -50,10 +50,10 @@ def create_user_tables():
                 conn.execute(text("""ALTER TABLE conversations ADD CONSTRAINT fk_conversations_user_id FOREIGN KEY (user_id) REFERENCES users(id)"""))
                 
             conn.commit()
-            print("✅ Tablas de usuarios creadas y actualizadas exitosamente")
+            print("[OK] Tablas de usuarios creadas y actualizadas exitosamente")
             
     except Exception as e:
-        print(f"❌ Error al crear tablas: {e}")
+        print(f"[ERR] Error al crear tablas: {e}")
         raise
 
 if __name__ == "__main__":

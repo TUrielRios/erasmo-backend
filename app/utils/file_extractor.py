@@ -25,7 +25,7 @@ class FileExtractor:
             content: Contenido del archivo PDF en bytes
             
         Returns:
-            Texto extraído del PDF
+            Texto extraido del PDF
         """
         try:
             from pypdf import PdfReader
@@ -34,31 +34,31 @@ class FileExtractor:
             reader = PdfReader(pdf_file)
             
             text_parts = []
-            logger.info(f"📄 Iniciando extracción de PDF. Total páginas: {len(reader.pages)}")
+            logger.info(f"[DOC] Iniciando extraccion de PDF. Total paginas: {len(reader.pages)}")
             
             for page_num, page in enumerate(reader.pages):
                 try:
                     page_text = page.extract_text()
                     if page_text:
-                        text_parts.append(f"--- Página {page_num + 1} ---\n{page_text}")
-                        logger.debug(f"✅ Página {page_num + 1} extraída: {len(page_text)} caracteres")
+                        text_parts.append(f"--- Pagina {page_num + 1} ---\n{page_text}")
+                        logger.debug(f"[OK] Pagina {page_num + 1} extraida: {len(page_text)} caracteres")
                     else:
-                        logger.warning(f"⚠️ Página {page_num + 1} vacía o sin texto seleccionable")
+                        logger.warning(f"[WARN] Pagina {page_num + 1} vacia o sin texto seleccionable")
                 except Exception as e:
-                    logger.warning(f"⚠️ Error extrayendo página {page_num + 1}: {e}")
+                    logger.warning(f"[WARN] Error extrayendo pagina {page_num + 1}: {e}")
                     continue
             
             extracted_text = "\n\n".join(text_parts)
             
             if not extracted_text.strip():
-                logger.warning("⚠️ PDF procesado pero no se extrajo texto (posible PDF escaneado)")
+                logger.warning("[WARN] PDF procesado pero no se extrajo texto (posible PDF escaneado)")
                 return "[No se pudo extraer texto del documento. Es posible que sea un PDF escaneado o imagen.]"
                 
-            logger.info(f"✅ PDF procesado exitosamente: {len(extracted_text)} caracteres extraídos")
+            logger.info(f"[OK] PDF procesado exitosamente: {len(extracted_text)} caracteres extraidos")
             return extracted_text
             
         except Exception as e:
-            logger.error(f"❌ Error procesando PDF: {e}")
+            logger.error(f"[ERR] Error procesando PDF: {e}")
             return ""
     
     @staticmethod
@@ -70,7 +70,7 @@ class FileExtractor:
             content: Contenido del archivo Word en bytes
             
         Returns:
-            Texto extraído del documento
+            Texto extraido del documento
         """
         try:
             from docx import Document
@@ -80,7 +80,7 @@ class FileExtractor:
             
             text_parts = []
             
-            # Extraer texto de párrafos
+            # Extraer texto de parrafos
             for para in doc.paragraphs:
                 if para.text.strip():
                     text_parts.append(para.text)
@@ -93,11 +93,11 @@ class FileExtractor:
                         text_parts.append(row_text)
             
             extracted_text = "\n\n".join(text_parts)
-            logger.info(f"✅ Word procesado: {len(doc.paragraphs)} párrafos, {len(extracted_text)} caracteres")
+            logger.info(f"[OK] Word procesado: {len(doc.paragraphs)} parrafos, {len(extracted_text)} caracteres")
             return extracted_text
             
         except Exception as e:
-            logger.error(f"❌ Error procesando Word: {e}")
+            logger.error(f"[ERR] Error procesando Word: {e}")
             return ""
     
     @staticmethod
@@ -109,7 +109,7 @@ class FileExtractor:
             content: Contenido del archivo Excel en bytes
             
         Returns:
-            Texto extraído de las hojas
+            Texto extraido de las hojas
         """
         try:
             from openpyxl import load_workbook
@@ -130,11 +130,11 @@ class FileExtractor:
                         text_parts.append(" | ".join(row_values))
             
             extracted_text = "\n".join(text_parts)
-            logger.info(f"✅ Excel procesado: {len(workbook.sheetnames)} hojas, {len(extracted_text)} caracteres")
+            logger.info(f"[OK] Excel procesado: {len(workbook.sheetnames)} hojas, {len(extracted_text)} caracteres")
             return extracted_text
             
         except Exception as e:
-            logger.error(f"❌ Error procesando Excel: {e}")
+            logger.error(f"[ERR] Error procesando Excel: {e}")
             return ""
     
     @staticmethod
@@ -146,7 +146,7 @@ class FileExtractor:
             content: Contenido del archivo PowerPoint en bytes
             
         Returns:
-            Texto extraído de las diapositivas
+            Texto extraido de las diapositivas
         """
         try:
             from pptx import Presentation
@@ -172,11 +172,11 @@ class FileExtractor:
                                 text_parts.append(row_text)
             
             extracted_text = "\n\n".join(text_parts)
-            logger.info(f"✅ PowerPoint procesado: {len(presentation.slides)} diapositivas, {len(extracted_text)} caracteres")
+            logger.info(f"[OK] PowerPoint procesado: {len(presentation.slides)} diapositivas, {len(extracted_text)} caracteres")
             return extracted_text
             
         except Exception as e:
-            logger.error(f"❌ Error procesando PowerPoint: {e}")
+            logger.error(f"[ERR] Error procesando PowerPoint: {e}")
             return ""
     
     @staticmethod
@@ -189,7 +189,7 @@ class FileExtractor:
             filename: Nombre del archivo (para logging)
             
         Returns:
-            Texto extraído de la imagen
+            Texto extraido de la imagen
         """
         try:
             image_file = io.BytesIO(content)
@@ -203,28 +203,28 @@ class FileExtractor:
             extracted_text = pytesseract.image_to_string(image, lang='spa+eng')
             
             if extracted_text.strip():
-                logger.info(f"✅ Imagen procesada ({filename}): {len(extracted_text)} caracteres extraídos")
+                logger.info(f"[OK] Imagen procesada ({filename}): {len(extracted_text)} caracteres extraidos")
                 return extracted_text
             else:
-                logger.warning(f"⚠️ No se encontró texto en la imagen: {filename}")
+                logger.warning(f"[WARN] No se encontro texto en la imagen: {filename}")
                 return ""
             
         except Exception as e:
-            logger.error(f"❌ Error procesando imagen {filename}: {e}")
-            logger.info("💡 Asegúrate de tener Tesseract OCR instalado: https://github.com/tesseract-ocr/tesseract")
+            logger.error(f"[ERR] Error procesando imagen {filename}: {e}")
+            logger.info("[IDEA] Asegurate de tener Tesseract OCR instalado: https://github.com/tesseract-ocr/tesseract")
             return ""
     
     @staticmethod
     def extract_text(content: bytes, filename: str) -> str:
         """
-        Extrae texto de un archivo según su extensión
+        Extrae texto de un archivo segun su extension
         
         Args:
             content: Contenido del archivo en bytes
-            filename: Nombre del archivo con extensión
+            filename: Nombre del archivo con extension
             
         Returns:
-            Texto extraído del archivo
+            Texto extraido del archivo
         """
         file_extension = filename.lower().split('.')[-1]
         
@@ -249,8 +249,8 @@ class FileExtractor:
             try:
                 return extractor(content)
             except Exception as e:
-                logger.error(f"❌ Error extrayendo texto de {filename}: {e}")
+                logger.error(f"[ERR] Error extrayendo texto de {filename}: {e}")
                 return ""
         else:
-            logger.warning(f"⚠️ Formato no soportado: {file_extension}")
+            logger.warning(f"[WARN] Formato no soportado: {file_extension}")
             return ""

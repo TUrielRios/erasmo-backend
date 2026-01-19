@@ -45,7 +45,7 @@ class TokenCounter:
             tokens = self.encoding.encode(text)
             return len(tokens)
         except Exception as e:
-            print(f"⚠️ [DEBUG] Error counting tokens: {e}, using fallback estimation")
+            print(f"[WARN] [DEBUG] Error counting tokens: {e}, using fallback estimation")
             return max(1, len(text) // 4)
     
     def count_messages_tokens(self, messages: List[Dict[str, str]]) -> int:
@@ -93,7 +93,7 @@ class TokenBudgetManager:
         response_mode: str = "medium"
     ) -> Dict[str, int]:
         """
-        Valida y ajusta el presupuesto de tokens según el espacio disponible
+        Valida y ajusta el presupuesto de tokens segun el espacio disponible
         Retorna presupuesto ajustado para asegurar que la respuesta tenga espacio suficiente
         """
         config = self.BUDGET_CONFIG.get(response_mode, self.BUDGET_CONFIG["medium"])
@@ -108,7 +108,7 @@ class TokenBudgetManager:
         max_response = config["max_response_tokens"]
         
         if available_for_response < min_response:
-            print(f"⚠️ [DEBUG] Espacio limitado. Ajustando presupuesto:")
+            print(f"[WARN] [DEBUG] Espacio limitado. Ajustando presupuesto:")
             print(f"   - Tokens entrada: {input_used}")
             print(f"   - Disponible: {available_for_response}")
             max_response = available_for_response - 100
@@ -116,7 +116,7 @@ class TokenBudgetManager:
             max_response = min(max_response, available_for_response - 500)
         
         budget = {
-            "max_completion_tokens": max(min_response, max_response),
+            "max_tokens": max(min_response, max_response),
             "system_tokens": system_tokens,
             "user_tokens": user_tokens,
             "total_input_tokens": input_used,
@@ -124,12 +124,12 @@ class TokenBudgetManager:
             "response_mode": response_mode
         }
         
-        print(f"📊 [DEBUG] Presupuesto de tokens ({response_mode}):")
+        print(f"[STATS] [DEBUG] Presupuesto de tokens ({response_mode}):")
         print(f"   - Sistema: {system_tokens} tokens")
         print(f"   - Usuario: {user_tokens} tokens")
         print(f"   - Total entrada: {input_used} tokens")
         print(f"   - Disponible: {available_for_response} tokens")
-        print(f"   - Max respuesta: {budget['max_completion_tokens']} tokens")
+        print(f"   - Max respuesta: {budget['max_tokens']} tokens")
         
         return budget
 
@@ -168,22 +168,13 @@ class ConversationService:
         attachments: Optional[List[Dict[str, Any]]] = None
     ) -> AsyncGenerator[str, None]:
         """
-        Genera respuesta estratégica con streaming usando fuentes de conocimiento e instrucciones personalizadas
+        Genera respuesta estrategica con streaming usando fuentes de conocimiento e instrucciones personalizadas
         Now supports file attachments (images and documents)
         """
-        print(f"🔄 [DEBUG] Starting streaming response for session: {session_id}, user: {user_id}, require_analysis: {require_analysis}")
-<<<<<<< HEAD
-        
-        if attachments:
-            if self.attachment_handler.validate_attachments(attachments):
-                print(f"📎 [DEBUG] {len(attachments)} valid attachments received")
-            else:
-                print(f"⚠️ [DEBUG] Some attachments have invalid structure")
-=======
+        print(f"[REFRESH] [DEBUG] Starting streaming response for session: {session_id}, user: {user_id}, require_analysis: {require_analysis}")
 
         is_simple_conversational = self._is_simple_conversational_message(message)
-        print(f"💬 [DEBUG] Is simple conversational: {is_simple_conversational}")
->>>>>>> 7cb9ffd (Back en progreso antes de enviar a rama "Juan")
+        print(f"[CHAT] [DEBUG] Is simple conversational: {is_simple_conversational}")
         
         db = SessionLocal()
         try:
@@ -209,29 +200,9 @@ class ConversationService:
             ai_config = await self._get_ai_configuration(db, company_id)
             
             # Standard configuration (replaces modes)
-            max_completion_tokens = 4000
-            print(f"📏 [DEBUG] Using standard max_completion_tokens: {max_completion_tokens}")
+            max_tokens = 4000
+            print(f"[TOKEN] [DEBUG] Using standard max_tokens: {max_tokens}")
 
-<<<<<<< HEAD
-            relevant_context = await self._search_prioritized_context(
-                message,
-                company_knowledge,
-                project_knowledge,
-                company_id=company_id,
-                project_id=project_id
-            )
-
-            # Prepare context and history for strategy
-            prompt_role = "full_analysis" if require_analysis else "normal_chat"
-            _, _, compressed_context, _ = self.token_optimizer.optimize_prompt(
-                system_prompt="",
-                context=relevant_context,
-                history=[],
-                user_message="",
-                prompt_role=prompt_role
-            )
-            relevant_context = compressed_context
-=======
             if not is_simple_conversational:
                 # Search for relevant context
                 # Usar _search_prioritized_context que ahora usa enhanced_search
@@ -256,10 +227,9 @@ class ConversationService:
                 )
                 relevant_context = compressed_context
             else:
-                print(f"💬 [DEBUG] Simple conversational message detected, skipping document search")
+                print(f"[CHAT] [DEBUG] Simple conversational message detected, skipping document search")
                 relevant_context = []
 
->>>>>>> 7cb9ffd (Back en progreso antes de enviar a rama "Juan")
 
             if history_context is None:
                 full_context = self.memory_service.get_full_context_for_ai(db, session_id, memory_limit=200)
@@ -275,6 +245,17 @@ class ConversationService:
 
             key_info = self.memory_service.extract_key_info(db, session_id, message)
 
+            # Extract company data for prompts
+            company_name = user_company_data.get('company_name', 'la empresa')
+            industry = user_company_data.get('industry', 'General')
+            
+            # Compile instructions and knowledge
+            instruction_text = self._compile_instructions(company_instructions) if company_instructions else "Responde de manera profesional y util."
+            knowledge_text = self._compile_knowledge(company_knowledge) if company_knowledge else "No hay conocimiento especifico disponible."
+            
+            # Project context
+            project_context = f"\n\nCONTEXTO DEL PROYECTO:\nEsta conversacion esta vinculada al proyecto ID {project_id}. Prioriza documentos del proyecto." if project_id else ""
+
             # Select Strategy
             from app.services.chat.strategies.advanced_strategy import AdvancedResponseStrategy
             from app.services.chat.strategies.medium_strategy import MediumResponseStrategy
@@ -282,58 +263,53 @@ class ConversationService:
 
             # Default to Medium Strategy (Standard)
             strategy = MediumResponseStrategy(self)
-            print(f"🔄 [DEBUG] Using standard strategy: {type(strategy).__name__}")
-            print(f"🔄 [DEBUG] Using strategy: {type(strategy).__name__}")
+            print(f"[REFRESH] [DEBUG] Using standard strategy: {type(strategy).__name__}")
+            print(f"[REFRESH] [DEBUG] Using strategy: {type(strategy).__name__}")
 
-<<<<<<< HEAD
-            # Delegate generation to strategy
-            full_response = ""
-            start_time = datetime.now()
-=======
             if is_simple_conversational:
                 system_prompt = f"""ERES UN ASISTENTE DE IA PERSONALIZADO PARA {company_name.upper()}.
 
 Responde de manera amigable, natural y profesional a los saludos y preguntas conversacionales del usuario.
 
-INFORMACIÓN DE LA EMPRESA:
+INFORMACION DE LA EMPRESA:
 - Empresa: {company_name}
 - Industria: {industry}
 
-Mantén respuestas conversacionales, cálidas y breves para saludos simples.
+Manten respuestas conversacionales, calidas y breves para saludos simples.
 """
                 prompt = message
                 
             elif require_analysis:
                 system_prompt = f"""ERES UN ASISTENTE DE IA PERSONALIZADO PARA {company_name.upper()}.{project_context}
 
-INSTRUCCIONES CRÍTICAS - DEBES SEGUIR AL PIE DE LA LETRA:
+INSTRUCCIONES CRITICAS - DEBES SEGUIR AL PIE DE LA LETRA:
 {instruction_text}
 
 FUENTES DE CONOCIMIENTO PRIORITARIAS (USA ESTAS PRIMERO):
 {knowledge_text}
 
-INFORMACIÓN DE LA EMPRESA:
+INFORMACION DE LA EMPRESA:
 - Empresa: {company_name}
 - Industria: {industry}
 - Sector: {user_company_data.get('sector', '')}
 
 REGLAS ESTRICTAS:
-1. SIEMPRE sigue las instrucciones específicas proporcionadas
+1. SIEMPRE sigue las instrucciones especificas proporcionadas
 2. USA PRIMERO el conocimiento de las fuentes prioritarias
 3. Si las fuentes no son suficientes, ENTONCES usa conocimiento general
-4. RECUERDA información de conversaciones anteriores
-5. ADAPTA tu respuesta al contexto específico de {company_name}
-6. GENERA un ANÁLISIS CONCEPTUAL ESTRUCTURADO y un PLAN DE ACCIÓN DETALLADO
-7. GENERA RESPUESTAS EXTENSAS Y DETALLADAS (mínimo 1500 tokens)
+4. RECUERDA informacion de conversaciones anteriores
+5. ADAPTA tu respuesta al contexto especifico de {company_name}
+6. GENERA un ANALISIS CONCEPTUAL ESTRUCTURADO y un PLAN DE ACCION DETALLADO
+7. GENERA RESPUESTAS EXTENSAS Y DETALLADAS (minimo 1500 tokens)
 
 FORMATO REQUERIDO:
-## Análisis Conceptual
-[Análisis detallado del tema - SIGUE EXTENSE CON MÚLTIPLES PÁRRAFOS]
+## Analisis Conceptual
+[Analisis detallado del tema - SIGUE EXTENSE CON MULTIPLES PARRAFOS]
 
-## Plan de Acción
-[Plan estructurado con pasos específicos - DESARROLLA COMPLETAMENTE CADA PASO]
+## Plan de Accion
+[Plan estructurado con pasos especificos - DESARROLLA COMPLETAMENTE CADA PASO]
 """
-                print(f"📊 [DEBUG] Building STRUCTURED analysis prompt (require_analysis=True)")
+                print(f"[ANALYSIS] [DEBUG] Building STRUCTURED analysis prompt (require_analysis=True)")
                 # Pass the compressed context and history to the prompt builder
                 prompt = self._build_enhanced_conversation_prompt(
                     message, relevant_context, conversation_history, "conceptual", key_info, project_id
@@ -341,29 +317,29 @@ FORMATO REQUERIDO:
             else:
                 system_prompt = f"""ERES UN ASISTENTE DE IA PERSONALIZADO PARA {company_name.upper()}.{project_context}
 
-INSTRUCCIONES CRÍTICAS - DEBES SEGUIR AL PIE DE LA LETRA:
+INSTRUCCIONES CRITICAS - DEBES SEGUIR AL PIE DE LA LETRA:
 {instruction_text}
 
 FUENTES DE CONOCIMIENTO PRIORITARIAS (USA ESTAS PRIMERO):
 {knowledge_text}
 
-INFORMACIÓN DE LA EMPRESA:
+INFORMACION DE LA EMPRESA:
 - Empresa: {company_name}
 - Industria: {industry}
 - Sector: {user_company_data.get('sector', '')}
 
 REGLAS ESTRICTAS:
-1. SIEMPRE sigue las instrucciones específicas proporcionadas
+1. SIEMPRE sigue las instrucciones especificas proporcionadas
 2. USA PRIMERO el conocimiento de las fuentes prioritarias
 3. Si las fuentes no son suficientes, ENTONCES usa conocimiento general
-4. RECUERDA información de conversaciones anteriores
-5. ADAPTA tu respuesta al contexto específico de {company_name}
-6. GENERA RESPUESTAS EXTENSAS Y DETALLADAS (mínimo 1500 tokens)
+4. RECUERDA informacion de conversaciones anteriores
+5. ADAPTA tu respuesta al contexto especifico de {company_name}
+6. GENERA RESPUESTAS EXTENSAS Y DETALLADAS (minimo 1500 tokens)
 7. Responde de manera CONVERSACIONAL pero COMPLETA Y PROFUNDA
 
-Mantén respuestas detalladas, informativas y conversacionales - NO hagas respuestas cortas.
+Manten respuestas detalladas, informativas y conversacionales - NO hagas respuestas cortas.
 """
-                print(f"💬 [DEBUG] Building NORMAL conversation prompt (require_analysis=False)")
+                print(f"[CHAT] [DEBUG] Building NORMAL conversation prompt (require_analysis=False)")
                 # Pass the compressed context and history to the prompt builder
                 prompt = self._build_normal_conversation_prompt(
                     message, relevant_context, conversation_history, key_info, project_id
@@ -391,7 +367,8 @@ Mantén respuestas detalladas, informativas y conversacionales - NO hagas respue
 
             response_content = ""
             token_count = 0
->>>>>>> 7cb9ffd (Back en progreso antes de enviar a rama "Juan")
+            full_response = ""
+            start_time = datetime.now()
             
             async for chunk in strategy.generate_response(
                 message, session_id, user_id, relevant_context, conversation_history,
@@ -416,7 +393,7 @@ Mantén respuestas detalladas, informativas y conversacionales - NO hagas respue
             )
 
         except Exception as e:
-            print(f"❌ [DEBUG] Error in streaming response: {e}")
+            print(f"[ERR] [DEBUG] Error in streaming response: {e}")
             yield f"\n\nError generando respuesta: {str(e)}"
         finally:
             db.close()
@@ -447,21 +424,21 @@ Mantén respuestas detalladas, informativas y conversacionales - NO hagas respue
 INSTRUCCIONES CARGADAS:
 {instructions_text}
 
-GUÍA DE ESTILO UNIVERSAL (PRIORIDAD ALTA):
-Tu estilo de respuesta debe ser IDÉNTICO al de ChatGPT.
-1. FORMATO: Usa Markdown siempre. Títulos con negrita (no #), listas con viñetas claras.
-2. EMOJIS: Usa emojis para destacar secciones o puntos clave (ej: ✅, ⭐, 🚀, 💡).
-3. TONO: Directo, útil y conversacional. Evita introducciones formales largas.
+GUIA DE ESTILO UNIVERSAL (PRIORIDAD ALTA):
+Tu estilo de respuesta debe ser IDENTICO al de ChatGPT.
+1. FORMATO: Usa Markdown siempre. Titulos con negrita (no #), listas con vinetas claras.
+2. EMOJIS: Usa emojis para destacar secciones o puntos clave (ej: [OK], [STAR], [LAUNCH], [IDEA]).
+3. TONO: Directo, util y conversacional. Evita introducciones formales largas.
 4. ESTRUCTURA: Separa ideas con espacios. Usa negritas para conceptos clave.
-5. OBJETIVO: Que la respuesta sea visualmente atractiva y fácil de leer.
+5. OBJETIVO: Que la respuesta sea visualmente atractiva y facil de leer.
 """
         
         # Add technical context only (not conversational instructions)
         if attachments:
-            system_prompt += "\n📎 El usuario ha adjuntado archivos. Analízalos y usa su contenido en tu respuesta.\n"
+            system_prompt += "\n[ATTACH] El usuario ha adjuntado archivos. Analizalos y usa su contenido en tu respuesta.\n"
         
         if project_id:
-            system_prompt += f"\n🔴 IMPORTANTE: Esta conversación está vinculada al proyecto ID {project_id}. Prioriza los documentos del proyecto.\n"
+            system_prompt += f"\n[IMPORTANT] IMPORTANTE: Esta conversacion esta vinculada al proyecto ID {project_id}. Prioriza los documentos del proyecto.\n"
         
         return system_prompt
 
@@ -469,7 +446,7 @@ Tu estilo de respuesta debe ser IDÉNTICO al de ChatGPT.
 
     async def analyze_ambiguity(self, message: str, user_id: int = None) -> bool:
         """
-        Analiza si un mensaje es ambiguo usando instrucciones personalizadas por compañía
+        Analiza si un mensaje es ambiguo usando instrucciones personalizadas por compania
         """
         greetings = ['hola', 'buenos dias', 'buenas tardes', 'buenas noches', 'hi', 'hello', 'hey', 'saludos', 'que tal']
         message_lower = message.lower().strip()
@@ -491,7 +468,7 @@ Tu estilo de respuesta debe ser IDÉNTICO al de ChatGPT.
 
             ambiguity_keywords = [
                 'estrategia', 'negocio', 'software', 'empresa', 'startup',
-                'qué hacer', 'consejo', 'recomendación', 'idea'
+                'que hacer', 'consejo', 'recomendacion', 'idea'
             ]
 
             message_lower = message.lower()
@@ -507,18 +484,18 @@ Tu estilo de respuesta debe ser IDÉNTICO al de ChatGPT.
 
     async def _analyze_ambiguity_with_instructions(self, message: str, instructions: List[Dict]) -> bool:
         """
-        Analiza ambigüedad usando instrucciones específicas de la compañía
+        Analiza ambigedad usando instrucciones especificas de la compania
         """
         instruction_text = self._compile_instructions(instructions)
 
         prompt = f"""
-        Siguiendo estas instrucciones específicas:
+        Siguiendo estas instrucciones especificas:
 
         {instruction_text}
 
-        Analiza si la siguiente consulta requiere clarificación según las reglas establecidas.
+        Analiza si la siguiente consulta requiere clarificacion segun las reglas establecidas.
 
-        Responde SOLO con "True" si necesita clarificación o "False" si puedes proceder directamente.
+        Responde SOLO con "True" si necesita clarificacion o "False" si puedes proceder directamente.
 
         Consulta del usuario: "{message}"
         """
@@ -526,24 +503,24 @@ Tu estilo de respuesta debe ser IDÉNTICO al de ChatGPT.
         try:
             api_args = {
                 "model": settings.OPENAI_MODEL,
-                "messages": [{"role": "system", "content": "Sigues estrictamente las instrucciones proporcionadas para determinar si una consulta necesita clarificación."}, {"role": "user", "content": prompt}],
-                "max_completion_tokens": 10, # Limit tokens for a simple True/False response
+                "messages": [{"role": "system", "content": "Sigues estrictamente las instrucciones proporcionadas para determinar si una consulta necesita clarificacion."}, {"role": "user", "content": prompt}],
+                "max_tokens": 10, # Limit tokens for a simple True/False response
                 "temperature": 0.1 # Low temperature for deterministic output
             }
 
-            # Adjust max_completion_tokens and temperature for precision
+            # Adjust max_tokens and temperature for precision
             response = self.openai_client.chat.completions.create(**api_args)
 
             result = response.choices[0].message.content.strip().lower()
             return result == "true"
 
         except Exception as e:
-            print(f"❌ Error analizando ambigüedad con instrucciones: {e}")
+            print(f"[ERR] Error analizando ambigedad con instrucciones: {e}")
             return len(message.split()) < 5
 
     async def generate_clarification_questions(self, message: str, user_id: int = None) -> List[ClarificationQuestion]:
         """
-        Genera preguntas de clarificación usando instrucciones personalizadas
+        Genera preguntas de clarificacion usando instrucciones personalizadas
         """
         db = SessionLocal()
         try:
@@ -560,34 +537,34 @@ Tu estilo de respuesta debe ser IDÉNTICO al de ChatGPT.
 
     async def _generate_clarification_with_instructions(self, message: str, instructions: List[Dict]) -> List[ClarificationQuestion]:
         """
-        Genera preguntas de clarificación siguiendo instrucciones específicas
+        Genera preguntas de clarificacion siguiendo instrucciones especificas
         """
         instruction_text = self._compile_instructions(instructions)
 
         prompt = f"""
-        Siguiendo estas instrucciones específicas:
+        Siguiendo estas instrucciones especificas:
 
         {instruction_text}
 
-        Genera preguntas de clarificación apropiadas para la consulta: "{message}"
+        Genera preguntas de clarificacion apropiadas para la consulta: "{message}"
 
-        Usa el estilo, tono y metodología especificados en las instrucciones.
+        Usa el estilo, tono y metodologia especificados en las instrucciones.
 
         Formato:
-        Pregunta: [pregunta según las instrucciones]
-        Contexto: [contexto según el estilo]
-        Opciones: [opción 1], [opción 2], [opción 3]
+        Pregunta: [pregunta segun las instrucciones]
+        Contexto: [contexto segun el estilo]
+        Opciones: [opcion 1], [opcion 2], [opcion 3]
         """
 
         try:
             api_args = {
                 "model": settings.OPENAI_MODEL,
-                "messages": [{"role": "system", "content": "Sigues estrictamente las instrucciones proporcionadas para generar preguntas de clarificación."}, {"role": "user", "content": prompt}],
-                "max_completion_tokens": 1000, # Sufficient tokens for multiple questions
+                "messages": [{"role": "system", "content": "Sigues estrictamente las instrucciones proporcionadas para generar preguntas de clarificacion."}, {"role": "user", "content": prompt}],
+                "max_tokens": 1000, # Sufficient tokens for multiple questions
                 "temperature": 0.7 # Moderate temperature for creative but focused output
             }
 
-            # Adjust max_completion_tokens and temperature for better clarification generation
+            # Adjust max_tokens and temperature for better clarification generation
             response = self.openai_client.chat.completions.create(**api_args)
 
             content = response.choices[0].message.content
@@ -595,7 +572,7 @@ Tu estilo de respuesta debe ser IDÉNTICO al de ChatGPT.
             return questions[:3]
 
         except Exception as e:
-            print(f"❌ Error generando clarificación con instrucciones: {e}")
+            print(f"[ERR] Error generando clarificacion con instrucciones: {e}")
             return await self._generate_default_clarification(message)
 
     async def generate_strategic_response(
@@ -609,16 +586,16 @@ Tu estilo de respuesta debe ser IDÉNTICO al de ChatGPT.
         attachments: Optional[List[Dict[str, Any]]] = None  # Added attachments parameter
     ) -> Tuple[ConceptualResponse, AccionalResponse]:
         """
-        Genera respuesta estratégica con presupuesto adaptativo de tokens
-        Si require_analysis es False, genera una respuesta normal sin estructura de análisis/plan
+        Genera respuesta estrategica con presupuesto adaptativo de tokens
+        Si require_analysis es False, genera una respuesta normal sin estructura de analisis/plan
         """
-        print(f"🔄 [DEBUG] Starting generate_strategic_response")
+        print(f"[REFRESH] [DEBUG] Starting generate_strategic_response")
 
         if attachments:
             if self.attachment_handler.validate_attachments(attachments):
-                print(f"📎 [DEBUG] {len(attachments)} valid attachments received")
+                print(f"[ATTACH] [DEBUG] {len(attachments)} valid attachments received")
             else:
-                print(f"⚠️ [DEBUG] Some attachments have invalid structure")
+                print(f"[WARN] [DEBUG] Some attachments have invalid structure")
                 attachments = None
 
         db = SessionLocal()
@@ -630,15 +607,15 @@ Tu estilo de respuesta debe ser IDÉNTICO al de ChatGPT.
             conversation = ChatService().get_conversation_by_session_id(db, current_user, session_id)
             project_id = conversation.project_id if conversation else None
 
-            print(f"🔍 [DEBUG] Conversation project_id: {project_id}")
+            print(f"[SEARCH] [DEBUG] Conversation project_id: {project_id}")
 
             user_company_data = await self._get_user_company_data(db, user_id)
             company_id = user_company_data.get('company_id')
 
             if project_id:
-                print(f"📁 [DEBUG] Fetching project-specific documents for project {project_id}")
+                print(f"[FOLDER] [DEBUG] Fetching project-specific documents for project {project_id}")
                 project_knowledge = await self._get_project_knowledge(db, project_id)
-                print(f"✅ [DEBUG] Project knowledge loaded: {len(project_knowledge)} documents")
+                print(f"[OK] [DEBUG] Project knowledge loaded: {len(project_knowledge)} documents")
             else:
                 project_knowledge = []
 
@@ -646,14 +623,14 @@ Tu estilo de respuesta debe ser IDÉNTICO al de ChatGPT.
             company_instructions = await self._get_company_instructions(db, user_id)
             ai_config = await self._get_ai_configuration(db, company_id)
 
-            print(f"✅ [DEBUG] Company data loaded: {len(company_knowledge)} knowledge docs, {len(company_instructions)} instruction docs")
+            print(f"[OK] [DEBUG] Company data loaded: {len(company_knowledge)} knowledge docs, {len(company_instructions)} instruction docs")
 
             # Add message to memory
             try:
                 self.memory_service.add_message(db, session_id, "user", message)
-                print(f"✅ [DEBUG] User message added to memory")
+                print(f"[OK] [DEBUG] User message added to memory")
             except Exception as e:
-                print(f"❌ [DEBUG] Error adding message to memory: {e}")
+                print(f"[ERR] [DEBUG] Error adding message to memory: {e}")
 
             if history_context is None:
                 full_context = self.memory_service.get_full_context_for_ai(db, session_id, memory_limit=200)
@@ -669,7 +646,7 @@ Tu estilo de respuesta debe ser IDÉNTICO al de ChatGPT.
                 require_analysis=require_analysis
             )
             
-            print(f"📊 [DEBUG] Adaptive budget calculated:")
+            print(f"[STATS] [DEBUG] Adaptive budget calculated:")
             print(f"   - Complexity: {adaptive_budget['complexity_level']} (factor: {adaptive_budget['complexity_factor']})")
             print(f"   - Response tokens: {adaptive_budget['response_tokens']}")
             print(f"   - Context tokens: {adaptive_budget['context_tokens']}")
@@ -691,21 +668,21 @@ Tu estilo de respuesta debe ser IDÉNTICO al de ChatGPT.
             )
             relevant_context = compressed_context
 
-            print(f"✅ [DEBUG] Prioritized context search completed: {len(relevant_context)} results")
+            print(f"[OK] [DEBUG] Prioritized context search completed: {len(relevant_context)} results")
 
             # Get conversation history
             try:
                 if history_context is None:
                     full_context = self.memory_service.get_full_context_for_ai(db, session_id, memory_limit=200)
                     conversation_history = full_context.get("messages", [])
-                    print(f"✅ [DEBUG] Fetched conversation context: {len(conversation_history)} messages")
+                    print(f"[OK] [DEBUG] Fetched conversation context: {len(conversation_history)} messages")
                 else:
                     conversation_history = history_context
 
                 key_info = self.memory_service.extract_key_info(db, session_id, message)
-                print(f"✅ [DEBUG] Memory retrieval completed")
+                print(f"[OK] [DEBUG] Memory retrieval completed")
             except Exception as e:
-                print(f"❌ [DEBUG] Error retrieving memory: {e}")
+                print(f"[ERR] [DEBUG] Error retrieving memory: {e}")
                 conversation_history = history_context or []
                 key_info = {}
 
@@ -718,9 +695,9 @@ Tu estilo de respuesta debe ser IDÉNTICO al de ChatGPT.
                         project_id=project_id,
                         attachments=attachments  # Pass attachments
                     )
-                    print(f"✅ [DEBUG] Conceptual response generated with instructions")
+                    print(f"[OK] [DEBUG] Conceptual response generated with instructions")
                 except Exception as e:
-                    print(f"❌ [DEBUG] Error generating conceptual response: {e}")
+                    print(f"[ERR] [DEBUG] Error generating conceptual response: {e}")
                     conceptual = ConceptualResponse(
                         content="Error generando respuesta conceptual. Intenta nuevamente.",
                         sources=[],
@@ -732,18 +709,18 @@ Tu estilo de respuesta debe ser IDÉNTICO al de ChatGPT.
                         message, relevant_context, conceptual.content,
                         company_instructions, ai_config
                     )
-                    print(f"✅ [DEBUG] Accional response generated with instructions")
+                    print(f"[OK] [DEBUG] Accional response generated with instructions")
                 except Exception as e:
-                    print(f"❌ [DEBUG] Error generating accional response: {e}")
+                    print(f"[ERR] [DEBUG] Error generating accional response: {e}")
                     accional = AccionalResponse(
-                        content="Error generando plan de acción. Intenta nuevamente.",
+                        content="Error generando plan de accion. Intenta nuevamente.",
                         priority="media",
                         timeline="Indefinido"
                     )
 
                 # Save assistant response
                 try:
-                    full_response = f"## Análisis Conceptual\n{conceptual.content}\n\n## Plan de Acción\n{accional.content}"
+                    full_response = f"## Analisis Conceptual\n{conceptual.content}\n\n## Plan de Accion\n{accional.content}"
                     self.memory_service.add_message(db, session_id, "assistant", full_response)
                     
                     response_length = len(full_response)
@@ -758,9 +735,9 @@ Tu estilo de respuesta debe ser IDÉNTICO al de ChatGPT.
                         response_time=0
                     )
                     
-                    print(f"✅ [DEBUG] Assistant response added to memory")
+                    print(f"[OK] [DEBUG] Assistant response added to memory")
                 except Exception as e:
-                    print(f"❌ [DEBUG] Error adding assistant response to memory: {e}")
+                    print(f"[ERR] [DEBUG] Error adding assistant response to memory: {e}")
             else:
                 # Generate normal conversational response without structured analysis
                 try:
@@ -770,7 +747,7 @@ Tu estilo de respuesta debe ser IDÉNTICO al de ChatGPT.
                         project_id=project_id,
                         attachments=attachments  # Pass attachments
                     )
-                    print(f"✅ [DEBUG] Normal response generated")
+                    print(f"[OK] [DEBUG] Normal response generated")
                     
                     # Wrap normal response in expected format
                     conceptual = ConceptualResponse(
@@ -802,12 +779,12 @@ Tu estilo de respuesta debe ser IDÉNTICO al de ChatGPT.
                             response_time=0
                         )
                         
-                        print(f"✅ [DEBUG] Normal assistant response added to memory")
+                        print(f"[OK] [DEBUG] Normal assistant response added to memory")
                     except Exception as e:
-                        print(f"❌ [DEBUG] Error adding assistant response to memory: {e}")
+                        print(f"[ERR] [DEBUG] Error adding assistant response to memory: {e}")
                         
                 except Exception as e:
-                    print(f"❌ [DEBUG] Error generating normal response: {e}")
+                    print(f"[ERR] [DEBUG] Error generating normal response: {e}")
                     conceptual = ConceptualResponse(
                         content="Error generando respuesta. Intenta nuevamente.",
                         sources=[],
@@ -819,18 +796,18 @@ Tu estilo de respuesta debe ser IDÉNTICO al de ChatGPT.
                         timeline=""
                     )
 
-            print(f"✅ [DEBUG] generate_strategic_response completed successfully")
+            print(f"[OK] [DEBUG] generate_strategic_response completed successfully")
             return conceptual, accional
 
         except Exception as e:
-            print(f"❌ [DEBUG] Unexpected error in generate_strategic_response: {e}")
+            print(f"[ERR] [DEBUG] Unexpected error in generate_strategic_response: {e}")
             return await self._generate_fallback_responses(message)
         finally:
             db.close()
 
     async def _get_user_company_data(self, db: Session, user_id: int) -> Dict[str, Any]:
         """
-        Obtiene datos de la compañía del usuario
+        Obtiene datos de la compania del usuario
         """
         try:
             from app.services.auth_service import AuthService
@@ -846,12 +823,12 @@ Tu estilo de respuesta debe ser IDÉNTICO al de ChatGPT.
                 }
             return {}
         except Exception as e:
-            print(f"❌ Error getting user company data: {e}")
+            print(f"[ERR] Error getting user company data: {e}")
             return {}
 
     async def _get_company_knowledge(self, db: Session, company_id: int) -> List[Dict[str, Any]]:
         """
-        Obtiene documentos de fuentes de conocimiento de la compañía
+        Obtiene documentos de fuentes de conocimiento de la compania
         """
         if not company_id:
             return []
@@ -876,12 +853,12 @@ Tu estilo de respuesta debe ser IDÉNTICO al de ChatGPT.
 
             return knowledge_content
         except Exception as e:
-            print(f"❌ Error getting company knowledge: {e}")
+            print(f"[ERR] Error getting company knowledge: {e}")
             return []
 
     async def _get_company_instructions(self, db: Session, user_id: int) -> List[Dict[str, Any]]:
         """
-        Obtiene documentos de instrucciones de la compañía del usuario.
+        Obtiene documentos de instrucciones de la compania del usuario.
         Soporta PROTOCOLOS CENTRALIZADOS: si use_protocol=True, carga desde Protocol table.
         """
         try:
@@ -911,7 +888,7 @@ Tu estilo de respuesta debe ser IDÉNTICO al de ChatGPT.
                     if protocol:
                         instructions_content.append({
                             "filename": f"{doc.filename} (Protocolo: {protocol.name} {protocol.version})",
-                            "content": protocol.content,  # ✅ Contenido centralizado
+                            "content": protocol.content,  # [OK] Contenido centralizado
                             "priority": doc.priority,
                             "description": doc.description or protocol.description,
                             "category": "instructions",
@@ -920,9 +897,9 @@ Tu estilo de respuesta debe ser IDÉNTICO al de ChatGPT.
                             "protocol_name": protocol.name,
                             "protocol_version": protocol.version
                         })
-                        print(f"📄 [PROTOCOL] Loaded protocol '{protocol.name}' for doc {doc.id}")
+                        print(f"[DOC] [PROTOCOL] Loaded protocol '{protocol.name}' for doc {doc.id}")
                     else:
-                        print(f"⚠️ [PROTOCOL] Protocol ID {doc.protocol_id} not found or inactive for doc {doc.id}")
+                        print(f"[WARN] [PROTOCOL] Protocol ID {doc.protocol_id} not found or inactive for doc {doc.id}")
                 else:
                     # Cargar desde ARCHIVO (sistema actual)
                     content = CompanyDocumentService.get_document_content(db, company_id, doc.id)
@@ -936,15 +913,15 @@ Tu estilo de respuesta debe ser IDÉNTICO al de ChatGPT.
                             "source": "file"
                         })
 
-            print(f"📚 [DEBUG] Loaded {len(instructions_content)} instruction documents (protocols + files)")
+            print(f"[KNOWLEDGE] [DEBUG] Loaded {len(instructions_content)} instruction documents (protocols + files)")
             return instructions_content
         except Exception as e:
-            print(f"❌ Error getting company instructions: {e}")
+            print(f"[ERR] Error getting company instructions: {e}")
             return []
 
     async def _get_ai_configuration(self, db: Session, company_id: int) -> Optional[Any]:
         """
-        Obtiene configuración de IA de la compañía
+        Obtiene configuracion de IA de la compania
         """
         if not company_id:
             return None
@@ -953,7 +930,7 @@ Tu estilo de respuesta debe ser IDÉNTICO al de ChatGPT.
             from app.services.ai_configuration_service import AIConfigurationService
             return AIConfigurationService.get_by_company_id(db, company_id)
         except Exception as e:
-            print(f"❌ Error getting AI configuration: {e}")
+            print(f"[ERR] Error getting AI configuration: {e}")
             return None
 
     async def _get_project_knowledge(self, db: Session, project_id: int) -> List[Dict[str, Any]]:
@@ -985,10 +962,10 @@ Tu estilo de respuesta debe ser IDÉNTICO al de ChatGPT.
                         "file_category": file.category.value
                     })
 
-            print(f"📁 [DEBUG] Loaded {len(project_content)} project files")
+            print(f"[FOLDER] [DEBUG] Loaded {len(project_content)} project files")
             return project_content
         except Exception as e:
-            print(f"❌ Error getting project knowledge: {e}")
+            print(f"[ERR] Error getting project knowledge: {e}")
             return []
 
 
@@ -1001,8 +978,8 @@ Tu estilo de respuesta debe ser IDÉNTICO al de ChatGPT.
         project_id: int = None
     ) -> List[Dict[str, Any]]:
         """
-        Busca contexto usando búsqueda vectorial mejorada con múltiples estrategias
-        PRIORIZA documentos del proyecto si project_id está presente
+        Busca contexto usando busqueda vectorial mejorada con multiples estrategias
+        PRIORIZA documentos del proyecto si project_id esta presente
         """
         prioritized_context = []
 
@@ -1011,7 +988,7 @@ Tu estilo de respuesta debe ser IDÉNTICO al de ChatGPT.
                 await self.vector_store.initialize()
 
             if project_id:
-                print(f"🔍 [DEBUG] Searching PROJECT documents with enhanced search for project {project_id}")
+                print(f"[SEARCH] [DEBUG] Searching PROJECT documents with enhanced search for project {project_id}")
                 try:
                     project_results = await self.enhanced_search.hybrid_search(
                         message,
@@ -1020,7 +997,7 @@ Tu estilo de respuesta debe ser IDÉNTICO al de ChatGPT.
                         min_score=0.25  # Lowered from 0.3 to 0.25 for better coverage
                     )
 
-                    print(f"📁 [DEBUG] Enhanced search found {len(project_results)} relevant project documents")
+                    print(f"[FOLDER] [DEBUG] Enhanced search found {len(project_results)} relevant project documents")
 
                     # Add project results with HIGHEST priority
                     for result in project_results:
@@ -1036,13 +1013,13 @@ Tu estilo de respuesta debe ser IDÉNTICO al de ChatGPT.
                             'relevance_score': score
                         })
 
-                    print(f"✅ [DEBUG] Added {len(project_results)} documents from enhanced PROJECT search")
+                    print(f"[OK] [DEBUG] Added {len(project_results)} documents from enhanced PROJECT search")
                 
                 except Exception as e:
-                    print(f"⚠️ [DEBUG] Error in project search (continuing anyway): {e}")
+                    print(f"[WARN] [DEBUG] Error in project search (continuing anyway): {e}")
 
             if company_id:
-                print(f"🔍 [DEBUG] Searching COMPANY documents with enhanced search for company {company_id}")
+                print(f"[SEARCH] [DEBUG] Searching COMPANY documents with enhanced search for company {company_id}")
                 try:
                     company_results = await self.enhanced_search.hybrid_search(
                         message,
@@ -1051,7 +1028,7 @@ Tu estilo de respuesta debe ser IDÉNTICO al de ChatGPT.
                         min_score=0.25  # Lowered from 0.3 to 0.25 for better coverage
                     )
 
-                    print(f"🏢 [DEBUG] Enhanced search found {len(company_results)} relevant company documents")
+                    print(f" [DEBUG] Enhanced search found {len(company_results)} relevant company documents")
 
                     # Add company results with lower priority than project
                     for result in company_results:
@@ -1067,13 +1044,13 @@ Tu estilo de respuesta debe ser IDÉNTICO al de ChatGPT.
                             'relevance_score': score
                         })
 
-                    print(f"✅ [DEBUG] Added {len(company_results)} documents from enhanced COMPANY search")
+                    print(f"[OK] [DEBUG] Added {len(company_results)} documents from enhanced COMPANY search")
                 
                 except Exception as e:
-                    print(f"⚠️ [DEBUG] Error in company search (continuing anyway): {e}")
+                    print(f"[WARN] [DEBUG] Error in company search (continuing anyway): {e}")
 
         except Exception as e:
-            print(f"⚠️ [DEBUG] Error in enhanced vector search initialization: {e}")
+            print(f"[WARN] [DEBUG] Error in enhanced vector search initialization: {e}")
 
         # Add project knowledge files (not from vector search)
         for doc in project_knowledge:
@@ -1101,32 +1078,32 @@ Tu estilo de respuesta debe ser IDÉNTICO al de ChatGPT.
 
         prioritized_context.sort(key=lambda x: (x.get('priority', 5), -x.get('relevance_score', 0.0)))
 
-        print(f"📊 [DEBUG] Total context documents: {len(prioritized_context)}")
+        print(f"[STATS] [DEBUG] Total context documents: {len(prioritized_context)}")
         if project_id:
             project_docs = [ctx for ctx in prioritized_context if 'project' in ctx.get('category', '')]
-            print(f"📁 [DEBUG] Project documents in context: {len(project_docs)}")
+            print(f"[FOLDER] [DEBUG] Project documents in context: {len(project_docs)}")
 
         return prioritized_context[:30]
 
     def _is_simple_conversational_message(self, message: str) -> bool:
         """
         Detecta si un mensaje es conversacional simple (saludos, preguntas cortas)
-        que no requiere búsqueda de documentos
+        que no requiere busqueda de documentos
         """
         message_lower = message.lower().strip()
         
         # Saludos y despedidas
         simple_greetings = [
-            'hola', 'hi', 'hello', 'hey', 'buenos días', 'buenas tardes', 
-            'buenas noches', 'buen día', 'que tal', 'qué tal', 'como estas',
-            'cómo estás', 'gracias', 'thank you', 'adiós', 'chau', 'bye',
+            'hola', 'hi', 'hello', 'hey', 'buenos dias', 'buenas tardes', 
+            'buenas noches', 'buen dia', 'que tal', 'que tal', 'como estas',
+            'como estas', 'gracias', 'thank you', 'adios', 'chau', 'bye',
             'hasta luego', 'nos vemos'
         ]
         
         # Preguntas muy cortas y generales
         simple_questions = [
-            '¿cómo estás?', 'como estas?', 'que haces?', '¿qué haces?',
-            'todo bien?', '¿todo bien?', 'ayuda', 'help'
+            'como estas?', 'como estas?', 'que haces?', 'que haces?',
+            'todo bien?', 'todo bien?', 'ayuda', 'help'
         ]
         
         # Verificar si el mensaje es exactamente un saludo
@@ -1156,19 +1133,19 @@ Tu estilo de respuesta debe ser IDÉNTICO al de ChatGPT.
         Compila las instrucciones en un texto coherente
         """
         if not instructions:
-            return "No hay instrucciones específicas configuradas."
+            return "No hay instrucciones especificas configuradas."
 
-        compiled = "INSTRUCCIONES ESPECÍFICAS A SEGUIR AL PIE DE LA LETRA:\n\n"
+        compiled = "INSTRUCCIONES ESPECIFICAS A SEGUIR AL PIE DE LA LETRA:\n\n"
 
         for i, instruction in enumerate(instructions, 1):
             priority = instruction.get('priority', 5)
             filename = instruction.get('filename', f'instruccion_{i}')
             content = instruction.get('content', '')
 
-            compiled += f"## INSTRUCCIÓN {i} (Prioridad {priority}) - {filename}\n"
+            compiled += f"## INSTRUCCION {i} (Prioridad {priority}) - {filename}\n"
             compiled += f"{content}\n\n"
 
-        compiled += "\nDEBES SEGUIR ESTAS INSTRUCCIONES EXACTAMENTE COMO ESTÁN ESCRITAS."
+        compiled += "\nDEBES SEGUIR ESTAS INSTRUCCIONES EXACTAMENTE COMO ESTAN ESCRITAS."
         return compiled
 
 
@@ -1182,48 +1159,48 @@ Tu estilo de respuesta debe ser IDÉNTICO al de ChatGPT.
         ai_config: Any
     ) -> AccionalResponse:
         """
-        Genera respuesta accional siguiendo instrucciones específicas
+        Genera respuesta accional siguiendo instrucciones especificas
         """
         instruction_text = self._compile_instructions(instructions)
 
         system_prompt = f"""
-        INSTRUCCIONES ESPECÍFICAS PARA PLANES DE ACCIÓN:
+        INSTRUCCIONES ESPECIFICAS PARA PLANES DE ACCION:
         {instruction_text}
 
-        DEBES SEGUIR EXACTAMENTE ESTAS INSTRUCCIONES para generar planes de acción.
+        DEBES SEGUIR EXACTAMENTE ESTAS INSTRUCCIONES para generar planes de accion.
 
-        Usa la metodología, estilo y estructura especificados en las instrucciones.
+        Usa la metodologia, estilo y estructura especificados en las instrucciones.
 
-        Mantén respuestas concisas y accionables.
+        Manten respuestas concisas y accionables.
         """
 
         if len(conceptual_content) > 500:
             conceptual_content = conceptual_content[:500] + "..."
 
         prompt = f"""
-        Basado en el siguiente análisis conceptual:
+        Basado en el siguiente analisis conceptual:
         {conceptual_content}
 
         Y la consulta original: "{message}"
 
         Siguiendo EXACTAMENTE las instrucciones proporcionadas:
-        1. Genera el plan de acción según la metodología especificada
+        1. Genera el plan de accion segun la metodologia especificada
         2. Usa el formato y estructura indicados en las instrucciones
-        3. Mantén el tono y estilo especificados
+        3. Manten el tono y estilo especificados
         4. Incluye todas las acciones necesarias para completar la tarea.
         """
 
         model_name = ai_config.model_name if ai_config else settings.OPENAI_MODEL
         temperature = float(ai_config.temperature) if ai_config else 0.7
-        # Use budget manager for max_completion_tokens for action plans
+        # Use budget manager for max_tokens for action plans
         budget_info = self.token_budget.validate_and_adjust_tokens(system_prompt, prompt, response_mode="advanced") # Assuming action plans are advanced
-        max_completion_tokens = budget_info["max_completion_tokens"]
+        max_tokens = budget_info["max_tokens"]
 
         try:
             api_args = {
                 "model": model_name,
                 "messages": [{"role": "system", "content": system_prompt}, {"role": "user", "content": prompt}],
-                "max_completion_tokens": max_completion_tokens,
+                "max_tokens": max_tokens,
                 "temperature": temperature
             }
 
@@ -1238,9 +1215,9 @@ Tu estilo de respuesta debe ser IDÉNTICO al de ChatGPT.
             )
 
         except Exception as e:
-            print(f"❌ Error generating accional response with instructions: {e}")
+            print(f"[ERR] Error generating accional response with instructions: {e}")
             return AccionalResponse(
-                content="Error generando plan de acción. Intenta nuevamente.",
+                content="Error generando plan de accion. Intenta nuevamente.",
                 priority="media",
                 timeline="Indefinido"
             )
@@ -1282,15 +1259,15 @@ Tu estilo de respuesta debe ser IDÉNTICO al de ChatGPT.
         Y el siguiente contexto relevante:
         {self._format_context(context)}
 
-        Y el historial de la conversación:
+        Y el historial de la conversacion:
         {self._format_history(history)}
 
-        Genera un análisis conceptual detallado que responda a la consulta, siguiendo las instrucciones y usando el conocimiento proporcionado.
+        Genera un analisis conceptual detallado que responda a la consulta, siguiendo las instrucciones y usando el conocimiento proporcionado.
 
         Incluye:
         - Un resumen de la consulta
-        - Un análisis detallado de la información relevante
-        - Una conclusión basada en el análisis
+        - Un analisis detallado de la informacion relevante
+        - Una conclusion basada en el analisis
         """
 
         return prompt
@@ -1313,12 +1290,12 @@ Tu estilo de respuesta debe ser IDÉNTICO al de ChatGPT.
         Y el siguiente contexto relevante:
         {self._format_context(context)}
 
-        Y el historial de la conversación:
+        Y el historial de la conversacion:
         {self._format_history(history)}
 
         Genera una respuesta conversacional que responda a la consulta, siguiendo las instrucciones y usando el conocimiento proporcionado.
 
-        Mantén la respuesta concisa y directa.
+        Manten la respuesta concisa y directa.
         """
 
         return prompt
@@ -1335,7 +1312,7 @@ Tu estilo de respuesta debe ser IDÉNTICO al de ChatGPT.
 
     def _format_history(self, history: List[Dict]) -> str:
         """
-        Formatea el historial de la conversación para el prompt
+        Formatea el historial de la conversacion para el prompt
         """
         formatted_history = ""
         for message in history:
@@ -1346,20 +1323,20 @@ Tu estilo de respuesta debe ser IDÉNTICO al de ChatGPT.
 
     async def _generate_default_clarification(self, message: str) -> List[ClarificationQuestion]:
         """
-        Genera preguntas de clarificación por defecto
+        Genera preguntas de clarificacion por defecto
         """
         questions = [
             ClarificationQuestion(
-                question="¿Podrías proporcionar más detalles sobre lo que estás preguntando?",
-                context="Necesito más información para poder ayudarte de la mejor manera posible."
+                question="Podrias proporcionar mas detalles sobre lo que estas preguntando?",
+                context="Necesito mas informacion para poder ayudarte de la mejor manera posible."
             ),
             ClarificationQuestion(
-                question="¿Hay algún contexto específico que deba tener en cuenta?",
+                question="Hay algun contexto especifico que deba tener en cuenta?",
                 context="Algunos detalles adicionales pueden ayudarme a entender mejor tu consulta."
             ),
             ClarificationQuestion(
-                question="¿Estás buscando información sobre un tema en particular?",
-                context="Especificar el tema puede ayudarme a proporcionarte una respuesta más precisa."
+                question="Estas buscando informacion sobre un tema en particular?",
+                context="Especificar el tema puede ayudarme a proporcionarte una respuesta mas precisa."
             )
         ]
 
@@ -1376,7 +1353,7 @@ Tu estilo de respuesta debe ser IDÉNTICO al de ChatGPT.
         )
 
         accional = AccionalResponse(
-            content="No se pudo generar un plan de acción debido a un error técnico.",
+            content="No se pudo generar un plan de accion debido a un error tecnico.",
             priority="media",
             timeline="Indefinido"
         )
@@ -1388,9 +1365,9 @@ Tu estilo de respuesta debe ser IDÉNTICO al de ChatGPT.
         Compila el conocimiento en un texto coherente
         """
         if not knowledge:
-            return "No hay fuentes de conocimiento específicas configuradas."
+            return "No hay fuentes de conocimiento especificas configuradas."
 
-        compiled = "FUENTES DE CONOCIMIENTO ESPECÍFICAS:\n\n"
+        compiled = "FUENTES DE CONOCIMIENTO ESPECIFICAS:\n\n"
 
         for i, doc in enumerate(knowledge, 1):
             filename = doc.get('filename', f'documento_{i}')
@@ -1412,7 +1389,7 @@ Tu estilo de respuesta debe ser IDÉNTICO al de ChatGPT.
         attachments: Optional[List[Dict[str, Any]]] = None  # Added attachments parameter
     ) -> str:
         """
-        Construye prompt mejorado para conversación con contexto priorizado
+        Construye prompt mejorado para conversacion con contexto priorizado
         Now includes attachment context formatting
         """
         attachments_context = ""
@@ -1426,7 +1403,7 @@ Tu estilo de respuesta debe ser IDÉNTICO al de ChatGPT.
         context_text = ""
 
         if project_context:
-            context_text += "## 🔴 CONTEXTO DEL PROYECTO (MÁXIMA PRIORIDAD - USA ESTO PRIMERO):\n"
+            context_text += "## [IMPORTANT] CONTEXTO DEL PROYECTO (MAXIMA PRIORIDAD - USA ESTO PRIMERO):\n"
             for i, doc in enumerate(project_context, 1):
                 content = doc.get('content', '')[:1800]
                 source = doc.get('source', 'documento_proyecto')
@@ -1450,10 +1427,10 @@ Tu estilo de respuesta debe ser IDÉNTICO al de ChatGPT.
 
         history_text = ""
         if history and len(history) > 0:
-            history_text = "## HISTORIAL DE CONVERSACIÓN:\n"
+            history_text = "## HISTORIAL DE CONVERSACION:\n"
             recent_history = history[-10:] if len(history) > 10 else history
             for msg in recent_history:
-                role_label = "Usuario" if msg.get("role") == "user" else "Asistente (tú)"
+                role_label = "Usuario" if msg.get("role") == "user" else "Asistente (tu)"
                 content = msg.get("content", "")
                 timestamp = msg.get("timestamp", "")
                 history_text += f"*{role_label}* ({timestamp}): {content}\n\n"
@@ -1461,7 +1438,7 @@ Tu estilo de respuesta debe ser IDÉNTICO al de ChatGPT.
 
         key_info_text = ""
         if key_info:
-            key_info_text = "## INFORMACIÓN CLAVE CONOCIDA:\n"
+            key_info_text = "## INFORMACION CLAVE CONOCIDA:\n"
             if key_info.get("company_name"):
                 key_info_text += f"- Empresa: {key_info['company_name']}\n"
             if key_info.get("industry"):
@@ -1473,50 +1450,50 @@ Tu estilo de respuesta debe ser IDÉNTICO al de ChatGPT.
         if response_type == "conceptual":
             project_emphasis = ""
             if project_id:
-                project_emphasis = "\n🔴 CRÍTICO: Esta conversación está vinculada a un proyecto específico. DEBES usar PRIMERO los documentos del proyecto marcados con 'CONTEXTO DEL PROYECTO'."
+                project_emphasis = "\n[IMPORTANT] CRITICO: Esta conversacion esta vinculada a un proyecto especifico. DEBES usar PRIMERO los documentos del proyecto marcados con 'CONTEXTO DEL PROYECTO'."
 
             prompt_specific = f"""
 
             Genera una respuesta CONCEPTUAL ESTRUCTURADA que:
-            1. USE PRIORITARIAMENTE las fuentes de conocimiento específicas proporcionadas{project_emphasis}
+            1. USE PRIORITARIAMENTE las fuentes de conocimiento especificas proporcionadas{project_emphasis}
             2. SIGA EXACTAMENTE las instrucciones configuradas
-            3. RECUERDA toda la información previa de la conversación
-            4. Explique el marco teórico basado en las fuentes prioritarias CON DETALLE
-            5. Solo use conocimiento general si las fuentes específicas no son suficientes
+            3. RECUERDA toda la informacion previa de la conversacion
+            4. Explique el marco teorico basado en las fuentes prioritarias CON DETALLE
+            5. Solo use conocimiento general si las fuentes especificas no son suficientes
             6. EXPANDE cada punto con ejemplos concretos
-            7. INCLUYA análisis de cada aspecto relevante
+            7. INCLUYA analisis de cada aspecto relevante
             8. PROPORCIONE recomendaciones detalladas y accionables
 
             FORMATO REQUERIDO (DEBE SER EXTENSO):
-            ## Análisis Conceptual
-            [Análisis DETALLADO, estructurado, con múltiples párrafos explicativos]
+            ## Analisis Conceptual
+            [Analisis DETALLADO, estructurado, con multiples parrafos explicativos]
             
-            - Punto 1: [Explicación profunda con ejemplos]
-            - Punto 2: [Análisis extenso con detalles]
-            - Punto 3: [Exploración completa del tema]
-            - [Continúa con más puntos según sea necesario]
+            - Punto 1: [Explicacion profunda con ejemplos]
+            - Punto 2: [Analisis extenso con detalles]
+            - Punto 3: [Exploracion completa del tema]
+            - [Continua con mas puntos segun sea necesario]
 
-            ## Plan de Acción
-            [Pasos ESPECÍFICOS y DETALLADOS, completamente desarrollados]
+            ## Plan de Accion
+            [Pasos ESPECIFICOS y DETALLADOS, completamente desarrollados]
 
-            CRÍTICO: 
+            CRITICO: 
             - EXPANDE cada idea con ejemplos y detalles
             - Las fuentes de conocimiento prioritarias son tu referencia principal
             """
         else:
             prompt_specific = """
 
-            Genera UN PLAN DE ACCIÓN DETALLADO que:
-            1. USE las recomendaciones específicas de las fuentes de conocimiento prioritarias
-            2. SIGA EXACTAMENTE las instrucciones configuradas para planes de acción
-            3. CONSIDERE toda la información previa de la conversación
+            Genera UN PLAN DE ACCION DETALLADO que:
+            1. USE las recomendaciones especificas de las fuentes de conocimiento prioritarias
+            2. SIGA EXACTAMENTE las instrucciones configuradas para planes de accion
+            3. CONSIDERE toda la informacion previa de la conversacion
             4. Base las acciones en las fuentes prioritarias proporcionadas
-            5. EXPANDA cada acción con detalles implementación específicos
+            5. EXPANDA cada accion con detalles implementacion especificos
             6. INCLUYA consideraciones, riesgos y mitigaciones
             7. PROPORCIONE cronograma y recursos necesarios
 
             CONSIDERACIONES ADICIONALES:
-            [Análisis de riesgos, recursos, cronograma]
+            [Analisis de riesgos, recursos, cronograma]
 
             """
 
@@ -1555,7 +1532,7 @@ Tu estilo de respuesta debe ser IDÉNTICO al de ChatGPT.
         context_text = ""
 
         if project_context:
-            context_text += "## 🔴 CONTEXTO DEL PROYECTO (MÁXIMA PRIORIDAD - USA ESTO PRIMERO):\n"
+            context_text += "## [IMPORTANT] CONTEXTO DEL PROYECTO (MAXIMA PRIORIDAD - USA ESTO PRIMERO):\n"
             for i, doc in enumerate(project_context, 1):
                 content = doc.get('content', '')[:1800]
                 source = doc.get('source', 'documento_proyecto')
@@ -1579,10 +1556,10 @@ Tu estilo de respuesta debe ser IDÉNTICO al de ChatGPT.
 
         history_text = ""
         if history and len(history) > 0:
-            history_text = "## HISTORIAL DE CONVERSACIÓN:\n"
+            history_text = "## HISTORIAL DE CONVERSACION:\n"
             recent_history = history[-10:] if len(history) > 10 else history
             for msg in recent_history:
-                role_label = "Usuario" if msg.get("role") == "user" else "Asistente (tú)"
+                role_label = "Usuario" if msg.get("role") == "user" else "Asistente (tu)"
                 content = msg.get("content", "")
                 timestamp = msg.get("timestamp", "")
                 history_text += f"*{role_label}* ({timestamp}): {content}\n\n"
@@ -1590,7 +1567,7 @@ Tu estilo de respuesta debe ser IDÉNTICO al de ChatGPT.
 
         key_info_text = ""
         if key_info:
-            key_info_text = "## INFORMACIÓN CLAVE CONOCIDA:\n"
+            key_info_text = "## INFORMACION CLAVE CONOCIDA:\n"
             if key_info.get("company_name"):
                 key_info_text += f"- Empresa: {key_info['company_name']}\n"
             if key_info.get("industry"):
@@ -1601,7 +1578,7 @@ Tu estilo de respuesta debe ser IDÉNTICO al de ChatGPT.
 
         project_emphasis = ""
         if project_id:
-            project_emphasis = "\n🔴 CRÍTICO: Esta conversación está vinculada a un proyecto específico. DEBES usar PRIMERO los documentos del proyecto marcados con 'CONTEXTO DEL PROYECTO'."
+            project_emphasis = "\n[IMPORTANT] CRITICO: Esta conversacion esta vinculada a un proyecto especifico. DEBES usar PRIMERO los documentos del proyecto marcados con 'CONTEXTO DEL PROYECTO'."
 
         return f"""
         {key_info_text}
@@ -1611,9 +1588,9 @@ Tu estilo de respuesta debe ser IDÉNTICO al de ChatGPT.
 
         RESPONDE DE MANERA CONVERSACIONAL Y NATURAL a la siguiente consulta.
         USA las fuentes de conocimiento prioritarias proporcionadas.
-        RECUERDA el contexto de la conversación.{project_emphasis}
-        NO uses estructura forzada de "Análisis Conceptual" o "Plan de Acción".
-        Responde directamente a la pregunta del usuario de manera útil y clara.
+        RECUERDA el contexto de la conversacion.{project_emphasis}
+        NO uses estructura forzada de "Analisis Conceptual" o "Plan de Accion".
+        Responde directamente a la pregunta del usuario de manera util y clara.
 
         Consulta actual: {message}
         """
@@ -1643,7 +1620,7 @@ Tu estilo de respuesta debe ser IDÉNTICO al de ChatGPT.
         attachments: Optional[List[Dict[str, Any]]] = None  # Added attachments parameter
     ) -> ConceptualResponse:
         """
-        Genera respuesta conceptual siguiendo instrucciones específicas y usando conocimiento prioritario
+        Genera respuesta conceptual siguiendo instrucciones especificas y usando conocimiento prioritario
         """
         company_name = user_company_data.get('company_name', 'tu empresa')
         industry = user_company_data.get('industry', '')
@@ -1653,33 +1630,33 @@ Tu estilo de respuesta debe ser IDÉNTICO al de ChatGPT.
 
         project_context = ""
         if project_id:
-            project_context = f"\n\n🔴 IMPORTANTE: Esta conversación está vinculada a un PROYECTO ESPECÍFICO (ID: {project_id}).\nDEBES PRIORIZAR los documentos del proyecto sobre los documentos de la empresa."
+            project_context = f"\n\n[IMPORTANT] IMPORTANTE: Esta conversacion esta vinculada a un PROYECTO ESPECIFICO (ID: {project_id}).\nDEBES PRIORIZAR los documentos del proyecto sobre los documentos de la empresa."
 
         attachment_instructions = ""
         if attachments:
-            attachment_instructions = "\n\n📎 TIENES ACCESO A ARCHIVOS ADJUNTOS PROPORCIONADOS BY EL USUARIO.\nDEBES ANALIZARLOS Y USAR SU CONTENIDO PARA RESPONDER."
+            attachment_instructions = "\n\n[ATTACH] TIENES ACCESO A ARCHIVOS ADJUNTOS PROPORCIONADOS BY EL USUARIO.\nDEBES ANALIZARLOS Y USAR SU CONTENIDO PARA RESPONDER."
 
         system_prompt = f"""
         ERES UN ASISTENTE DE IA PERSONALIZADO PARA {company_name.upper()}.{project_context}
         {attachment_instructions}
 
-        INSTRUCCIONES CRÍTICAS - DEBES SEGUIR AL PIE DE LA LETRA:
+        INSTRUCCIONES CRITICAS - DEBES SEGUIR AL PIE DE LA LETRA:
         {instruction_text}
 
         FUENTES DE CONOCIMIENTO PRIORITARIAS (USA ESTAS PRIMERO):
         {knowledge_text}
 
-        INFORMACIÓN DE LA EMPRESA:
+        INFORMACION DE LA EMPRESA:
         - Empresa: {company_name}
         - Industria: {industry}
         - Sector: {user_company_data.get('sector', '')}
 
         REGLAS ESTRICTAS:
-        1. SIEMPRE sigue las instrucciones específicas proporcionadas
+        1. SIEMPRE sigue las instrucciones especificas proporcionadas
         2. USA PRIMERO el conocimiento de las fuentes prioritarias
         3. Si las fuentes no son suficientes, ENTONCES usa conocimiento general
-        4. RECUERDA información de conversaciones anteriores
-        5. ADAPTA tu respuesta al contexto específico de {company_name}
+        4. RECUERDA informacion de conversaciones anteriores
+        5. ADAPTA tu respuesta al contexto especifico de {company_name}
 
         IMPORTANTE: Proporciona respuestas DETALLADAS, EXHAUSTIVAS y BIEN EXPLICADAS.
         NO seas conciso. Expande cada punto con la mayor profundidad posible.
@@ -1689,15 +1666,15 @@ Tu estilo de respuesta debe ser IDÉNTICO al de ChatGPT.
 
         model_name = ai_config.model_name if ai_config else settings.OPENAI_MODEL
         temperature = float(ai_config.temperature) if ai_config else 0.7
-        # Use token budget manager for max_completion_tokens
+        # Use token budget manager for max_tokens
         budget_info = self.token_budget.validate_and_adjust_tokens(system_prompt, prompt, response_mode="advanced")
-        max_completion_tokens = budget_info["max_completion_tokens"]
+        max_tokens = budget_info["max_tokens"]
 
         try:
             api_args = {
                 "model": model_name,
                 "messages": [{"role": "system", "content": system_prompt}, {"role": "user", "content": prompt}],
-                "max_completion_tokens": max_completion_tokens,
+                "max_tokens": max_tokens,
                 "temperature": temperature
             }
 
@@ -1721,9 +1698,9 @@ Tu estilo de respuesta debe ser IDÉNTICO al de ChatGPT.
             )
 
         except Exception as e:
-            print(f"❌ Error generating conceptual response with instructions: {e}")
+            print(f"[ERR] Error generating conceptual response with instructions: {e}")
             return ConceptualResponse(
-                content=f"## Análisis Conceptual\n\nEstoy teniendo dificultades técnicas. Por favor, intenta nuevamente.\n\nError: {str(e)}",
+                content=f"## Analisis Conceptual\n\nEstoy teniendo dificultades tecnicas. Por favor, intenta nuevamente.\n\nError: {str(e)}",
                 sources=[],
                 confidence=0.1
             )
@@ -1742,7 +1719,7 @@ Tu estilo de respuesta debe ser IDÉNTICO al de ChatGPT.
         attachments: Optional[List[Dict[str, Any]]] = None  # Added attachments parameter
     ) -> str:
         """
-        Genera respuesta normal siguiendo instrucciones específicas
+        Genera respuesta normal siguiendo instrucciones especificas
         """
         company_name = user_company_data.get('company_name', 'tu empresa')
         industry = user_company_data.get('industry', '')
@@ -1752,42 +1729,42 @@ Tu estilo de respuesta debe ser IDÉNTICO al de ChatGPT.
 
         project_context = ""
         if project_id:
-            project_context = f"\n\n🔴 IMPORTANTE: Esta conversación está vinculada a un PROYECTO ESPECÍFICO (ID: {project_id}).\nDEBES PRIORIZAR los documentos del proyecto sobre los documentos de la empresa."
+            project_context = f"\n\n[IMPORTANT] IMPORTANTE: Esta conversacion esta vinculada a un PROYECTO ESPECIFICO (ID: {project_id}).\nDEBES PRIORIZAR los documentos del proyecto sobre los documentos de la empresa."
 
         attachment_instructions = ""
         if attachments:
-            attachment_instructions = "\n\n📎 TIENES ACCESO A ARCHIVOS ADJUNTOS PROPORCIONADOS BY EL USUARIO.\nDEBES ANALIZARLOS Y USAR SU CONTENIDO PARA RESPONDER."
+            attachment_instructions = "\n\n[ATTACH] TIENES ACCESO A ARCHIVOS ADJUNTOS PROPORCIONADOS BY EL USUARIO.\nDEBES ANALIZARLOS Y USAR SU CONTENIDO PARA RESPONDER."
 
         system_prompt = f"""
         ERES UN ASISTENTE DE IA PERSONALIZADO PARA {company_name.upper()}.{project_context}
         {attachment_instructions}
 
-        INSTRUCCIONES CRÍTICAS - DEBES SEGUIR AL PIE DE LA LETRA:
+        INSTRUCCIONES CRITICAS - DEBES SEGUIR AL PIE DE LA LETRA:
         {instruction_text}
 
         FUENTES DE CONOCIMIENTO PRIORITARIAS (USA ESTAS PRIMERO):
         {knowledge_text}
 
-        INFORMACIÓN DE LA EMPRESA:
+        INFORMACION DE LA EMPRESA:
         - Empresa: {company_name}
         - Industria: {industry}
         - Sector: {user_company_data.get('sector', '')}
 
         REGLAS ESTRICTAS:
-        1. SIEMPRE sigue las instrucciones específicas proporcionadas
+        1. SIEMPRE sigue las instrucciones especificas proporcionadas
         2. USA PRIMERO el conocimiento de las fuentes prioritarias
         3. Si las fuentes no son suficientes, ENTONCES usa conocimiento general
-        4. RECUERDA información de conversaciones anteriores
-        5. ADAPTA tu respuesta al contexto específico de {company_name}
+        4. RECUERDA informacion de conversaciones anteriores
+        5. ADAPTA tu respuesta al contexto especifico de {company_name}
         """
 
         prompt = self._build_normal_conversation_prompt(message, context, history, key_info, project_id, attachments)
 
         model_name = ai_config.model_name if ai_config else settings.OPENAI_MODEL
         temperature = float(ai_config.temperature) if ai_config else settings.DEFAULT_TEMPERATURE
-        # Use token budget manager for max_completion_tokens
+        # Use token budget manager for max_tokens
         budget_info = self.token_budget.validate_and_adjust_tokens(system_prompt, prompt, response_mode="medium")
-        max_completion_tokens = budget_info["max_completion_tokens"]
+        max_tokens = budget_info["max_tokens"]
 
         if temperature < settings.DEFAULT_TEMPERATURE:
             temperature = settings.DEFAULT_TEMPERATURE
@@ -1796,7 +1773,7 @@ Tu estilo de respuesta debe ser IDÉNTICO al de ChatGPT.
             api_args = {
                 "model": model_name,
                 "messages": [{"role": "system", "content": system_prompt}, {"role": "user", "content": prompt}],
-                "max_completion_tokens": max_completion_tokens,
+                "max_tokens": max_tokens,
                 "temperature": temperature
             }
 
@@ -1805,5 +1782,5 @@ Tu estilo de respuesta debe ser IDÉNTICO al de ChatGPT.
             return response.choices[0].message.content
 
         except Exception as e:
-            print(f"❌ Error generating normal response: {e}")
+            print(f"[ERR] Error generating normal response: {e}")
             return "Lo siento, hubo un error al generar la respuesta. Por favor, intenta nuevamente."

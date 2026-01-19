@@ -1,5 +1,5 @@
 """
-Sistema inteligente de caché para respuestas y contexto
+Sistema inteligente de cache para respuestas y contexto
 Mejora velocidad de respuesta sin sacrificar relevancia
 """
 
@@ -12,11 +12,11 @@ import asyncio
 
 class SmartCacheService:
     """
-    Caché inteligente que:
+    Cache inteligente que:
     - Almacena respuestas completas para consultas similares
-    - Caché de embeddings para búsquedas vectoriales
-    - Caché de contexto para conversaciones
-    - Invalidación automática basada en tiempo y cambios
+    - Cache de embeddings para busquedas vectoriales
+    - Cache de contexto para conversaciones
+    - Invalidacion automatica basada en tiempo y cambios
     """
     
     def __init__(self, ttl_seconds: int = 3600):
@@ -29,13 +29,13 @@ class SmartCacheService:
     
     def _generate_cache_key(self, data: str) -> str:
         """
-        Genera una clave de caché única basada en hash
+        Genera una clave de cache unica basada en hash
         """
         return hashlib.md5(data.encode()).hexdigest()
     
     def _is_cache_valid(self, timestamp: datetime) -> bool:
         """
-        Verifica si un caché sigue siendo válido
+        Verifica si un cache sigue siendo valido
         """
         age = (datetime.now() - timestamp).total_seconds()
         return age < self.ttl_seconds
@@ -48,7 +48,7 @@ class SmartCacheService:
         metadata: Optional[Dict[str, Any]] = None
     ) -> str:
         """
-        Guarda una respuesta en caché
+        Guarda una respuesta en cache
         """
         cache_key = self._generate_cache_key(query)
         
@@ -65,7 +65,7 @@ class SmartCacheService:
     
     def get_cached_response(self, query: str) -> Optional[str]:
         """
-        Obtiene una respuesta del caché si existe y es válida
+        Obtiene una respuesta del cache si existe y es valida
         """
         cache_key = self._generate_cache_key(query)
         
@@ -75,10 +75,10 @@ class SmartCacheService:
             if self._is_cache_valid(cache_entry["timestamp"]):
                 cache_entry["accessed_count"] += 1
                 self.cache_hits += 1
-                print(f"✅ Cache hit for query: {query[:50]}...")
+                print(f"[OK] Cache hit for query: {query[:50]}...")
                 return cache_entry["response"]
             else:
-                # Expiró, eliminar
+                # Expiro, eliminar
                 del self.response_cache[cache_key]
         
         self.cache_misses += 1
@@ -90,7 +90,7 @@ class SmartCacheService:
         similarity_threshold: float = 0.7
     ) -> List[Tuple[str, float]]:
         """
-        Encuentra respuestas en caché que son similares a la consulta
+        Encuentra respuestas en cache que son similares a la consulta
         Retorna lista de (response, similarity_score)
         """
         query_words = set(query.lower().split())
@@ -121,7 +121,7 @@ class SmartCacheService:
         conversation_state: Dict[str, Any]
     ) -> None:
         """
-        Guarda contexto de conversación en caché
+        Guarda contexto de conversacion en cache
         """
         cache_key = f"context_{session_id}"
         
@@ -138,7 +138,7 @@ class SmartCacheService:
         session_id: str
     ) -> Optional[Tuple[List[Dict[str, Any]], Dict[str, Any]]]:
         """
-        Obtiene contexto cacheado para una sesión
+        Obtiene contexto cacheado para una sesion
         Retorna (context, conversation_state) o None
         """
         cache_key = f"context_{session_id}"
@@ -156,13 +156,13 @@ class SmartCacheService:
     
     def invalidate_session_cache(self, session_id: str) -> None:
         """
-        Invalida todo el caché asociado a una sesión
+        Invalida todo el cache asociado a una sesion
         """
         cache_key = f"context_{session_id}"
         if cache_key in self.context_cache:
             del self.context_cache[cache_key]
         
-        # También limpiar respuestas cacheadas de esta sesión
+        # Tambien limpiar respuestas cacheadas de esta sesion
         keys_to_delete = []
         for cache_key, entry in self.response_cache.items():
             if entry.get("session_id") == session_id:
@@ -177,21 +177,21 @@ class SmartCacheService:
         embeddings: List[float]
     ) -> None:
         """
-        Guarda embeddings en caché
+        Guarda embeddings en cache
         """
         cache_key = self._generate_cache_key(text)
         self.embedding_cache[cache_key] = embeddings
     
     def get_cached_embeddings(self, text: str) -> Optional[List[float]]:
         """
-        Obtiene embeddings del caché
+        Obtiene embeddings del cache
         """
         cache_key = self._generate_cache_key(text)
         return self.embedding_cache.get(cache_key)
     
     def get_cache_stats(self) -> Dict[str, Any]:
         """
-        Retorna estadísticas del caché
+        Retorna estadisticas del cache
         """
         total_requests = self.cache_hits + self.cache_misses
         hit_rate = (self.cache_hits / total_requests * 100) if total_requests > 0 else 0
@@ -209,8 +209,8 @@ class SmartCacheService:
     
     def cleanup_expired_cache(self) -> Dict[str, int]:
         """
-        Limpia elementos expirados del caché
-        Retorna cuántos elementos se eliminaron
+        Limpia elementos expirados del cache
+        Retorna cuantos elementos se eliminaron
         """
         deleted_count = {
             "responses": 0,
@@ -238,7 +238,7 @@ class SmartCacheService:
             del self.context_cache[cache_key]
             deleted_count["contexts"] += 1
         
-        # Los embeddings pueden tener más TTL
-        # Por ahora no los limpian pero podrían tener su propio TTL
+        # Los embeddings pueden tener mas TTL
+        # Por ahora no los limpian pero podrian tener su propio TTL
         
         return deleted_count

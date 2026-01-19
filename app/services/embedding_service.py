@@ -20,13 +20,13 @@ class EmbeddingService:
         """
         self.client = openai.AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
         self.model = settings.EMBEDDING_MODEL or "text-embedding-3-small"
-        self.max_tokens = 8000  # Límite aproximado para el modelo de embedding
+        self.max_tokens = 8000  # Limite aproximado para el modelo de embedding
         
         # Inicializar tokenizer para contar tokens
         try:
             self.encoding = tiktoken.encoding_for_model("text-embedding-3-small")
         except KeyError:
-            # Fallback si el modelo no está en tiktoken
+            # Fallback si el modelo no esta en tiktoken
             self.encoding = tiktoken.get_encoding("cl100k_base")
         
         logger.info(f"EmbeddingService inicializado con modelo: {self.model}")
@@ -49,7 +49,7 @@ class EmbeddingService:
             # Preprocesar texto
             cleaned_text = self._clean_text(text)
             
-            # Verificar límite de tokens
+            # Verificar limite de tokens
             if self._count_tokens(cleaned_text) > self.max_tokens:
                 cleaned_text = self._truncate_text(cleaned_text, self.max_tokens)
                 logger.warning(f"Texto truncado a {self.max_tokens} tokens")
@@ -61,7 +61,7 @@ class EmbeddingService:
             )
             
             embedding = response.data[0].embedding
-            logger.debug(f"Embedding generado: dimensión {len(embedding)}")
+            logger.debug(f"Embedding generado: dimension {len(embedding)}")
             
             return embedding
             
@@ -75,11 +75,11 @@ class EmbeddingService:
         batch_size: int = 100
     ) -> List[List[float]]:
         """
-        Genera embeddings para múltiples textos en lotes
+        Genera embeddings para multiples textos en lotes
         
         Args:
             texts: Lista de textos
-            batch_size: Tamaño del lote para procesamiento
+            batch_size: Tamano del lote para procesamiento
             
         Returns:
             Lista de embeddings correspondientes
@@ -87,7 +87,7 @@ class EmbeddingService:
         try:
             embeddings = []
             
-            # Procesar en lotes para evitar límites de API
+            # Procesar en lotes para evitar limites de API
             for i in range(0, len(texts), batch_size):
                 batch = texts[i:i + batch_size]
                 
@@ -105,7 +105,7 @@ class EmbeddingService:
                 
                 logger.info(f"Procesado lote {i//batch_size + 1}/{(len(texts)-1)//batch_size + 1}")
                 
-                # Pequeña pausa entre lotes para evitar rate limiting
+                # Pequena pausa entre lotes para evitar rate limiting
                 await asyncio.sleep(0.1)
             
             logger.info(f"Generados {len(embeddings)} embeddings exitosamente")
@@ -121,7 +121,7 @@ class EmbeddingService:
     )
     async def _generate_batch_embeddings(self, texts: List[str]) -> List[List[float]]:
         """
-        Genera embeddings para un lote específico
+        Genera embeddings para un lote especifico
         """
         response = await self.client.embeddings.create(
             input=texts,
@@ -142,7 +142,7 @@ class EmbeddingService:
         # Remover caracteres de control y espacios excesivos
         cleaned = ' '.join(text.split())
         
-        # Remover caracteres especiales problemáticos
+        # Remover caracteres especiales problematicos
         cleaned = cleaned.replace('\x00', '')  # NULL characters
         cleaned = cleaned.replace('\ufeff', '')  # BOM
         
@@ -155,12 +155,12 @@ class EmbeddingService:
         try:
             return len(self.encoding.encode(text))
         except Exception:
-            # Fallback: aproximación por caracteres
+            # Fallback: aproximacion por caracteres
             return len(text) // 4
 
     def _truncate_text(self, text: str, max_tokens: int) -> str:
         """
-        Trunca texto al límite de tokens especificado
+        Trunca texto al limite de tokens especificado
         """
         try:
             tokens = self.encoding.encode(text)
@@ -220,10 +220,10 @@ class EmbeddingService:
         top_k: int = 5
     ) -> List[Dict[str, Any]]:
         """
-        Encuentra los embeddings más similares a una consulta
+        Encuentra los embeddings mas similares a una consulta
         
         Returns:
-            Lista de diccionarios con índice y score de similaridad
+            Lista de diccionarios con indice y score de similaridad
         """
         try:
             similarities = []
@@ -247,7 +247,7 @@ class EmbeddingService:
 
     async def get_embedding_stats(self) -> Dict[str, Any]:
         """
-        Obtiene estadísticas del servicio de embeddings
+        Obtiene estadisticas del servicio de embeddings
         """
         return {
             "model": self.model,
@@ -265,13 +265,13 @@ def estimate_embedding_cost(
     Estima el costo de generar embeddings
     
     Args:
-        num_tokens: Número de tokens a procesar
+        num_tokens: Numero de tokens a procesar
         model: Modelo de embedding utilizado
         
     Returns:
         Costo estimado en USD
     """
-    # Precios aproximados por 1K tokens (actualizar según pricing de OpenAI)
+    # Precios aproximados por 1K tokens (actualizar segun pricing de OpenAI)
     pricing = {
         "text-embedding-3-small": 0.00002,  # $0.00002 per 1K tokens
         "text-embedding-3-large": 0.00013,  # $0.00013 per 1K tokens

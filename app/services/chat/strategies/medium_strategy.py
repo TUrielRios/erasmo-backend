@@ -53,7 +53,7 @@ class MediumResponseStrategy(BaseResponseStrategy):
                 {"role": "user", "content": user_prompt}
             ],
             "stream": True,
-            "max_completion_tokens": max_tokens,
+            "max_tokens": max_tokens,
             "temperature": 1
         }
 
@@ -73,11 +73,11 @@ class MediumResponseStrategy(BaseResponseStrategy):
         is_valid, msg, tokens = validator.validate_response_length(response_content)
         
         if not is_valid and tokens < min_tokens:
-            print(f"⚠️ [DEBUG] Medium response too short: {msg}. Extending...")
+            print(f"[WARN] [DEBUG] Medium response too short: {msg}. Extending...")
             yield "\n\n_...continuando para mayor detalle..._\n\n"
             
             extension_prompt = (
-                "Continuá la respuesta anterior agregando más detalles relevantes y explicaciones. "
+                "Continua la respuesta anterior agregando mas detalles relevantes y explicaciones. "
                 "Asegurate de cubrir el tema con suficiente profundidad."
             )
             

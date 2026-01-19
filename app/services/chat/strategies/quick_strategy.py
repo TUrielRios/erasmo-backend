@@ -28,7 +28,7 @@ class QuickResponseStrategy(BaseResponseStrategy):
         
         # Get configuration for quick mode
         mode_config = self.conversation_service._get_response_mode_config("quick")
-        max_tokens = mode_config.get("max_completion_tokens", 2000)
+        max_tokens = mode_config.get("max_tokens", 2000)
         prompt_instruction = mode_config.get("prompt_instruction", "")
 
         # Build system prompt using service helper (includes loaded protocol)
@@ -53,7 +53,7 @@ class QuickResponseStrategy(BaseResponseStrategy):
                 {"role": "user", "content": user_prompt}
             ],
             "stream": True,
-            "max_completion_tokens": max_tokens,
+            "max_tokens": max_tokens,
             "temperature": 1
         }
 

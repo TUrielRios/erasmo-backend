@@ -6,7 +6,7 @@ import enum
 from app.db.database import Base
 
 class FileCategory(str, enum.Enum):
-    """Categorías de archivos de proyecto"""
+    """Categorias de archivos de proyecto"""
     INSTRUCTIONS = "instructions"
     KNOWLEDGE_BASE = "knowledge_base"
     REFERENCE = "reference"

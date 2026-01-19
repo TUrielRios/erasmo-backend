@@ -8,14 +8,14 @@ from datetime import datetime
 from enum import Enum
 
 class CompanyCreate(BaseModel):
-    """Schema para crear una nueva compañía"""
-    name: str = Field(min_length=2, max_length=255, description="Nombre de la compañía")
+    """Schema para crear una nueva compania"""
+    name: str = Field(min_length=2, max_length=255, description="Nombre de la compania")
     industry: str = Field(min_length=2, max_length=255, description="Industria")
     sector: str = Field(min_length=2, max_length=255, description="Sector")
-    description: Optional[str] = Field(default=None, description="Descripción de la compañía")
+    description: Optional[str] = Field(default=None, description="Descripcion de la compania")
 
 class CompanyResponse(BaseModel):
-    """Schema para respuesta de compañía"""
+    """Schema para respuesta de compania"""
     id: int
     name: str
     industry: str
@@ -30,21 +30,21 @@ class CompanyResponse(BaseModel):
 
 class UserCreate(BaseModel):
     """Schema para crear un nuevo usuario"""
-    username: str = Field(min_length=3, max_length=50, description="Nombre de usuario único")
-    email: EmailStr = Field(description="Correo electrónico del usuario")
-    password: str = Field(min_length=6, max_length=100, description="Contraseña del usuario")
+    username: str = Field(min_length=3, max_length=50, description="Nombre de usuario unico")
+    email: EmailStr = Field(description="Correo electronico del usuario")
+    password: str = Field(min_length=6, max_length=100, description="Contrasena del usuario")
     full_name: Optional[str] = Field(default=None, max_length=255, description="Nombre completo del usuario")
     
     # Nuevos campos obligatorios para registro
-    company_name: str = Field(min_length=2, max_length=255, description="Nombre de la compañía")
-    industry: str = Field(min_length=2, max_length=255, description="Industria de la compañía")
-    sector: str = Field(min_length=2, max_length=255, description="Sector de la compañía")
-    work_area: str = Field(min_length=2, max_length=255, description="Área de desempeño del usuario")
+    company_name: str = Field(min_length=2, max_length=255, description="Nombre de la compania")
+    industry: str = Field(min_length=2, max_length=255, description="Industria de la compania")
+    sector: str = Field(min_length=2, max_length=255, description="Sector de la compania")
+    work_area: str = Field(min_length=2, max_length=255, description="Area de desempeno del usuario")
 
 class UserLogin(BaseModel):
     """Schema para login de usuario"""
     email: str = Field(description="Email del usuario")
-    password: str = Field(description="Contraseña del usuario")
+    password: str = Field(description="Contrasena del usuario")
 
 class UserResponse(BaseModel):
     """Schema para respuesta de usuario"""
@@ -62,15 +62,15 @@ class UserResponse(BaseModel):
         from_attributes = True
 
 class CompanyDocumentCreate(BaseModel):
-    """Schema para crear documento de compañía"""
+    """Schema para crear documento de compania"""
     filename: str = Field(description="Nombre del archivo")
     category: str  # Placeholder for DocumentCategory
-    description: Optional[str] = Field(default=None, description="Descripción del documento")
-    priority: int = Field(default=1, ge=1, le=5, description="Prioridad del documento (1=más alta, 5=más baja)")
-    is_active: bool = Field(default=True, description="Si el documento está activo")
+    description: Optional[str] = Field(default=None, description="Descripcion del documento")
+    priority: int = Field(default=1, ge=1, le=5, description="Prioridad del documento (1=mas alta, 5=mas baja)")
+    is_active: bool = Field(default=True, description="Si el documento esta activo")
 
 class CompanyDocumentResponse(BaseModel):
-    """Schema para respuesta de documento de compañía"""
+    """Schema para respuesta de documento de compania"""
     id: int
     company_id: int
     filename: str
@@ -85,7 +85,7 @@ class CompanyDocumentResponse(BaseModel):
         from_attributes = True
 
 class CompanyDocumentUpdate(BaseModel):
-    """Schema para actualizar documento de compañía"""
+    """Schema para actualizar documento de compania"""
     description: Optional[str] = None
     priority: Optional[int] = Field(default=None, ge=1, le=5)
     is_active: Optional[bool] = None
@@ -112,27 +112,27 @@ class IngestionType(str, Enum):
     PERSONALITY = "personality"
 
 class DocumentCategory(str, Enum):
-    """Categorías de documentos para personalización de IA"""
+    """Categorias de documentos para personalizacion de IA"""
     KNOWLEDGE_BASE = "knowledge_base"  # Fuentes de conocimiento especiales
-    INSTRUCTIONS = "instructions"      # Instrucciones específicas para la IA
-    COMPANY_INFO = "company_info"      # Información general de la empresa
+    INSTRUCTIONS = "instructions"      # Instrucciones especificas para la IA
+    COMPANY_INFO = "company_info"      # Informacion general de la empresa
 
 class AIConfigurationCreate(BaseModel):
-    """Schema para crear configuración de IA"""
+    """Schema para crear configuracion de IA"""
     company_id: int
-    methodology_prompt: Optional[str] = Field(default=None, description="Prompt de metodología personalizada")
+    methodology_prompt: Optional[str] = Field(default=None, description="Prompt de metodologia personalizada")
     knowledge_base: Optional[Dict[str, Any]] = Field(default=None, description="Base de conocimiento")
     personality_traits: Optional[Dict[str, Any]] = Field(default=None, description="Rasgos de personalidad")
     response_style: str = Field(default="professional", description="Estilo de respuesta")
     model_name: str = Field(default="gpt-4", description="Modelo de IA a usar")
     temperature: str = Field(default="0.7", description="Temperatura del modelo")
-    max_tokens: int = Field(default=2000, description="Máximo de tokens")
+    max_tokens: int = Field(default=2000, description="Maximo de tokens")
     instruction_priority: str = Field(default="high", description="Prioridad de seguimiento de instrucciones")
     knowledge_base_priority: str = Field(default="high", description="Prioridad de fuentes de conocimiento")
-    fallback_to_general: bool = Field(default=True, description="Si usar conocimiento general cuando no hay suficiente información")
+    fallback_to_general: bool = Field(default=True, description="Si usar conocimiento general cuando no hay suficiente informacion")
 
 class AIConfigurationUpdate(BaseModel):
-    """Schema para actualizar configuración de IA"""
+    """Schema para actualizar configuracion de IA"""
     methodology_prompt: Optional[str] = None
     knowledge_base: Optional[Dict[str, Any]] = None
     personality_traits: Optional[Dict[str, Any]] = None
@@ -157,7 +157,7 @@ class MessageResponse(BaseModel):
         from_attributes = True
 
 class AIConfigurationResponse(BaseModel):
-    """Schema para respuesta de configuración de IA"""
+    """Schema para respuesta de configuracion de IA"""
     id: int
     company_id: int
     methodology_prompt: Optional[str]
@@ -197,8 +197,8 @@ class CompanyDocumentProcessing(BaseModel):
 
 class AdminCompanyDocumentUpload(BaseModel):
     """Schema para carga de documentos desde admin"""
-    category: DocumentCategory = Field(description="Categoría del documento")
-    description: Optional[str] = Field(default=None, description="Descripción del documento")
+    category: DocumentCategory = Field(description="Categoria del documento")
+    description: Optional[str] = Field(default=None, description="Descripcion del documento")
     priority: int = Field(default=1, ge=1, le=5, description="Prioridad del documento")
 
 class CompanyDocumentUpload(BaseModel):
@@ -208,7 +208,7 @@ class CompanyDocumentUpload(BaseModel):
 class ProjectCreate(BaseModel):
     """Schema para crear un nuevo proyecto/folder"""
     name: str = Field(min_length=1, max_length=255, description="Nombre del proyecto")
-    description: Optional[str] = Field(default=None, description="Descripción del proyecto")
+    description: Optional[str] = Field(default=None, description="Descripcion del proyecto")
     custom_instructions: Optional[str] = Field(default=None, description="Instrucciones personalizadas para este proyecto")
 
 class ProjectUpdate(BaseModel):
@@ -237,7 +237,7 @@ class ProjectResponse(BaseModel):
 class ProjectShareCreate(BaseModel):
     """Schema para compartir un proyecto"""
     shared_with_user_id: int = Field(description="ID del usuario con quien compartir")
-    can_edit: bool = Field(default=False, description="Puede editar configuración del proyecto")
+    can_edit: bool = Field(default=False, description="Puede editar configuracion del proyecto")
     can_view_chats: bool = Field(default=True, description="Puede ver conversaciones")
     can_create_chats: bool = Field(default=False, description="Puede crear nuevas conversaciones")
 
@@ -256,13 +256,13 @@ class ProjectShareResponse(BaseModel):
         from_attributes = True
 
 class ConversationShareCreate(BaseModel):
-    """Schema para compartir una conversación"""
+    """Schema para compartir una conversacion"""
     shared_with_user_id: int = Field(description="ID del usuario con quien compartir")
     can_edit: bool = Field(default=False, description="Puede agregar mensajes")
     can_view: bool = Field(default=True, description="Puede ver mensajes")
 
 class ConversationShareResponse(BaseModel):
-    """Schema para respuesta de compartir conversación"""
+    """Schema para respuesta de compartir conversacion"""
     id: int
     conversation_id: int
     shared_with_user_id: int
@@ -275,8 +275,8 @@ class ConversationShareResponse(BaseModel):
         from_attributes = True
 
 class ConversationCreate(BaseModel):
-    """Schema para crear una nueva conversación"""
-    title: Optional[str] = Field(default=None, max_length=500, description="Título de la conversación")
+    """Schema para crear una nueva conversacion"""
+    title: Optional[str] = Field(default=None, max_length=500, description="Titulo de la conversacion")
     project_id: Optional[int] = Field(default=None, description="ID del proyecto al que pertenece")
     
     @field_validator('project_id')
@@ -288,7 +288,7 @@ class ConversationCreate(BaseModel):
         return v
 
 class ConversationResponse(BaseModel):
-    """Schema para respuesta de conversación"""
+    """Schema para respuesta de conversacion"""
     id: int
     session_id: str
     user_id: int
@@ -303,7 +303,7 @@ class ConversationResponse(BaseModel):
         from_attributes = True
 
 class ConversationWithMessages(ConversationResponse):
-    """Schema para conversación con sus mensajes"""
+    """Schema para conversacion con sus mensajes"""
     messages: List[MessageResponse] = []
 
 class ResponseLevel(str, Enum):
@@ -330,26 +330,26 @@ class IngestResponse(BaseModel):
 class QueryRequest(BaseModel):
     """Request para consulta conversacional"""
     message: str = Field(min_length=1, max_length=10000)
-    session_id: Optional[str] = Field(default=None, description="ID de sesión para mantener contexto")
+    session_id: Optional[str] = Field(default=None, description="ID de sesion para mantener contexto")
     user_id: Optional[int] = Field(default=None, description="ID del usuario autenticado")
     context: Optional[Dict[str, Any]] = Field(default=None, description="Contexto adicional")
-    require_analysis: bool = Field(default=False, description="Si se requiere análisis conceptual y plan de acción estructurado")
-    attachments: Optional[List[Dict[str, Any]]] = Field(default=None, description="Archivos adjuntos (imágenes o documentos procesados)")
+    require_analysis: bool = Field(default=False, description="Si se requiere analisis conceptual y plan de accion estructurado")
+    attachments: Optional[List[Dict[str, Any]]] = Field(default=None, description="Archivos adjuntos (imagenes o documentos procesados)")
 
 class ConceptualResponse(BaseModel):
-    """Respuesta a nivel conceptual (por qué)"""
-    content: str = Field(description="Explicación conceptual en Markdown")
+    """Respuesta a nivel conceptual (por que)"""
+    content: str = Field(description="Explicacion conceptual en Markdown")
     sources: List[str] = Field(description="Fuentes de conocimiento utilizadas")
     confidence: float = Field(ge=0.0, le=1.0, description="Nivel de confianza de la respuesta")
 
 class AccionalResponse(BaseModel):
-    """Respuesta a nivel accional (qué hacer)"""
-    content: str = Field(description="Acciones específicas en Markdown")
+    """Respuesta a nivel accional (que hacer)"""
+    content: str = Field(description="Acciones especificas en Markdown")
     priority: str = Field(description="Nivel de prioridad: alta, media, baja")
     timeline: Optional[str] = Field(description="Marco temporal sugerido")
 
 class ClarificationQuestion(BaseModel):
-    """Pregunta de clarificación"""
+    """Pregunta de clarificacion"""
     question: str
     context: str
     suggested_answers: Optional[List[str]] = None
@@ -381,11 +381,11 @@ class DocumentMetadata(BaseModel):
     filename: str = Field(description="Nombre del archivo")
     file_type: DocumentType = Field(description="Tipo de archivo")
     ingestion_type: IngestionType = Field(description="Tipo de ingesta")
-    dimension: str = Field(description="Dimensión del conocimiento")
+    dimension: str = Field(description="Dimension del conocimiento")
     modelo_base: str = Field(description="Modelo conceptual base")
     tipo_output: str = Field(description="Tipo de salida esperada")
-    file_size: int = Field(description="Tamaño del archivo en bytes")
-    chunk_count: int = Field(description="Número de chunks generados")
+    file_size: int = Field(description="Tamano del archivo en bytes")
+    chunk_count: int = Field(description="Numero de chunks generados")
     processed_at: Optional[datetime] = Field(default=None, description="Fecha de procesamiento")
 
 class MessageUpdate(BaseModel):
@@ -393,13 +393,13 @@ class MessageUpdate(BaseModel):
     content: str = Field(min_length=1, max_length=10000, description="Nuevo contenido del mensaje")
 
 class MessageDeleteResponse(BaseModel):
-    """Schema para respuesta de eliminación de mensaje"""
+    """Schema para respuesta de eliminacion de mensaje"""
     success: bool
     message: str
     deleted_message_id: int
 
 class FileCategory(str, Enum):
-    """Categorías de archivos de proyecto"""
+    """Categorias de archivos de proyecto"""
     INSTRUCTIONS = "instructions"
     KNOWLEDGE_BASE = "knowledge_base"
     REFERENCE = "reference"
@@ -407,9 +407,9 @@ class FileCategory(str, Enum):
 
 class ProjectFileUpload(BaseModel):
     """Schema para subir archivo a proyecto"""
-    category: FileCategory = Field(default=FileCategory.GENERAL, description="Categoría del archivo")
-    description: Optional[str] = Field(default=None, description="Descripción del archivo")
-    priority: int = Field(default=5, ge=1, le=10, description="Prioridad del archivo (1=más alta, 10=más baja)")
+    category: FileCategory = Field(default=FileCategory.GENERAL, description="Categoria del archivo")
+    description: Optional[str] = Field(default=None, description="Descripcion del archivo")
+    priority: int = Field(default=5, ge=1, le=10, description="Prioridad del archivo (1=mas alta, 10=mas baja)")
 
 class ProjectFileResponse(BaseModel):
     """Schema para respuesta de archivo de proyecto"""
@@ -444,10 +444,10 @@ class ProjectFileUpdate(BaseModel):
 class ProtocolCreate(BaseModel):
     """Schema para crear protocolo"""
     name: str = Field(min_length=1, max_length=255, description="Nombre del protocolo")
-    description: Optional[str] = Field(default=None, description="Descripción del protocolo")
+    description: Optional[str] = Field(default=None, description="Descripcion del protocolo")
     content: str = Field(min_length=1, description="Contenido del protocolo")
-    version: str = Field(default="v1", max_length=50, description="Versión del protocolo")
-    category: Optional[str] = Field(default=None, max_length=100, description="Categoría (ventas, soporte, etc.)")
+    version: str = Field(default="v1", max_length=50, description="Version del protocolo")
+    category: Optional[str] = Field(default=None, max_length=100, description="Categoria (ventas, soporte, etc.)")
 
 class ProtocolUpdate(BaseModel):
     """Schema para actualizar protocolo"""
@@ -467,7 +467,7 @@ class ProtocolResponse(BaseModel):
     version: str
     category: Optional[str]
     is_active: bool
-    usage_count: Optional[int] = 0  # Cuántos documentos lo usan
+    usage_count: Optional[int] = 0  # Cuantos documentos lo usan
     created_at: datetime
     updated_at: Optional[datetime]
     

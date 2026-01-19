@@ -29,7 +29,7 @@ class AdvancedResponseStrategy(BaseResponseStrategy):
         
         # Get configuration for advanced mode
         mode_config = self.conversation_service._get_response_mode_config("advanced")
-        max_tokens = mode_config.get("max_completion_tokens", 8000)
+        max_tokens = mode_config.get("max_tokens", 8000)
         min_tokens = mode_config.get("min_tokens", 1100)
         
         validator = ResponseValidatorService(min_tokens=min_tokens)
@@ -42,9 +42,9 @@ class AdvancedResponseStrategy(BaseResponseStrategy):
         # Add explicit instruction for length and depth
         system_prompt += (
             "\n\nMODO AVANZADO ACTIVO: Tu respuesta DEBE ser extensa, detallada y profunda. "
-            "Desarrolla cada punto con ejemplos, contexto y análisis exhaustivo. "
+            "Desarrolla cada punto con ejemplos, contexto y analisis exhaustivo. "
             "El usuario espera una respuesta de AL MENOS 1200 tokens en un solo mensaje. "
-            "NO seas conciso. Extiéndete en la explicación."
+            "NO seas conciso. Extiendete en la explicacion."
         )
 
         # Build user prompt
@@ -61,7 +61,7 @@ class AdvancedResponseStrategy(BaseResponseStrategy):
                 {"role": "user", "content": user_prompt}
             ],
             "stream": True,
-            "max_completion_tokens": max_tokens,
+            "max_tokens": max_tokens,
             "temperature": 1
         }
 
@@ -82,15 +82,15 @@ class AdvancedResponseStrategy(BaseResponseStrategy):
         is_valid, msg, tokens = validator.validate_response_length(response_content)
         
         if not is_valid:
-            print(f"⚠️ [DEBUG] Advanced response too short: {msg}. Extending...")
+            print(f"[WARN] [DEBUG] Advanced response too short: {msg}. Extending...")
             # We won't print the separator to the user to make it feel more seamless if possible,
             # but since we already yielded the previous content, we can't erase it.
             # We'll just add a newline.
             yield "\n\n" 
             
             extension_prompt = (
-                "Profundiza aún más en los puntos anteriores. "
-                "Agrega más ejemplos, matices y detalles operativos. "
+                "Profundiza aun mas en los puntos anteriores. "
+                "Agrega mas ejemplos, matices y detalles operativos. "
                 "Necesito que la respuesta sea realmente exhaustiva."
             )
             

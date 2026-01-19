@@ -1,5 +1,5 @@
 """
-Servicio para gestión de compañías mejorado
+Servicio para gestion de companias mejorado
 """
 
 from sqlalchemy.orm import Session
@@ -7,16 +7,17 @@ from sqlalchemy import func
 from typing import List, Optional
 from app.models.company import Company, CompanyDocument
 from app.models.user import User
+from app.models.project import Project
 from app.models.schemas import CompanyCreate, CompanyResponse, DocumentCategory
 import os
 import json
 
 class CompanyService:
-    """Servicio para operaciones con compañías"""
+    """Servicio para operaciones con companias"""
     
     @staticmethod
     def create_company(db: Session, company_data: CompanyCreate) -> Company:
-        """Crear una nueva compañía"""
+        """Crear una nueva compania"""
         db_company = Company(
             name=company_data.name,
             industry=company_data.industry,
@@ -30,22 +31,22 @@ class CompanyService:
     
     @staticmethod
     def get_company_by_id(db: Session, company_id: int) -> Optional[Company]:
-        """Obtener compañía por ID"""
+        """Obtener compania por ID"""
         return db.query(Company).filter(Company.id == company_id).first()
     
     @staticmethod
     def get_company_by_name(db: Session, name: str) -> Optional[Company]:
-        """Obtener compañía por nombre"""
+        """Obtener compania por nombre"""
         return db.query(Company).filter(Company.name == name).first()
     
     @staticmethod
     def get_all_companies(db: Session, skip: int = 0, limit: int = 100) -> List[Company]:
-        """Obtener todas las compañías con conteo de usuarios"""
+        """Obtener todas las companias con conteo de usuarios"""
         return db.query(Company).filter(Company.is_active == True).offset(skip).limit(limit).all()
     
     @staticmethod
     def get_companies_with_user_count(db: Session) -> List[dict]:
-        """Obtener compañías con conteo de usuarios"""
+        """Obtener companias con conteo de usuarios"""
         result = db.query(
             Company,
             func.count(User.id).label('user_count')
@@ -69,24 +70,24 @@ class CompanyService:
     
     @staticmethod
     def find_or_create_company(db: Session, name: str, industry: str, sector: str) -> Company:
-        """Buscar compañía existente o crear nueva"""
-        # Buscar compañía existente
+        """Buscar compania existente o crear nueva"""
+        # Buscar compania existente
         existing_company = CompanyService.get_company_by_name(db, name)
         if existing_company:
             return existing_company
         
-        # Crear nueva compañía
+        # Crear nueva compania
         company_data = CompanyCreate(
             name=name,
             industry=industry,
             sector=sector,
-            description=f"Compañía en {industry} - {sector}"
+            description=f"Compania en {industry} - {sector}"
         )
         return CompanyService.create_company(db, company_data)
     
     @staticmethod
     def update_company(db: Session, company_id: int, company_data: dict) -> Optional[Company]:
-        """Actualizar información de compañía"""
+        """Actualizar informacion de compania"""
         company = CompanyService.get_company_by_id(db, company_id)
         if not company:
             return None
@@ -101,7 +102,7 @@ class CompanyService:
     
     @staticmethod
     def deactivate_company(db: Session, company_id: int) -> bool:
-        """Desactivar compañía"""
+        """Desactivar compania"""
         company = CompanyService.get_company_by_id(db, company_id)
         if not company:
             return False
@@ -110,8 +111,51 @@ class CompanyService:
         db.commit()
         return True
 
+    @staticmethod
+    def delete_company_complete(db: Session, company_id: int) -> bool:
+        """Borrado total de compania, documentos, proyectos y archivos fisicos"""
+        company = db.query(Company).filter(Company.id == company_id).first()
+        if not company:
+            return False
+            
+        try:
+            # 1. Eliminar archivos fisicos de la compania
+            company_docs_dir = f"documents/company_{company_id}"
+            if os.path.exists(company_docs_dir):
+                import shutil
+                shutil.rmtree(company_docs_dir)
+                print(f"[CLEANUP] Deleted company directory: {company_docs_dir}")
+            
+            # 2. Eliminar archivos fisicos de todos los proyectos de la compania
+            projects = db.query(Project).filter(Project.company_id == company_id).all()
+            for project in projects:
+                project_dir = f"documents/projects/project_{project.id}"
+                if os.path.exists(project_dir):
+                    import shutil
+                    shutil.rmtree(project_dir)
+                    print(f"[CLEANUP] Deleted project directory: {project_dir}")
+
+            # 3. Borrar de la base de datos
+            # Nota: Debido a cascade="all, delete-orphan" en el modelo Company,
+            # borrar la compania deberia borrar automaticamente:
+            # - documents (CompanyDocument)
+            # - ai_configurations (AIConfiguration)
+            # - projects (Project) -> y estos a su vez sus chats, mensajes y archivos
+            
+            # Sin embargo, los usuarios asociados a la compania tienen company_id nullable.
+            # Los dejamos como estan (huerfanos de empresa) o podriamos borrarlos si fuera necesario.
+            # Por ahora los dejamos para no perder acceso administrativo si el admin pertenece a la empresa.
+            
+            db.delete(company)
+            db.commit()
+            return True
+        except Exception as e:
+            print(f"[ERR] Error eliminando compania {company_id}: {e}")
+            db.rollback()
+            return False
+
 class CompanyDocumentService:
-    """Servicio mejorado para gestión de documentos por compañía"""
+    """Servicio mejorado para gestion de documentos por compania"""
     
     @staticmethod
     def create_document(
@@ -123,7 +167,7 @@ class CompanyDocumentService:
         description: Optional[str] = None,
         priority: int = 1
     ) -> CompanyDocument:
-        """Crear registro de documento categorizado para una compañía"""
+        """Crear registro de documento categorizado para una compania"""
         # Calculate file size only if file_path is provided
         file_size = 0
         if file_path and os.path.exists(file_path):
@@ -150,7 +194,7 @@ class CompanyDocumentService:
         company_id: int, 
         category: Optional[DocumentCategory] = None
     ) -> List[CompanyDocument]:
-        """Obtener documentos de una compañía, opcionalmente filtrados por categoría"""
+        """Obtener documentos de una compania, opcionalmente filtrados por categoria"""
         query = db.query(CompanyDocument).filter(
             CompanyDocument.company_id == company_id,
             CompanyDocument.is_active == True
@@ -234,7 +278,7 @@ class CompanyDocumentService:
     
     @staticmethod
     def delete_document(db: Session, company_id: int, document_id: int) -> bool:
-        """Eliminar documento de una compañía"""
+        """Eliminar documento de una compania"""
         document = db.query(CompanyDocument).filter(
             CompanyDocument.id == document_id,
             CompanyDocument.company_id == company_id
@@ -243,7 +287,7 @@ class CompanyDocumentService:
         if not document:
             return False
         
-        # Eliminar archivo físico solo si existe un path
+        # Eliminar archivo fisico solo si existe un path
         if document.file_path and os.path.exists(document.file_path):
             os.remove(document.file_path)
         
@@ -254,7 +298,7 @@ class CompanyDocumentService:
     
     @staticmethod
     def get_document_content(db: Session, company_id: int, document_id: int) -> Optional[str]:
-        """Obtener contenido de un documento específico"""
+        """Obtener contenido de un documento especifico"""
         document = db.query(CompanyDocument).filter(
             CompanyDocument.id == document_id,
             CompanyDocument.company_id == company_id,
@@ -284,7 +328,7 @@ class CompanyDocumentService:
         category: DocumentCategory,
         max_priority: int = 3
     ) -> List[CompanyDocument]:
-        """Obtener documentos por prioridad (1=más alta, 5=más baja)"""
+        """Obtener documentos por prioridad (1=mas alta, 5=mas baja)"""
         return db.query(CompanyDocument).filter(
             CompanyDocument.company_id == company_id,
             CompanyDocument.category == category,
@@ -295,7 +339,7 @@ class CompanyDocumentService:
     
     @staticmethod
     def get_all_company_content(db: Session, company_id: int) -> dict:
-        """Obtener todo el contenido de documentos de una compañía organizado por categoría"""
+        """Obtener todo el contenido de documentos de una compania organizado por categoria"""
         knowledge_docs = CompanyDocumentService.get_knowledge_base_documents(db, company_id)
         instruction_docs = CompanyDocumentService.get_instruction_documents(db, company_id)
         
@@ -352,7 +396,7 @@ class CompanyDocumentService:
             status = doc.processing_status
             summary["by_status"][status] = summary["by_status"].get(status, 0) + 1
             
-            # Por categoría
+            # Por categoria
             category = doc.category.value
             summary["by_category"][category] = summary["by_category"].get(category, 0) + 1
             

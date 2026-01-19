@@ -1,5 +1,5 @@
 """
-Endpoints para monitoreo y optimización de tokens y rendimiento de la IA
+Endpoints para monitoreo y optimizacion de tokens y rendimiento de la IA
 """
 
 from fastapi import APIRouter, Depends, HTTPException, status, Query
@@ -19,7 +19,7 @@ smart_cache = SmartCacheService()
 @router.get("/token-budget")
 async def get_token_budget(user_id: int = Query(...)) -> Dict[str, Any]:
     """
-    Obtiene información del presupuesto de tokens disponible
+    Obtiene informacion del presupuesto de tokens disponible
     """
     try:
         total_budget = token_optimizer.calculate_total_budget()
@@ -53,7 +53,7 @@ async def get_session_stats(
     db: Session = Depends(get_db)
 ) -> Dict[str, Any]:
     """
-    Obtiene estadísticas de uso de tokens para una sesión específica
+    Obtiene estadisticas de uso de tokens para una sesion especifica
     """
     try:
         # Verificar que el usuario existe
@@ -77,7 +77,7 @@ async def get_session_stats(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error obteniendo estadísticas: {str(e)}"
+            detail=f"Error obteniendo estadisticas: {str(e)}"
         )
 
 @router.get("/performance-recommendations")
@@ -86,7 +86,7 @@ async def get_performance_recommendations(
     db: Session = Depends(get_db)
 ) -> Dict[str, Any]:
     """
-    Obtiene recomendaciones para mejorar el rendimiento basadas en configuración
+    Obtiene recomendaciones para mejorar el rendimiento basadas en configuracion
     """
     try:
         current_user = AuthService.get_user_by_id(db, user_id)
@@ -110,28 +110,28 @@ async def get_performance_recommendations(
                     "category": "tokens",
                     "current": settings.MAX_RESPONSE_TOKENS,
                     "recommended": 8000,
-                    "benefit": "Respuestas más detalladas y exhaustivas",
+                    "benefit": "Respuestas mas detalladas y exhaustivas",
                     "status": "optimized" if settings.MAX_RESPONSE_TOKENS >= 8000 else "can_improve"
                 },
                 {
                     "category": "context_length",
                     "current": settings.MAX_CONTEXT_LENGTH,
                     "recommended": 16000,
-                    "benefit": "Mejor comprensión de conversaciones largas",
+                    "benefit": "Mejor comprension de conversaciones largas",
                     "status": "optimized" if settings.MAX_CONTEXT_LENGTH >= 16000 else "can_improve"
                 },
                 {
                     "category": "memory_size",
                     "current": settings.CONVERSATION_MEMORY_SIZE,
                     "recommended": 50,
-                    "benefit": "Mejor retención de información histórica",
+                    "benefit": "Mejor retencion de informacion historica",
                     "status": "optimized" if settings.CONVERSATION_MEMORY_SIZE >= 50 else "can_improve"
                 },
                 {
                     "category": "search_results",
                     "current": settings.MAX_SEARCH_RESULTS,
                     "recommended": 25,
-                    "benefit": "Contexto más relevante y diverso",
+                    "benefit": "Contexto mas relevante y diverso",
                     "status": "optimized" if settings.MAX_SEARCH_RESULTS >= 25 else "can_improve"
                 },
                 {
@@ -165,7 +165,7 @@ async def test_optimization(
     db: Session = Depends(get_db)
 ) -> Dict[str, Any]:
     """
-    Test de optimización para verificar que todo está funcionando correctamente
+    Test de optimizacion para verificar que todo esta funcionando correctamente
     """
     try:
         current_user = AuthService.get_user_by_id(db, user_id)
@@ -178,9 +178,9 @@ async def test_optimization(
         # Crear prompt de prueba
         test_system = "Eres un asistente de prueba. Responde brevemente." * 10
         test_context = [
-            {"content": "Información de prueba 1. " * 50, "category": "company_knowledge", "priority": 5, "relevance_score": 0.8},
-            {"content": "Información de prueba 2. " * 50, "category": "company_knowledge", "priority": 5, "relevance_score": 0.7},
-            {"content": "Información de prueba 3. " * 50, "category": "company_knowledge", "priority": 5, "relevance_score": 0.6},
+            {"content": "Informacion de prueba 1. " * 50, "category": "company_knowledge", "priority": 5, "relevance_score": 0.8},
+            {"content": "Informacion de prueba 2. " * 50, "category": "company_knowledge", "priority": 5, "relevance_score": 0.7},
+            {"content": "Informacion de prueba 3. " * 50, "category": "company_knowledge", "priority": 5, "relevance_score": 0.6},
         ]
         test_history = [
             {"role": "user", "content": "Pregunta de prueba 1"},
@@ -196,7 +196,7 @@ async def test_optimization(
             prompt_role="full_analysis"
         )
         
-        # Calcular estadísticas
+        # Calcular estadisticas
         original_tokens = (
             token_optimizer.count_tokens(test_system) +
             sum(token_optimizer.count_tokens(ctx.get("content", "")) for ctx in test_context) +
@@ -232,13 +232,13 @@ async def test_optimization(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error en test de optimización: {str(e)}"
+            detail=f"Error en test de optimizacion: {str(e)}"
         )
 
 @router.get("/cache-stats")
 async def get_cache_stats(user_id: int = Query(...), db: Session = Depends(get_db)) -> Dict[str, Any]:
     """
-    Obtiene estadísticas del sistema de caché
+    Obtiene estadisticas del sistema de cache
     """
     try:
         current_user = AuthService.get_user_by_id(db, user_id)
@@ -252,22 +252,22 @@ async def get_cache_stats(user_id: int = Query(...), db: Session = Depends(get_d
             "stats": cache_stats,
             "cache_ttl_seconds": smart_cache.ttl_seconds,
             "recommendations": [
-                "El caché es más efectivo con conversaciones repetitivas",
+                "El cache es mas efectivo con conversaciones repetitivas",
                 f"Tasa de acierto actual: {cache_stats['hit_rate']}%"
             ] if cache_stats['hit_rate'] > 0 else [
-                "El caché mejorará después de varias interacciones"
+                "El cache mejorara despues de varias interacciones"
             ]
         }
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error obteniendo estadísticas de caché: {str(e)}"
+            detail=f"Error obteniendo estadisticas de cache: {str(e)}"
         )
 
 @router.post("/cache-cleanup")
 async def cleanup_cache(user_id: int = Query(...), db: Session = Depends(get_db)) -> Dict[str, Any]:
     """
-    Limpia elementos expirados del caché
+    Limpia elementos expirados del cache
     """
     try:
         current_user = AuthService.get_user_by_id(db, user_id)
@@ -284,24 +284,24 @@ async def cleanup_cache(user_id: int = Query(...), db: Session = Depends(get_db)
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error limpiando caché: {str(e)}"
+            detail=f"Error limpiando cache: {str(e)}"
         )
 
 @router.delete("/cache-reset")
 async def reset_cache(user_id: int = Query(...), db: Session = Depends(get_db)) -> Dict[str, Any]:
     """
-    Resetea completamente el caché (use with caution)
+    Resetea completamente el cache (use with caution)
     """
     try:
         current_user = AuthService.get_user_by_id(db, user_id)
         if not current_user:
             raise HTTPException(status_code=404, detail="Usuario no encontrado")
         
-        # Solo admin puede resetear caché global
+        # Solo admin puede resetear cache global
         if current_user.role != "admin":
             raise HTTPException(
                 status_code=403,
-                detail="Solo administradores pueden resetear el caché"
+                detail="Solo administradores pueden resetear el cache"
             )
         
         previous_stats = smart_cache.get_cache_stats()
@@ -312,12 +312,12 @@ async def reset_cache(user_id: int = Query(...), db: Session = Depends(get_db)) 
         return {
             "status": "cache_reset",
             "previous_stats": previous_stats,
-            "message": "Caché completamente limpiado"
+            "message": "Cache completamente limpiado"
         }
     except HTTPException:
         raise
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error reseteando caché: {str(e)}"
+            detail=f"Error reseteando cache: {str(e)}"
         )

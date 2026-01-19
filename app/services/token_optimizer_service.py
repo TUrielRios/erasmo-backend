@@ -1,6 +1,6 @@
 """
-Servicio avanzado de optimización de tokens para maximizar el potencial de la IA
-Gestiona el presupuesto de tokens, compresión inteligente y caché de contexto
+Servicio avanzado de optimizacion de tokens para maximizar el potencial de la IA
+Gestiona el presupuesto de tokens, compresion inteligente y cache de contexto
 """
 
 import tiktoken
@@ -14,7 +14,7 @@ from app.core.config import settings
 class TokenOptimizerService:
     """
     Servicio para optimizar el uso de tokens en conversaciones
-    Implementa estrategias inteligentes de compresión, caché y presupuesto
+    Implementa estrategias inteligentes de compresion, cache y presupuesto
     """
     
     def __init__(self):
@@ -26,7 +26,7 @@ class TokenOptimizerService:
     def calculate_total_budget(self) -> int:
         """
         Calcula el presupuesto total de tokens disponible
-        Aprovecha el máximo contexto de GPT-4o (128K)
+        Aprovecha el maximo contexto de GPT-4o (128K)
         """
         model = settings.OPENAI_MODEL
         
@@ -42,13 +42,13 @@ class TokenOptimizerService:
     
     def allocate_budget(self, prompt_role: str = "full_analysis") -> Dict[str, int]:
         """
-        Asigna presupuesto de tokens para diferentes partes con MÁXIMO POTENCIAL
-        Aumentados significativamente todos los presupuestos para máxima calidad
+        Asigna presupuesto de tokens para diferentes partes con MAXIMO POTENCIAL
+        Aumentados significativamente todos los presupuestos para maxima calidad
         """
         total_budget = self.calculate_total_budget()
         
         if prompt_role == "full_analysis":
-            # Análisis profundo con máximo contexto
+            # Analisis profundo con maximo contexto
             return {
                 "system_prompt": 3000,          # Increased from 2000
                 "context": 80000,               # Increased from 60000
@@ -66,7 +66,7 @@ class TokenOptimizerService:
                 "buffer": settings.TOKEN_BUDGET_BUFFER
             }
         elif prompt_role == "quick_response":
-            # Respuesta rápida con contexto limitado
+            # Respuesta rapida con contexto limitado
             return {
                 "system_prompt": 1500,  # Increased from 1000
                 "context": 30000,       # Increased from 20000
@@ -84,7 +84,7 @@ class TokenOptimizerService:
             return len(tokens)
         except Exception as e:
             print(f"Error contando tokens: {e}")
-            return len(text.split()) * 1.3  # Estimación aproximada
+            return len(text.split()) * 1.3  # Estimacion aproximada
     
     def compress_context(self, context: List[Dict[str, Any]], max_tokens: int) -> List[Dict[str, Any]]:
         """
@@ -94,9 +94,9 @@ class TokenOptimizerService:
         compressed_context = []
         total_tokens = 0
         
-        # Priorizar por relevancia y categoría
+        # Priorizar por relevancia y categoria
         priority_order = {
-            'project_vector_search': 1,      # Máxima prioridad
+            'project_vector_search': 1,      # Maxima prioridad
             'project_knowledge': 2,
             'project_file': 2,
             'company_vector_search': 3,
@@ -146,9 +146,9 @@ class TokenOptimizerService:
         current_tokens = 0
         
         important_keywords = [
-            'importante', 'crítico', 'esencial', 'primero', 'obligatorio', 'debe',
+            'importante', 'critico', 'esencial', 'primero', 'obligatorio', 'debe',
             'debe seguir', 'clave', 'fundamental', 'prioritario', 'urgente', 'requiere',
-            'necesario', 'conclusión', 'resumen', 'resultado', 'implicación', 'impacto'
+            'necesario', 'conclusion', 'resumen', 'resultado', 'implicacion', 'impacto'
         ]
         
         for sentence in sentences:
@@ -173,7 +173,7 @@ class TokenOptimizerService:
         return compressed_text
     
     def _truncate_to_tokens(self, text: str, max_tokens: int) -> str:
-        """Trunca texto a un número específico de tokens"""
+        """Trunca texto a un numero especifico de tokens"""
         try:
             tokens = self.encoding.encode(text)
             if len(tokens) <= max_tokens:
@@ -196,7 +196,7 @@ class TokenOptimizerService:
         prompt_role: str = "full_analysis"
     ) -> Tuple[str, str, List[Dict[str, Any]], List[Dict[str, Any]]]:
         """
-        Optimiza el prompt completo para máximo rendimiento
+        Optimiza el prompt completo para maximo rendimiento
         Uses new aggressive budgets for maximum context and response quality
         """
         budget = self.allocate_budget(prompt_role)
@@ -235,11 +235,11 @@ class TokenOptimizerService:
             total_tokens += tokens
             compressed.append(msg)
         
-        # Procesar mensajes antiguos con compresión
+        # Procesar mensajes antiguos con compresion
         if older_messages and total_tokens < max_tokens:
             remaining_budget = max_tokens - total_tokens
             
-            for msg in reversed(older_messages):  # Del más reciente al más antiguo
+            for msg in reversed(older_messages):  # Del mas reciente al mas antiguo
                 content = msg.get('content', '')
                 tokens = self.count_tokens(content)
                 
@@ -260,7 +260,7 @@ class TokenOptimizerService:
     def estimate_response_time(self, total_input_tokens: int) -> float:
         """
         Estima el tiempo de respuesta basado en tokens de entrada
-        Útil para feedback del usuario
+        Util para feedback del usuario
         """
         # GPT-4o: ~15-20ms por token procesado
         base_time = 0.5  # segundos
@@ -269,7 +269,7 @@ class TokenOptimizerService:
     
     def get_token_stats(self, session_id: str) -> Dict[str, Any]:
         """
-        Obtiene estadísticas de uso de tokens para una sesión
+        Obtiene estadisticas de uso de tokens para una sesion
         """
         if session_id not in self.token_stats:
             self.token_stats[session_id] = {
@@ -293,7 +293,7 @@ class TokenOptimizerService:
         input_tokens: int, 
         output_tokens: int
     ):
-        """Registra el uso de tokens para una sesión"""
+        """Registra el uso de tokens para una sesion"""
         if session_id not in self.token_stats:
             self.token_stats[session_id] = {
                 'total_input_tokens': 0,

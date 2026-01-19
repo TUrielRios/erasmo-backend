@@ -1,5 +1,5 @@
 """
-Modelo de Protocolo reutilizable para múltiples sub-agentes/documentos
+Modelo de Protocolo reutilizable para multiples sub-agentes/documentos
 """
 
 from sqlalchemy import Column, Integer, String, Text, Boolean, DateTime
@@ -8,7 +8,7 @@ from sqlalchemy.sql import func
 from app.db.database import Base
 
 class Protocol(Base):
-    """Protocolo reutilizable que múltiples documentos pueden referenciar"""
+    """Protocolo reutilizable que multiples documentos pueden referenciar"""
     __tablename__ = "protocols"
     
     id = Column(Integer, primary_key=True, index=True)
@@ -22,5 +22,5 @@ class Protocol(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
     
-    # Relación inversa con documentos que usan este protocolo
+    # Relacion inversa con documentos que usan este protocolo
     company_documents = relationship("CompanyDocument", back_populates="protocol")

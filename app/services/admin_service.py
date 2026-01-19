@@ -1,5 +1,5 @@
 """
-Servicio para funcionalidades de administración
+Servicio para funcionalidades de administracion
 """
 
 from sqlalchemy.orm import Session
@@ -16,15 +16,15 @@ class AdminService:
     
     @staticmethod
     def get_dashboard_stats(db: Session) -> Dict[str, Any]:
-        """Obtener estadísticas del dashboard administrativo"""
+        """Obtener estadisticas del dashboard administrativo"""
         
-        # Conteos básicos
+        # Conteos basicos
         total_companies = db.query(Company).filter(Company.is_active == True).count()
         total_users = db.query(User).filter(User.is_active == True, User.role == 'client').count()
         total_conversations = db.query(Conversation).filter(Conversation.is_active == True).count()
         total_messages = db.query(Message).count()
         
-        # Actividad reciente (últimos 7 días)
+        # Actividad reciente (ultimos 7 dias)
         week_ago = datetime.now() - timedelta(days=7)
         new_users_week = db.query(User).filter(
             User.created_at >= week_ago,
@@ -35,7 +35,7 @@ class AdminService:
             Conversation.created_at >= week_ago
         ).count()
         
-        # Top 5 compañías por número de usuarios
+        # Top 5 companias por numero de usuarios
         top_companies = db.query(
             Company.name,
             Company.industry,
@@ -43,7 +43,7 @@ class AdminService:
         ).join(User).group_by(Company.id, Company.name, Company.industry)\
          .order_by(desc('user_count')).limit(5).all()
         
-        # Actividad por compañía (mensajes en la última semana)
+        # Actividad por compania (mensajes en la ultima semana)
         company_activity = db.query(
             Company.name,
             func.count(Message.id).label('message_count')
@@ -84,12 +84,12 @@ class AdminService:
     
     @staticmethod
     def get_company_details(db: Session, company_id: int) -> Optional[Dict[str, Any]]:
-        """Obtener detalles completos de una compañía"""
+        """Obtener detalles completos de una compania"""
         company = CompanyService.get_company_by_id(db, company_id)
         if not company:
             return None
         
-        # Obtener usuarios de la compañía
+        # Obtener usuarios de la compania
         users = db.query(User).filter(
             User.company_id == company_id,
             User.is_active == True
@@ -97,7 +97,7 @@ class AdminService:
         
         documents = CompanyDocumentService.get_company_documents(db, company_id)
         
-        # Estadísticas de actividad
+        # Estadisticas de actividad
         total_conversations = db.query(Conversation).join(User).filter(
             User.company_id == company_id
         ).count()
@@ -145,7 +145,7 @@ class AdminService:
     
     @staticmethod
     def get_all_companies_summary(db: Session) -> List[Dict[str, Any]]:
-        """Obtener resumen de todas las compañías para el panel admin"""
+        """Obtener resumen de todas las companias para el panel admin"""
         companies_data = CompanyService.get_companies_with_user_count(db)
         
         for company_data in companies_data:

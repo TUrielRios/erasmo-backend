@@ -1,5 +1,5 @@
 """
-Endpoints para gestión de proyectos/folders
+Endpoints para gestion de proyectos/folders
 """
 
 from fastapi import APIRouter, Depends, HTTPException, status, Query
@@ -176,7 +176,7 @@ async def share_project(
     user_id: int,
     db: Session = Depends(get_db)
 ):
-    """Compartir proyecto con otro usuario de la misma compañía"""
+    """Compartir proyecto con otro usuario de la misma compania"""
     try:
         current_user = AuthService.get_user_by_id(db, user_id)
         if not current_user:
@@ -244,22 +244,22 @@ async def share_conversation(
     user_id: int,
     db: Session = Depends(get_db)
 ):
-    """Compartir conversación con otro usuario de la misma compañía (usando session_id)"""
+    """Compartir conversacion con otro usuario de la misma compania (usando session_id)"""
     try:
         current_user = AuthService.get_user_by_id(db, user_id)
         if not current_user:
             raise HTTPException(status_code=404, detail="Usuario no encontrado")
         
-        # Buscar la conversación por session_id en lugar de id
+        # Buscar la conversacion por session_id en lugar de id
         from app.models.conversation import Conversation
         conversation = db.query(Conversation).filter(
             Conversation.session_id == session_id
         ).first()
         
         if not conversation:
-            raise HTTPException(status_code=404, detail="Conversación no encontrada")
+            raise HTTPException(status_code=404, detail="Conversacion no encontrada")
         
-        # Usar el ID numérico de la conversación para el servicio
+        # Usar el ID numerico de la conversacion para el servicio
         share = project_service.share_conversation(db, current_user, conversation.id, share_data)
         
         return ConversationShareResponse(
@@ -274,7 +274,7 @@ async def share_conversation(
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error compartiendo conversación: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error compartiendo conversacion: {str(e)}")
 
 @router.delete("/conversations/{session_id}/share/{user_id_to_unshare}")
 async def unshare_conversation(
@@ -283,26 +283,26 @@ async def unshare_conversation(
     user_id: int,
     db: Session = Depends(get_db)
 ):
-    """Dejar de compartir conversación con un usuario (usando session_id)"""
+    """Dejar de compartir conversacion con un usuario (usando session_id)"""
     try:
         current_user = AuthService.get_user_by_id(db, user_id)
         if not current_user:
             raise HTTPException(status_code=404, detail="Usuario no encontrado")
         
-        # Buscar la conversación por session_id
+        # Buscar la conversacion por session_id
         from app.models.conversation import Conversation
         conversation = db.query(Conversation).filter(
             Conversation.session_id == session_id
         ).first()
         
         if not conversation:
-            raise HTTPException(status_code=404, detail="Conversación no encontrada")
+            raise HTTPException(status_code=404, detail="Conversacion no encontrada")
         
         success = project_service.unshare_conversation(db, current_user, conversation.id, user_id_to_unshare)
         if not success:
-            raise HTTPException(status_code=404, detail="Conversación o compartido no encontrado")
+            raise HTTPException(status_code=404, detail="Conversacion o compartido no encontrado")
         
-        return {"message": "Conversación dejada de compartir exitosamente"}
+        return {"message": "Conversacion dejada de compartir exitosamente"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error: {str(e)}")
 
@@ -312,20 +312,20 @@ async def get_conversation_shares(
     user_id: int,
     db: Session = Depends(get_db)
 ):
-    """Obtener lista de usuarios con quienes se ha compartido la conversación (usando session_id)"""
+    """Obtener lista de usuarios con quienes se ha compartido la conversacion (usando session_id)"""
     try:
         current_user = AuthService.get_user_by_id(db, user_id)
         if not current_user:
             raise HTTPException(status_code=404, detail="Usuario no encontrado")
         
-        # Buscar la conversación por session_id
+        # Buscar la conversacion por session_id
         from app.models.conversation import Conversation
         conversation = db.query(Conversation).filter(
             Conversation.session_id == session_id
         ).first()
         
         if not conversation:
-            raise HTTPException(status_code=404, detail="Conversación no encontrada")
+            raise HTTPException(status_code=404, detail="Conversacion no encontrada")
         
         shares = project_service.get_conversation_shares(db, current_user, conversation.id)
         return shares

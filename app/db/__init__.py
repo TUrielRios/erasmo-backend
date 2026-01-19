@@ -1,3 +1,3 @@
 """
-Módulo de conexión con bases de datos
+Modulo de conexion con bases de datos
 """

@@ -39,7 +39,7 @@ def run_migration():
                     
                     # Show preview of statement
                     preview = statement.replace('\n', ' ')[:80]
-                    print(f"✓ [{i}/{len(statements)}] Executed: {preview}...")
+                    print(f"[Done] [{i}/{len(statements)}] Executed: {preview}...")
                     
                     # If it's a SELECT statement, show results
                     if statement.strip().upper().startswith('SELECT'):
@@ -52,7 +52,7 @@ def run_migration():
                             print("  No results returned")
                     
                 except Exception as e:
-                    print(f"✗ [{i}/{len(statements)}] Error executing statement:")
+                    print(f" [{i}/{len(statements)}] Error executing statement:")
                     print(f"  Statement: {statement[:100]}...")
                     print(f"  Error: {e}")
                     raise
@@ -60,7 +60,7 @@ def run_migration():
         conn.commit()
     
     print("\n" + "=" * 50)
-    print("✓ Migration completed successfully!")
+    print("[Done] Migration completed successfully!")
     print("=" * 50)
     print("\nColumns added to 'messages' table:")
     print("  - updated_at (TIMESTAMP WITH TIME ZONE)")

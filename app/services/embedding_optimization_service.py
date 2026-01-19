@@ -1,6 +1,6 @@
 """
-Servicio de optimización de embeddings y memoria conversacional
-Mejora eficiencia de embeddings y retención de información clave
+Servicio de optimizacion de embeddings y memoria conversacional
+Mejora eficiencia de embeddings y retencion de informacion clave
 """
 
 from typing import List, Dict, Any, Optional, Tuple
@@ -11,10 +11,10 @@ import tiktoken
 class EmbeddingOptimizationService:
     """
     Servicio que optimiza:
-    - Generación y compresión de embeddings
-    - Clustering de información similar
+    - Generacion y compresion de embeddings
+    - Clustering de informacion similar
     - Resumen de conversaciones largas
-    - Extracción de información clave
+    - Extraccion de informacion clave
     """
     
     def __init__(self):
@@ -27,8 +27,8 @@ class EmbeddingOptimizationService:
         target_dimension: int = 768
     ) -> List[List[float]]:
         """
-        Comprime embeddings de 1536 → 768 dimensiones usando PCA
-        Reduce 50% de espacio manteniendo ~95% de información
+        Comprime embeddings de 1536  768 dimensiones usando PCA
+        Reduce 50% de espacio manteniendo ~95% de informacion
         """
         try:
             embeddings_array = np.array(embeddings)
@@ -57,7 +57,7 @@ class EmbeddingOptimizationService:
         conversation_history: List[Dict[str, Any]]
     ) -> Dict[str, Any]:
         """
-        Extrae información clave de la conversación para memoria a largo plazo
+        Extrae informacion clave de la conversacion para memoria a largo plazo
         """
         key_info = {
             "entities": [],
@@ -68,11 +68,11 @@ class EmbeddingOptimizationService:
             "extracted_at": datetime.now()
         }
         
-        # Palabras clave para diferentes categorías
+        # Palabras clave para diferentes categorias
         decision_keywords = ["decidimos", "vamos a", "implementaremos", "eligimos", "acordamos"]
-        objective_keywords = ["objetivo", "meta", "propósito", "finalidad"]
-        constraint_keywords = ["limitación", "restricción", "constraint", "límite", "no puede"]
-        tech_keywords = ["técnica", "tecnología", "código", "arquitectura", "algoritmo"]
+        objective_keywords = ["objetivo", "meta", "proposito", "finalidad"]
+        constraint_keywords = ["limitacion", "restriccion", "constraint", "limite", "no puede"]
+        tech_keywords = ["tecnica", "tecnologia", "codigo", "arquitectura", "algoritmo"]
         
         for msg in conversation_history:
             content = msg.get("content", "").lower()
@@ -94,12 +94,12 @@ class EmbeddingOptimizationService:
                     if keyword in content:
                         key_info["constraints"].append(msg.get("content", "")[:200])
                 
-                # Buscar detalles técnicos
+                # Buscar detalles tecnicos
                 for keyword in tech_keywords:
                     if keyword in content:
                         key_info["technical_details"].append(msg.get("content", "")[:200])
         
-        # Limitar a elementos únicos y relevantes
+        # Limitar a elementos unicos y relevantes
         key_info["entities"] = list(set(key_info["entities"]))[:5]
         key_info["key_decisions"] = list(dict.fromkeys(key_info["key_decisions"]))[:3]
         key_info["objectives"] = list(dict.fromkeys(key_info["objectives"]))[:3]
@@ -114,25 +114,25 @@ class EmbeddingOptimizationService:
         max_tokens: int = 500
     ) -> str:
         """
-        Crea un resumen comprimido de la conversación
+        Crea un resumen comprimido de la conversacion
         """
         if not conversation_history:
             return ""
         
-        # Tomar primero y último mensaje como puntos de referencia
+        # Tomar primero y ultimo mensaje como puntos de referencia
         first_message = conversation_history[0].get("content", "")[:100]
         last_message = conversation_history[-1].get("content", "")[:100]
         
-        # Extraer información clave
+        # Extraer informacion clave
         key_info = self.extract_key_information(conversation_history)
         
         summary = f"""
-CONVERSACIÓN RESUMIDA:
+CONVERSACION RESUMIDA:
 - Inicio: {first_message}
 - Final: {last_message}
 - Total de mensajes: {len(conversation_history)}
 
-INFORMACIÓN CLAVE:
+INFORMACION CLAVE:
 """
         
         if key_info["objectives"]:
@@ -157,7 +157,7 @@ INFORMACIÓN CLAVE:
         max_clusters: int = 5
     ) -> List[List[Dict[str, Any]]]:
         """
-        Agrupa mensajes similares para compresión
+        Agrupa mensajes similares para compresion
         """
         if len(messages) <= max_clusters:
             return [[msg] for msg in messages]
@@ -206,7 +206,7 @@ INFORMACIÓN CLAVE:
         max_memory_tokens: int = 50000
     ) -> Dict[str, Any]:
         """
-        Optimiza la memoria conversacional para máxima eficiencia
+        Optimiza la memoria conversacional para maxima eficiencia
         """
         if not conversation_history:
             return {
@@ -222,7 +222,7 @@ INFORMACIÓN CLAVE:
             for msg in conversation_history
         )
         
-        # Estrategia 1: Mantener últimos N mensajes completos
+        # Estrategia 1: Mantener ultimos N mensajes completos
         recent_keep_count = max(5, min(10, len(conversation_history) // 2))
         recent_messages = conversation_history[-recent_keep_count:]
         
@@ -230,23 +230,23 @@ INFORMACIÓN CLAVE:
         older_messages = conversation_history[:-recent_keep_count]
         summary = self.create_conversation_summary(older_messages, max_tokens=2000)
         
-        # Estrategia 3: Información clave extraída
+        # Estrategia 3: Informacion clave extraida
         key_info = self.extract_key_information(conversation_history)
         
-        # Construcción de memoria optimizada
+        # Construccion de memoria optimizada
         optimized_history = []
         
         # Agregar resumen si hay mensajes antiguos
         if summary:
             optimized_history.append({
                 "role": "system",
-                "content": f"RESUMEN DE CONVERSACIÓN ANTERIOR:\n{summary}",
+                "content": f"RESUMEN DE CONVERSACION ANTERIOR:\n{summary}",
                 "type": "summary"
             })
         
-        # Agregar información clave
+        # Agregar informacion clave
         if any([key_info["objectives"], key_info["key_decisions"], key_info["constraints"]]):
-            key_info_str = "INFORMACIÓN CLAVE RECORDADA:\n"
+            key_info_str = "INFORMACION CLAVE RECORDADA:\n"
             if key_info["objectives"]:
                 key_info_str += f"Objetivos: {', '.join(key_info['objectives'][:2])}\n"
             if key_info["key_decisions"]:
@@ -293,15 +293,15 @@ INFORMACIÓN CLAVE:
         recommendations = []
         
         if len(conversation_history) > 50:
-            recommendations.append("Conversación muy larga - considere crear una nueva o resumir")
+            recommendations.append("Conversacion muy larga - considere crear una nueva o resumir")
         
         if current_tokens > 40000:
-            recommendations.append("Uso de tokens alto - memoria se está comprimiendo automáticamente")
+            recommendations.append("Uso de tokens alto - memoria se esta comprimiendo automaticamente")
         
         if len(conversation_history) > 20 and current_tokens < 10000:
-            recommendations.append("Buena compresión - conversación optimizada correctamente")
+            recommendations.append("Buena compresion - conversacion optimizada correctamente")
         
         if len(conversation_history) < 10:
-            recommendations.append("Conversación corta - puede mantener contexto completo")
+            recommendations.append("Conversacion corta - puede mantener contexto completo")
         
         return recommendations

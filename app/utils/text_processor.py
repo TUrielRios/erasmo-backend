@@ -1,17 +1,17 @@
 """
-Utilidades para procesamiento de texto y generación de embeddings
+Utilidades para procesamiento de texto y generacion de embeddings
 """
 
 from typing import List, Dict, Any
 import re
 import openai
-from sentence_transformers import SentenceTransformer
+# from sentence_transformers import SentenceTransformer
 
 from app.core.config import settings
 
 class TextProcessor:
     """
-    Procesador de texto para limpieza, chunking y generación de embeddings
+    Procesador de texto para limpieza, chunking y generacion de embeddings
     """
     
     def __init__(self):
@@ -31,31 +31,31 @@ class TextProcessor:
         """
         
         # Eliminar caracteres especiales y normalizar espacios
-        text = re.sub(r'\s+', ' ', text)  # Múltiples espacios a uno
-        text = re.sub(r'\n+', '\n', text)  # Múltiples saltos de línea
+        text = re.sub(r'\s+', ' ', text)  # Multiples espacios a uno
+        text = re.sub(r'\n+', '\n', text)  # Multiples saltos de linea
         text = text.strip()
         
-        # TODO: Agregar más reglas de limpieza según necesidades
+        # TODO: Agregar mas reglas de limpieza segun necesidades
         # - Eliminar URLs
-        # - Normalizar puntuación
+        # - Normalizar puntuacion
         # - Corregir encoding
         
         return text
     
     def create_chunks(self, text: str, chunk_size: int = 1000, overlap: int = 200) -> List[str]:
         """
-        Divide texto en chunks semánticamente coherentes
+        Divide texto en chunks semanticamente coherentes
         
         Args:
             text: Texto a dividir
-            chunk_size: Tamaño máximo de cada chunk
+            chunk_size: Tamano maximo de cada chunk
             overlap: Solapamiento entre chunks
         
         Returns:
             Lista de chunks de texto
         """
         
-        # TODO: Implementar chunking semántico más sofisticado
+        # TODO: Implementar chunking semantico mas sofisticado
         # Por ahora, chunking simple por caracteres con overlap
         
         chunks = []
@@ -64,9 +64,9 @@ class TextProcessor:
         while start < len(text):
             end = start + chunk_size
             
-            # Intentar cortar en un punto natural (final de oración)
+            # Intentar cortar en un punto natural (final de oracion)
             if end < len(text):
-                # Buscar el último punto antes del límite
+                # Buscar el ultimo punto antes del limite
                 last_period = text.rfind('.', start, end)
                 if last_period > start + chunk_size // 2:
                     end = last_period + 1
@@ -114,32 +114,32 @@ class TextProcessor:
                     embedding = [random.uniform(-1, 1) for _ in range(settings.EMBEDDING_DIMENSION)]
                     embeddings.append(embedding)
         
-        print(f"✅ Generados {len(embeddings)} embeddings")
+        print(f"[OK] Generados {len(embeddings)} embeddings")
         return embeddings
     
     def extract_metadata_from_text(self, text: str, filename: str) -> Dict[str, Any]:
         """
-        Extrae metadatos automáticamente del texto
+        Extrae metadatos automaticamente del texto
         
         Args:
             text: Contenido del texto
             filename: Nombre del archivo
         
         Returns:
-            Diccionario con metadatos extraídos
+            Diccionario con metadatos extraidos
         """
         
         metadata = {
             "word_count": len(text.split()),
             "char_count": len(text),
             "filename": filename,
-            "language": "es",  # TODO: Detectar idioma automáticamente
+            "language": "es",  # TODO: Detectar idioma automaticamente
         }
         
-        # TODO: Extraer más metadatos
+        # TODO: Extraer mas metadatos
         # - Temas principales
         # - Entidades nombradas
         # - Nivel de complejidad
-        # - Tipo de contenido (estratégico, operativo, etc.)
+        # - Tipo de contenido (estrategico, operativo, etc.)
         
         return metadata

@@ -1,6 +1,6 @@
 """
-Erasmo Estratégico Verbal - Fase 1
-Backend principal para agente conversacional estratégico
+Erasmo Estrategico Verbal - Fase 1
+Backend principal para agente conversacional estrategico
 
 Este archivo inicializa el servidor FastAPI y configura todos los endpoints.
 """
@@ -22,6 +22,7 @@ from app.api.endpoints.chat import router as chat_router
 from app.api.endpoints.admin import router as admin_router
 from app.api.endpoints.projects import router as projects_router
 from app.api.endpoints.project_files import router as project_files_router
+from app.api.endpoints.protocols import router as protocols_router  # Added protocols router
 from app.api.endpoints.users import router as users_router
 from app.api.endpoints.optimization import router as optimization_router
 from app.api.endpoints.performance_metrics import router as performance_metrics_router  # Added performance metrics router
@@ -41,24 +42,24 @@ logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Gestión del ciclo de vida de la aplicación"""
+    """Gestion del ciclo de vida de la aplicacion"""
     # Startup: Inicializar conexiones a bases de datos
     logger.info("Inicializando Erasmo Backend...")
     
     try:
         await init_db()
-        logger.info("✅ Base de datos PostgreSQL inicializada")
+        logger.info("[OK] Base de datos PostgreSQL inicializada")
     except Exception as e:
-        logger.error(f"❌ Error inicializando PostgreSQL: {e}")
+        logger.error(f"[ERR] Error inicializando PostgreSQL: {e}")
         # Continue without memory if DB fails
-        logger.warning("⚠️ Continuando sin memoria persistente")
+        logger.warning("[WARN] Continuando sin memoria persistente")
     
     # Inicializar vector store
     vector_store = VectorStore()
     await vector_store.initialize()
     app.state.vector_store = vector_store
     
-    logger.info("✅ Erasmo Backend inicializado correctamente")
+    logger.info("[OK] Erasmo Backend inicializado correctamente")
     
     yield
     
@@ -66,10 +67,10 @@ async def lifespan(app: FastAPI):
     logger.info("Cerrando conexiones...")
     await vector_store.close()
 
-# Crear aplicación FastAPI
+# Crear aplicacion FastAPI
 app = FastAPI(
-    title="Erasmo Estratégico Verbal - Backend",
-    description="Backend para agente conversacional estratégico con capacidades de ingesta de conocimiento y respuestas estructuradas",
+    title="Erasmo Estrategico Verbal - Backend",
+    description="Backend para agente conversacional estrategico con capacidades de ingesta de conocimiento y respuestas estructuradas",
     version="1.0.0",
     lifespan=lifespan
 )
@@ -98,12 +99,13 @@ app.include_router(optimization_router, prefix="/api/v1", tags=["optimization"])
 app.include_router(performance_metrics_router, prefix="/api/v1", tags=["performance"])  # Added performance metrics router
 app.include_router(token_stats_router, prefix="/api/v1", tags=["tokens"]) 
 app.include_router(transcribe_router, prefix="/api/v1", tags=["transcription"])
+app.include_router(protocols_router, prefix="/api/v1", tags=["protocols"])
 @app.get("/")
 
 async def root():
-    """Endpoint raíz con información básica"""
+    """Endpoint raiz con informacion basica"""
     return {
-        "message": "Erasmo Estratégico Verbal - Backend API",
+        "message": "Erasmo Estrategico Verbal - Backend API",
         "version": "1.0.0",
         "status": "active",
         "docs": "/docs"

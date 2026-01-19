@@ -44,5 +44,5 @@ class Message(Base):
     is_edited = Column(Boolean, default=False, nullable=False)
     message_metadata = Column(Text, nullable=True)  # JSON string para metadatos adicionales
     
-    # Relación con conversación
+    # Relacion con conversacion
     conversation = relationship("Conversation", back_populates="messages")

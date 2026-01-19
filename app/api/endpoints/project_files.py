@@ -1,5 +1,5 @@
 """
-Endpoints para gestión de archivos de proyectos
+Endpoints para gestion de archivos de proyectos
 """
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
@@ -34,9 +34,9 @@ async def upload_project_file(
         project_id: ID del proyecto
         user_id: ID del usuario
         file: Archivo a subir (.txt, .md)
-        category: Categoría del archivo (instructions, knowledge_base, reference, general)
-        description: Descripción opcional del archivo
-        priority: Prioridad del archivo (1-10, 1=más alta)
+        category: Categoria del archivo (instructions, knowledge_base, reference, general)
+        description: Descripcion opcional del archivo
+        priority: Prioridad del archivo (1-10, 1=mas alta)
     """
     
     # Verificar que el proyecto existe y el usuario tiene acceso
@@ -86,7 +86,7 @@ def get_project_files(
     Args:
         project_id: ID del proyecto
         user_id: ID del usuario
-        category: Filtrar por categoría (opcional)
+        category: Filtrar por categoria (opcional)
     """
     
     # Verificar acceso al proyecto
@@ -125,7 +125,7 @@ def get_project_file(
     user_id: int,
     db: Session = Depends(get_db)
 ):
-    """Obtiene un archivo específico de un proyecto"""
+    """Obtiene un archivo especifico de un proyecto"""
     
     # Verificar acceso al proyecto
     project = ProjectService.get_project_by_id(db, project_id, user_id)
@@ -252,7 +252,7 @@ def get_project_file_stats(
     user_id: int,
     db: Session = Depends(get_db)
 ):
-    """Obtiene estadísticas de archivos del proyecto"""
+    """Obtiene estadisticas de archivos del proyecto"""
     
     # Verificar acceso al proyecto
     project = ProjectService.get_project_by_id(db, project_id, user_id)

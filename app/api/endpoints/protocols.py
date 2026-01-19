@@ -1,5 +1,5 @@
 """
-Endpoints para gestión de protocolos centralizados
+Endpoints para gestion de protocolos centralizados
 """
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -109,7 +109,7 @@ async def update_protocol(
     db: Session = Depends(get_db)
 ):
     """
-    Actualizar protocolo (afecta automáticamente a TODOS los documentos que lo referencian)
+    Actualizar protocolo (afecta automaticamente a TODOS los documentos que lo referencian)
     """
     logger.info(f"[PROTOCOL] Updating protocol ID: {protocol_id}")
     
@@ -120,7 +120,7 @@ async def update_protocol(
             detail="Protocolo no encontrado"
         )
     
-    # Verificar nombre único si se está cambiando
+    # Verificar nombre unico si se esta cambiando
     if protocol_update.name and protocol_update.name != protocol.name:
         existing = db.query(Protocol).filter(
             Protocol.name == protocol_update.name,
@@ -157,7 +157,7 @@ async def delete_protocol(
 ):
     """
     Eliminar protocolo
-    Si force=False, solo permite eliminar si no está siendo usado
+    Si force=False, solo permite eliminar si no esta siendo usado
     Si force=True, desreferencia documentos y elimina
     """
     logger.info(f"[PROTOCOL] Deleting protocol ID: {protocol_id} (force={force})")
@@ -178,7 +178,7 @@ async def delete_protocol(
     if usage_count > 0 and not force:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"No se puede eliminar: {usage_count} documentos están usando este protocolo. Use force=true para forzar la eliminación."
+            detail=f"No se puede eliminar: {usage_count} documentos estan usando este protocolo. Use force=true para forzar la eliminacion."
         )
     
     # Desreferenciar documentos
@@ -203,7 +203,7 @@ async def get_protocol_usage(
     protocol_id: int,
     db: Session = Depends(get_db)
 ):
-    """Ver qué documentos/sub-agentes están usando este protocolo"""
+    """Ver que documentos/sub-agentes estan usando este protocolo"""
     logger.info(f"[PROTOCOL] Getting usage for protocol ID: {protocol_id}")
     
     protocol = db.query(Protocol).filter(Protocol.id == protocol_id).first()
@@ -218,7 +218,7 @@ async def get_protocol_usage(
         CompanyDocument.use_protocol == True
     ).all()
     
-    # Agrupar por compañía
+    # Agrupar por compania
     usage_by_company = {}
     for doc in docs:
         company_id = doc.company_id
@@ -249,7 +249,7 @@ async def get_protocol_usage(
 async def list_categories(
     db: Session = Depends(get_db)
 ):
-    """Listar todas las categorías únicas de protocolos"""
+    """Listar todas las categorias unicas de protocolos"""
     categories = db.query(Protocol.category).distinct().filter(
         Protocol.category.isnot(None),
         Protocol.is_active == True

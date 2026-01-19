@@ -1,5 +1,5 @@
 """
-Modelos de base de datos para compañías y documentos
+Modelos de base de datos para companias y documentos
 """
 
 from sqlalchemy import Column, Integer, String, Text, Boolean, DateTime, ForeignKey, Enum as SQLEnum
@@ -10,7 +10,7 @@ from app.models.schemas import DocumentCategory
 import enum
 
 class Company(Base):
-    """Modelo de compañía"""
+    """Modelo de compania"""
     __tablename__ = "companies"
     
     id = Column(Integer, primary_key=True, index=True)
@@ -29,7 +29,7 @@ class Company(Base):
     projects = relationship("Project", back_populates="company", cascade="all, delete-orphan")
 
 class CompanyDocument(Base):
-    """Modelo de documento de compañía"""
+    """Modelo de documento de compania"""
     __tablename__ = "company_documents"
     
     id = Column(Integer, primary_key=True, index=True)
@@ -59,7 +59,7 @@ class CompanyDocument(Base):
     protocol = relationship("Protocol", back_populates="company_documents")
 
 class AIConfiguration(Base):
-    """Modelo de configuración de IA por compañía"""
+    """Modelo de configuracion de IA por compania"""
     __tablename__ = "ai_configurations"
     
     id = Column(Integer, primary_key=True, index=True)

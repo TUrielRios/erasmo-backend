@@ -1,6 +1,6 @@
 """
-Orquestador Central de IA - Integra todas las mejoras para máximo potencial
-Coordina: Caché, Streaming, Presupuesto Adaptativo, Prompt Engineering, RAG
+Orquestador Central de IA - Integra todas las mejoras para maximo potencial
+Coordina: Cache, Streaming, Presupuesto Adaptativo, Prompt Engineering, RAG
 """
 
 from typing import Dict, List, Any, Optional, Tuple, AsyncGenerator
@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 class AIOrchestrationService:
     """
     Servicio maestro que orquesta todas las capacidades de IA
-    para máximo potencial, rendimiento y calidad
+    para maximo potencial, rendimiento y calidad
     """
     
     def __init__(self):
@@ -29,7 +29,7 @@ class AIOrchestrationService:
         self.rag_service = RAGIntelligenceService()
         self.token_optimizer = TokenOptimizerService()
         
-        logger.info("AI Orchestration Service inicializado con MÁXIMO POTENCIAL")
+        logger.info("AI Orchestration Service inicializado con MAXIMO POTENCIAL")
     
     async def orchestrate_response_generation(
         self,
@@ -45,15 +45,15 @@ class AIOrchestrationService:
         require_analysis: bool = False
     ) -> Dict[str, Any]:
         """
-        Orquesta el flujo completo de generación de respuesta con todas las optimizaciones
+        Orquesta el flujo completo de generacion de respuesta con todas las optimizaciones
         """
         
         logger.info(f"Orquestando respuesta para user {user_id}, session {session_id}")
         
-        # 1. VERIFICAR CACHÉ
+        # 1. VERIFICAR CACHE
         cached_response = self.cache_service.get_cached_response(session_id, user_message)
         if cached_response:
-            logger.info("Respuesta encontrada en caché - devolviendo cached")
+            logger.info("Respuesta encontrada en cache - devolviendo cached")
             return {
                 'source': 'cache',
                 'response': cached_response,
@@ -91,7 +91,7 @@ class AIOrchestrationService:
             {'id': project_id} if project_id else None
         )
         
-        # 5. APLICAR TÉCNICAS DE PROMPT ENGINEERING
+        # 5. APLICAR TECNICAS DE PROMPT ENGINEERING
         techniques = []
         if adaptive_budget['complexity_level'] in ['complex', 'very_complex']:
             techniques = ['chain_of_thought', 'step_by_step']
@@ -136,7 +136,7 @@ class AIOrchestrationService:
         
         logger.info(f"Calidad estimada: {quality_estimate['quality_level']} ({quality_estimate['quality_score']})")
         
-        # Retornar orquestación completa
+        # Retornar orquestacion completa
         return {
             'source': 'generation',
             'system_prompt': system_prompt,
@@ -160,7 +160,7 @@ class AIOrchestrationService:
         response: Dict[str, Any]
     ):
         """
-        Almacena respuesta generada en caché para futuros usos
+        Almacena respuesta generada en cache para futuros usos
         """
         self.cache_service.cache_response(
             session_id,
@@ -170,7 +170,7 @@ class AIOrchestrationService:
     
     def get_orchestration_metrics(self) -> Dict[str, Any]:
         """
-        Obtiene métricas de orquestación para monitoreo
+        Obtiene metricas de orquestacion para monitoreo
         """
         return {
             'cache_stats': self.cache_service.get_cache_stats(),

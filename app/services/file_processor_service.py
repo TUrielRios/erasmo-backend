@@ -1,6 +1,6 @@
 """
-Servicio para procesar archivos (imágenes, PDFs, documentos)
-Integra vision API de OpenAI y extracción de texto
+Servicio para procesar archivos (imagenes, PDFs, documentos)
+Integra vision API de OpenAI y extraccion de texto
 """
 
 import os
@@ -14,7 +14,7 @@ from app.utils.file_extractor import FileExtractor
 logger = logging.getLogger(__name__)
 
 class FileProcessorService:
-    """Servicio para procesar archivos: imágenes, PDFs, documentos"""
+    """Servicio para procesar archivos: imagenes, PDFs, documentos"""
     
     def __init__(self):
         self.client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
@@ -24,20 +24,20 @@ class FileProcessorService:
     
     def process_file(self, file_content: bytes, filename: str) -> Dict[str, Any]:
         """
-        Procesa cualquier archivo soportado y extrae información
+        Procesa cualquier archivo soportado y extrae informacion
         
         Args:
             file_content: Contenido del archivo en bytes
             filename: Nombre del archivo
             
         Returns:
-            Dict con tipo, contenido extraído y metadatos
+            Dict con tipo, contenido extraido y metadatos
         """
         file_ext = Path(filename).suffix.lower()
         
-        # Validar tamaño
+        # Validar tamano
         if len(file_content) > self.max_file_size:
-            raise ValueError(f"Archivo demasiado grande. Máximo {self.max_file_size / 1024 / 1024}MB")
+            raise ValueError(f"Archivo demasiado grande. Maximo {self.max_file_size / 1024 / 1024}MB")
         
         logger.info(f"[v0] Procesando archivo: {filename} ({len(file_content)} bytes)")
         
@@ -49,7 +49,7 @@ class FileProcessorService:
             raise ValueError(f"Tipo de archivo no soportado: {file_ext}")
     
     def _process_image(self, file_content: bytes, filename: str) -> Dict[str, Any]:
-        """Procesa imágenes con Vision API de OpenAI"""
+        """Procesa imagenes con Vision API de OpenAI"""
         logger.info(f"[v0] Procesando imagen: {filename}")
         
         # Convertir a base64
@@ -72,13 +72,13 @@ class FileProcessorService:
                             {
                                 "type": "text",
                                 "text": """Analiza esta imagen en detalle. Proporciona:
-1. Descripción general de la imagen
+1. Descripcion general de la imagen
 2. Elementos principales identificados
 3. Texto visible en la imagen (si existe)
-4. Contexto o propósito probable
-5. Datos o números importantes (si aplica)
+4. Contexto o proposito probable
+5. Datos o numeros importantes (si aplica)
 
-Sé muy específico y detallado en tu análisis."""
+Se muy especifico y detallado en tu analisis."""
                             }
                         ]
                     }
@@ -88,7 +88,7 @@ Sé muy específico y detallado en tu análisis."""
             
             analysis = response.choices[0].message.content
             
-            logger.info(f"[v0] Análisis de imagen completado: {len(analysis)} caracteres")
+            logger.info(f"[v0] Analisis de imagen completado: {len(analysis)} caracteres")
             
             return {
                 "type": "image",
@@ -156,8 +156,8 @@ Sé muy específico y detallado en tu análisis."""
                 messages=[
                     {
                         "role": "user",
-                        "content": f"""Resume el siguiente texto en máximo 1500 palabras, 
-capturando los puntos clave, números importantes y conclusiones principales:
+                        "content": f"""Resume el siguiente texto en maximo 1500 palabras, 
+capturando los puntos clave, numeros importantes y conclusiones principales:
 
 {text}"""
                     }
